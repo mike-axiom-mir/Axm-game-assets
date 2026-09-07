@@ -28,8 +28,8 @@ jobs:
         run: python native_surface_test.py
       - name: Native target test
         run: python native_targets_test.py
-      - name: Promoted hm08 human head seed test
-        run: python native_hm08_head_seed_test.py
+      - name: Preferred hm08 v0.2 human head seed test
+        run: python native_hm08_head_v2_seed_test.py
       - name: Native target authoring test
         run: python native_target_authoring_test.py
       - name: Native parametric test
