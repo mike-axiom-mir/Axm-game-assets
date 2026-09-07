@@ -72,6 +72,8 @@ jobs:
         run: python native_visual_evidence_test.py
       - name: Native glTF test
         run: python native_gltf_test.py
+      - name: Native multi-material glTF test
+        run: python native_multi_gltf_test.py
       - name: Native rigid package test
         run: python native_pipeline_test.py
       - name: Native detail proof test
