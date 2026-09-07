@@ -65,7 +65,11 @@ jobs:
 
       - name: Render Forge asset in real Godot viewport
         run: |
-          rm -f engine/godot_smoke/godot-render.png engine/godot_smoke/godot-render-receipt.json
+          rm -f \
+            engine/godot_smoke/godot-render.png \
+            engine/godot_smoke/godot-render-debug.png \
+            engine/godot_smoke/godot-render-receipt.json \
+            engine/godot_smoke/visual-capture.json
           if ! command -v xvfb-run >/dev/null 2>&1; then
             sudo apt-get update
             sudo apt-get install -y xvfb
@@ -84,11 +88,14 @@ jobs:
           from pathlib import Path
           receipt = json.loads(Path("engine/godot_smoke/godot-render-receipt.json").read_text())
           assert receipt["status"] == "pass", receipt
-          assert receipt["image"]["width"] == 640 and receipt["image"]["height"] == 640, receipt
-          assert receipt["image"]["png_bytes"] > 1000, receipt
-          assert receipt["foreground_coverage"] >= 0.015, receipt
-          assert receipt["luma_range"] >= 0.10, receipt
-          print("GODOT RENDER RECEIPT PASS", receipt)
+          normal = receipt["normal_render"]
+          assert normal["status"] == "pass", normal
+          assert normal["width"] == 640 and normal["height"] == 640, normal
+          assert normal["png_bytes"] > 1000, normal
+          assert normal["foreground_coverage"] >= 0.015, normal
+          assert normal["luma_range"] >= 0.10, normal
+          assert receipt["active_camera"] is True, receipt
+          print("GODOT RENDER RECEIPT PASS", normal)
           PY
 
       - name: Bind screenshot to deterministic visual capture packet
@@ -105,6 +112,7 @@ jobs:
           root = Path("engine/godot_smoke")
           png_path = root / "godot-render.png"
           render_receipt = json.loads((root / "godot-render-receipt.json").read_text())
+          normal = render_receipt["normal_render"]
           weapon_path = root / "generated" / "weapon-proof.json"
           weapon_proof = json.loads(weapon_path.read_text())
           png = png_path.read_bytes()
@@ -122,14 +130,15 @@ jobs:
               render_settings={
                   "renderer": "gl_compatibility",
                   "render_target": render_receipt["render_target"],
-                  "background_sample": render_receipt["background_sample"],
+                  "world_bounds": render_receipt["world_bounds"],
+                  "background_sample": normal["background_sample"],
               },
               metrics={
-                  "foreground_coverage": render_receipt["foreground_coverage"],
-                  "luma_min": render_receipt["luma_min"],
-                  "luma_max": render_receipt["luma_max"],
-                  "luma_mean": render_receipt["luma_mean"],
-                  "luma_range": render_receipt["luma_range"],
+                  "foreground_coverage": normal["foreground_coverage"],
+                  "luma_min": normal["luma_min"],
+                  "luma_max": normal["luma_max"],
+                  "luma_mean": normal["luma_mean"],
+                  "luma_range": normal["luma_range"],
               },
               source_receipts=[proof_digest],
           )
@@ -150,6 +159,7 @@ jobs:
             engine/godot_smoke/godot-receipt.json
             engine/godot_smoke/godot-render-receipt.json
             engine/godot_smoke/godot-render.png
+            engine/godot_smoke/godot-render-debug.png
             engine/godot_smoke/visual-capture.json
             engine/godot_smoke/generated/weapon-proof.json
             engine/godot_smoke/generated/sentinel_rifle.gltf
