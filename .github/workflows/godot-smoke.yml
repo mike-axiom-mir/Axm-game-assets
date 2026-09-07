@@ -91,6 +91,55 @@ jobs:
           print("GODOT RENDER RECEIPT PASS", receipt)
           PY
 
+      - name: Bind screenshot to deterministic visual capture packet
+        env:
+          GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from native_visual_evidence import build_capture_packet, validate_capture_packet, write_capture_packet
+
+          root = Path("engine/godot_smoke")
+          png_path = root / "godot-render.png"
+          render_receipt = json.loads((root / "godot-render-receipt.json").read_text())
+          weapon_path = root / "generated" / "weapon-proof.json"
+          weapon_proof = json.loads(weapon_path.read_text())
+          png = png_path.read_bytes()
+          proof_digest = "sha256:" + hashlib.sha256(weapon_path.read_bytes()).hexdigest()
+
+          packet = build_capture_packet(
+              png,
+              asset_digest=weapon_proof["delivery"]["gltf_sha256"],
+              engine={
+                  "name": "Godot",
+                  "version": render_receipt["godot_version"],
+                  "pinned_archive_sha256": os.environ["GODOT_ARCHIVE_SHA256"],
+              },
+              camera=render_receipt["camera"],
+              render_settings={
+                  "renderer": "gl_compatibility",
+                  "render_target": render_receipt["render_target"],
+                  "background_sample": render_receipt["background_sample"],
+              },
+              metrics={
+                  "foreground_coverage": render_receipt["foreground_coverage"],
+                  "luma_min": render_receipt["luma_min"],
+                  "luma_max": render_receipt["luma_max"],
+                  "luma_mean": render_receipt["luma_mean"],
+                  "luma_range": render_receipt["luma_range"],
+              },
+              source_receipts=[proof_digest],
+          )
+          validation = validate_capture_packet(packet, png)
+          assert validation["status"] == "pass", validation
+          write_capture_packet(root / "visual-capture.json", packet)
+          print("VISUAL CAPTURE PACKET PASS", packet["capture_digest"])
+          PY
+          cat engine/godot_smoke/visual-capture.json
+
       - name: Preserve engine evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -101,5 +150,6 @@ jobs:
             engine/godot_smoke/godot-receipt.json
             engine/godot_smoke/godot-render-receipt.json
             engine/godot_smoke/godot-render.png
+            engine/godot_smoke/visual-capture.json
             engine/godot_smoke/generated/weapon-proof.json
             engine/godot_smoke/generated/sentinel_rifle.gltf
