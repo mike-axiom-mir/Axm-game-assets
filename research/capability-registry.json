@@ -1,5 +1,5 @@
 {
-  "registry_version": "0.2.0",
+  "registry_version": "0.3.0",
   "captured": "2026-09-07",
   "rule": "Mechanisms are studied independently from vendor lock-in. An adapter record is not a claim that the dependency is installed or legally usable everywhere. AXM-native capabilities are preferred where they are truthful and sufficient.",
   "adapters": [
@@ -21,6 +21,24 @@
       "notes": "Dependency-free primitives, transforms, triangulation, normals, topology checks, AABB collision, OBJ I/O and coarse deterministic vertex-cluster LOD. Current LOD fallback does not preserve UV seams, skin weights, morphs, hard-edge metadata, or material boundaries."
     },
     {
+      "id": "internal-native-modeling-v0.1",
+      "capabilities": ["geometry_generation", "constructive_modeling", "profile_extrusion", "hard_surface_detail"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Dependency-free profile extrusion, chamfered profiles, cylinders and deterministic placement used by the Sentinel armor semantic-detail proof."
+    },
+    {
+      "id": "internal-native-hardsurface-v0.1",
+      "capabilities": ["geometry_generation", "hard_surface_detail", "detail_progression"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Sentinel armor component detail-source progression grows coherent semantic structure from 28 to 732 triangles without random subdivision. This is not a complete hard-surface DCC replacement."
+    },
+    {
       "id": "internal-native-pbr-v0.1",
       "capabilities": ["pbr_authoring", "surface_detail", "normal_generation", "engine_texture_packing"],
       "status": "available",
@@ -40,12 +58,66 @@
     },
     {
       "id": "internal-native-gltf-v0.1",
-      "capabilities": ["engine_export", "runtime_delivery", "gltf_compile"],
+      "capabilities": ["engine_export", "runtime_delivery", "gltf_compile", "tangent_generation"],
       "status": "available",
       "local": true,
       "network_required": false,
       "license": "AXM code",
-      "notes": "Dependency-free rigid glTF 2.0 compiler with POSITION/NORMAL/TEXCOORD_0, indices, base-color, normal, and ORM material bindings. No skeleton, morph targets, tangents, or animation yet."
+      "notes": "Dependency-free rigid glTF 2.0 compiler with POSITION/NORMAL/TEXCOORD_0/TANGENT, indices, base-color, normal and ORM bindings. Rigid path has no skeleton, morph targets or animation because those are handled by the native character compiler."
+    },
+    {
+      "id": "internal-native-skin-v0.1",
+      "capabilities": ["skeleton_state", "skinning", "skin_weight_validation", "inverse_bind_matrices", "deformation_validation"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Validates hierarchy cycles, joint transforms, four-slot weights, joint range and weight sums; computes inverse bind matrices and CPU linear-blend deformation for evidence. It validates/proves rig state but does not yet infer production rigs."
+    },
+    {
+      "id": "internal-native-morph-v0.1",
+      "capabilities": ["morph_state", "blendshape_state", "morph_validation"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Preserves named position/normal delta targets, validates counts and finite data, and applies deterministic morph mixes."
+    },
+    {
+      "id": "internal-native-animation-v0.1",
+      "capabilities": ["animation_state", "pose_sampling", "skeletal_animation", "contact_drift", "animation_validation"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Validates/samples local TRS skeletal tracks and measures designated contact-vertex drift. Contact drift is an evidence primitive, not a claim that foot sliding or weapon contact is fully solved."
+    },
+    {
+      "id": "internal-native-character-state-v0.1",
+      "capabilities": ["character_state", "rig_adapter_contract", "character_validation", "contact_validation"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Machine-readable packet for skeleton, skin weights, morphs, animation and contact constraints. Intended as the boundary neural rig/animation proposal organs must satisfy."
+    },
+    {
+      "id": "internal-native-character-gltf-v0.1",
+      "capabilities": ["engine_export", "runtime_delivery", "skeleton_interchange", "blendshape_interchange", "skeletal_animation_export", "gltf_compile"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Dependency-free structural character glTF compiler with JOINTS_0/WEIGHTS_0, tangents, skin hierarchy, inverse bind matrices, named morph targets and skeletal animation channels. No claim of production rig inference, correctives or engine deformation quality."
+    },
+    {
+      "id": "internal-native-detail-proof-v0.1",
+      "capabilities": ["detail_progression", "pbr_authoring", "uv_unwrap", "engine_export", "evidence"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "End-to-end Sentinel rigid armor component proof: semantic geometry detail levels plus PBR/ORM, UV and glTF delivery. Higher detail levels are source-detail progression, not runtime LODs."
     },
     {
       "id": "blender-4.5-lts",
@@ -54,7 +126,8 @@
       "local": true,
       "network_required": false,
       "license": "GPL-3.0-or-later",
-      "source": "https://docs.blender.org/manual/en/4.5/"
+      "source": "https://docs.blender.org/manual/en/4.5/",
+      "notes": "Optional accelerator/reference bridge, not canonical Forge state."
     },
     {
       "id": "trellis2",
@@ -115,7 +188,7 @@
       "min_vram_gb": 8,
       "license": "verify repository/model terms before integration",
       "source": "https://github.com/VAST-AI-Research/SkinTokens",
-      "notes": "Unified autoregressive skeleton + skin-weight representation; successor to UniRig."
+      "notes": "Unified autoregressive skeleton + skin-weight representation; successor to UniRig. Intended future proposal adapter must emit AXM character state and pass native deformation gates."
     },
     {
       "id": "unirig",
