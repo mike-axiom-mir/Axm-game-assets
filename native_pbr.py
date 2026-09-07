@@ -127,6 +127,7 @@ def painted_metal_fields(size: int, seed: int, spec: PaintedMetalSpec = PaintedM
     ao = bytearray()
     height_bytes = bytearray(_u8(v) for v in height)
     normal = bytearray()
+    orm = bytearray()
     pr, pg, pb = spec.paint_rgb
     mr, mg, mb = spec.metal_rgb
 
@@ -143,7 +144,9 @@ def painted_metal_fields(size: int, seed: int, spec: PaintedMetalSpec = PaintedM
             roughness = spec.paint_roughness * (1.0 - w) + spec.metal_roughness * w + (grain - 0.5) * 0.10
             rough.append(_u8(_clamp01(roughness)))
             metal.append(_u8(_clamp01(w)))
-            ao.append(_u8(_clamp01(0.82 + height[idx] * 0.18)))
+            ao_value = _u8(_clamp01(0.82 + height[idx] * 0.18))
+            ao.append(ao_value)
+            orm.extend((ao_value, rough[-1], metal[-1]))
 
             left = height[y * size + max(0, x - 1)]
             right = height[y * size + min(size - 1, x + 1)]
@@ -162,6 +165,7 @@ def painted_metal_fields(size: int, seed: int, spec: PaintedMetalSpec = PaintedM
         "height": (1, bytes(height_bytes)),
         "normal": (3, bytes(normal)),
         "ao": (1, bytes(ao)),
+        "orm": (3, bytes(orm)),
     }
 
 
@@ -219,6 +223,7 @@ def write_painted_metal(output: str | Path, *, size: int = 512, seed: int = 1, s
                 "PBR-style authored channels, not a measured scan.",
                 "Wear history is procedural and seed-driven.",
                 "Normal map is derived from the generated height field.",
+                "ORM packs occlusion/roughness/metallic into R/G/B for engine delivery.",
             ],
         },
     }
