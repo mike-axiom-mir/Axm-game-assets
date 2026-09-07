@@ -63,6 +63,34 @@ jobs:
           print("GODOT RECEIPT PASS", receipt)
           PY
 
+      - name: Render Forge asset in real Godot viewport
+        run: |
+          rm -f engine/godot_smoke/godot-render.png engine/godot_smoke/godot-render-receipt.json
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --display-driver x11 \
+            --rendering-method gl_compatibility \
+            --path engine/godot_smoke \
+            --script render.gd
+          test -s engine/godot_smoke/godot-render.png
+          test -f engine/godot_smoke/godot-render-receipt.json
+          cat engine/godot_smoke/godot-render-receipt.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_smoke/godot-render-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert receipt["image"]["width"] == 640 and receipt["image"]["height"] == 640, receipt
+          assert receipt["image"]["png_bytes"] > 1000, receipt
+          assert receipt["foreground_coverage"] >= 0.015, receipt
+          assert receipt["luma_range"] >= 0.10, receipt
+          print("GODOT RENDER RECEIPT PASS", receipt)
+          PY
+
       - name: Preserve engine evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -71,5 +99,7 @@ jobs:
           if-no-files-found: warn
           path: |
             engine/godot_smoke/godot-receipt.json
+            engine/godot_smoke/godot-render-receipt.json
+            engine/godot_smoke/godot-render.png
             engine/godot_smoke/generated/weapon-proof.json
             engine/godot_smoke/generated/sentinel_rifle.gltf
