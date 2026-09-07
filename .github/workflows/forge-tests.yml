@@ -58,6 +58,8 @@ jobs:
         run: python native_weapon_test.py
       - name: Native weapon proof test
         run: python native_weapon_proof_test.py
+      - name: Native VFX test
+        run: python native_vfx_test.py
       - name: Native PBR test
         run: python native_pbr_test.py
       - name: Native UV test
