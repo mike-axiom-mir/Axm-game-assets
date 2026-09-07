@@ -14,6 +14,8 @@ jobs:
           python-version: "3.13"
       - name: Self test
         run: python forge.py self-test
+      - name: Native geometry test
+        run: python native_geometry_test.py
       - name: Build Sentinel genome
         run: python forge.py init examples/sentinel-request.json build/sentinel
       - name: Validate Sentinel genome
