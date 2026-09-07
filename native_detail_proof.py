@@ -10,16 +10,21 @@ from typing import Any
 from native_gltf import write_gltf
 from native_hardsurface import sentinel_armor_plate, validate_detail_progression
 from native_pbr import write_painted_metal
+from native_preview import write_preview
 from native_uv import box_project, validate_uv
 
-SCHEMA = "axm.game-assets.native-detail-proof.v0.1"
+SCHEMA = "axm.game-assets.native-detail-proof.v0.2"
 
 
 def _sha256(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
-def build_detail_proof(output: str | Path, *, texture_size: int = 128, seed: int = 6007) -> dict[str, Any]:
+def _view(preview: dict[str, Any], name: str) -> dict[str, Any]:
+    return next(item for item in preview["views"] if item["view"] == name)
+
+
+def build_detail_proof(output: str | Path, *, texture_size: int = 128, preview_size: int = 96, seed: int = 6007) -> dict[str, Any]:
     root = Path(output)
     root.mkdir(parents=True, exist_ok=True)
     progression = validate_detail_progression()
@@ -36,6 +41,7 @@ def build_detail_proof(output: str | Path, *, texture_size: int = 128, seed: int
         if uv_report["status"] != "pass":
             raise ValueError(f"detail level {level} UV failed: {uv_report}")
         delivery = write_gltf(mesh, uv, level_root)
+        preview = write_preview(mesh, level_root / "preview", size=preview_size)
         levels.append({
             "level": level,
             "semantic_features": list(detail.semantic_features),
@@ -44,8 +50,13 @@ def build_detail_proof(output: str | Path, *, texture_size: int = 128, seed: int
             "triangles": detail.triangles,
             "uv": uv_report,
             "delivery": delivery,
-            "truth": "Detail source progression, not runtime LOD. Higher levels add semantic geometry rather than simplification.",
+            "preview": preview,
+            "truth": "Detail source progression, not runtime LOD. Higher levels add semantic geometry rather than simplification. Preview is diagnostic software rasterization, not an engine render.",
         })
+
+    front_depth = [_view(level["preview"], "front")["hashes"]["depth"] for level in levels]
+    side_silhouette = [_view(level["preview"], "side")["hashes"]["silhouette"] for level in levels]
+    side_normal = [_view(level["preview"], "side")["hashes"]["normal"] for level in levels]
 
     manifest = {
         "schema": SCHEMA,
@@ -57,12 +68,20 @@ def build_detail_proof(output: str | Path, *, texture_size: int = 128, seed: int
             "component_growth": all(b["components"] > a["components"] for a, b in zip(levels, levels[1:])),
             "all_uv_valid": all(level["uv"]["status"] == "pass" for level in levels),
             "all_gltf_structural_valid": all(level["delivery"]["validation"]["status"] == "pass" for level in levels),
+            "front_depth_distinguishes_levels": len(set(front_depth)) == len(front_depth),
+            "side_silhouette_distinguishes_levels": len(set(side_silhouette)) == len(side_silhouette),
+            "side_normal_distinguishes_levels": len(set(side_normal)) == len(side_normal),
+        },
+        "diagnostic_signal_notes": {
+            "front": "Raised parallel armor layers change depth while the outer silhouette and face-normal image may remain unchanged from a straight-on view.",
+            "side": "Added rails, ports, ribs and fasteners change silhouette and visible face orientation from the side.",
+            "interpretation": "Distinct diagnostic hashes prove the selected signal changed, not that the result is automatically higher quality. Quality still requires explicit visual/technical acceptance and later in-engine evidence."
         },
         "truth": {
             "high_end_character_claim": False,
             "scope": "one rigid Sentinel armor component",
             "known_limits": [
-                "No visual engine screenshot receipt yet",
+                "Native diagnostic previews exist, but no real engine screenshot/video receipt yet",
                 "No curvature-aware wear bake yet",
                 "No production retopology",
                 "No attribute-preserving runtime LOD derivation from the detailed source",
