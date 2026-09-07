@@ -29,6 +29,7 @@ def run() -> None:
         doc = json.loads((root / "a" / "sentinel_armor_plate.gltf").read_text())
         assert doc["asset"]["version"] == "2.0"
         assert doc["materials"][0]["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"] == 1
+        assert "TANGENT" in doc["meshes"][0]["primitives"][0]["attributes"]
         assert (root / "a" / "textures" / "base_color.png").exists()
         assert (root / "a" / "textures" / "orm.png").exists()
         print("NATIVE GLTF TEST PASS", a["triangles"], "triangles", a["compiled_vertices"], "compiled vertices")
