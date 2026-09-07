@@ -8,7 +8,7 @@ import struct
 from pathlib import Path
 from typing import Any
 
-from native_geometry import Mesh, vertex_normals
+from native_geometry import Mesh, face_normal, triangulate, vertex_normals
 from native_uv import UVMap, validate_uv
 
 
@@ -44,6 +44,59 @@ def _expanded_triangles(mesh: Mesh, uvmap: UVMap) -> tuple[list[tuple[float, flo
                 texcoords.append(uvmap.uvs[ui])
                 indices.append(len(indices))
     return positions, expanded_normals, texcoords, indices
+
+
+def _dot(a, b):
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def _cross(a, b):
+    return (
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    )
+
+
+def _normalize3(v):
+    length = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) ** 0.5
+    if length <= 1e-12:
+        return (1.0, 0.0, 0.0)
+    return (v[0] / length, v[1] / length, v[2] / length)
+
+
+def _fallback_tangent(normal):
+    axis = (0.0, 1.0, 0.0) if abs(normal[1]) < 0.9 else (1.0, 0.0, 0.0)
+    return _normalize3(_cross(axis, normal))
+
+
+def _tangents(positions, normals, texcoords):
+    result = []
+    for start in range(0, len(positions), 3):
+        p0, p1, p2 = positions[start:start + 3]
+        uv0, uv1, uv2 = texcoords[start:start + 3]
+        e1 = (p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])
+        e2 = (p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2])
+        du1, dv1 = uv1[0] - uv0[0], uv1[1] - uv0[1]
+        du2, dv2 = uv2[0] - uv0[0], uv2[1] - uv0[1]
+        det = du1 * dv2 - du2 * dv1
+        if abs(det) <= 1e-12:
+            raw_t = None
+            raw_b = None
+        else:
+            inv = 1.0 / det
+            raw_t = ((e1[0] * dv2 - e2[0] * dv1) * inv, (e1[1] * dv2 - e2[1] * dv1) * inv, (e1[2] * dv2 - e2[2] * dv1) * inv)
+            raw_b = ((e2[0] * du1 - e1[0] * du2) * inv, (e2[1] * du1 - e1[1] * du2) * inv, (e2[2] * du1 - e1[2] * du2) * inv)
+        for n in normals[start:start + 3]:
+            if raw_t is None:
+                tangent = _fallback_tangent(n)
+                handedness = 1.0
+            else:
+                ndott = _dot(n, raw_t)
+                tangent = _normalize3((raw_t[0] - n[0] * ndott, raw_t[1] - n[1] * ndott, raw_t[2] - n[2] * ndott))
+                handedness = -1.0 if raw_b is not None and _dot(_cross(n, tangent), raw_b) < 0.0 else 1.0
+            result.append((tangent[0], tangent[1], tangent[2], handedness))
+    return result
 
 
 def _pack_vec(values: list[tuple[float, ...]]) -> bytes:
@@ -89,6 +142,7 @@ def compile_gltf(mesh: Mesh, uvmap: UVMap, *, buffer_uri: str, base_color_uri: s
     position_accessor = add_float_accessor(positions, "VEC3", 3, include_bounds=True)
     normal_accessor = add_float_accessor(normals, "VEC3", 3)
     uv_accessor = add_float_accessor(texcoords, "VEC2", 2)
+    tangent_accessor = add_float_accessor(_tangents(positions, normals, texcoords), "VEC4", 4)
 
     index_payload = struct.pack("<" + "I" * len(indices), *indices)
     index_view = _add_view(blob, index_payload, views, target=34963)
@@ -110,7 +164,7 @@ def compile_gltf(mesh: Mesh, uvmap: UVMap, *, buffer_uri: str, base_color_uri: s
         "scenes": [{"nodes": [0]}],
         "nodes": [{"name": mesh.name, "mesh": 0}],
         "meshes": [{"name": mesh.name, "primitives": [{
-            "attributes": {"POSITION": position_accessor, "NORMAL": normal_accessor, "TEXCOORD_0": uv_accessor},
+            "attributes": {"POSITION": position_accessor, "NORMAL": normal_accessor, "TEXCOORD_0": uv_accessor, "TANGENT": tangent_accessor},
             "indices": index_accessor,
             "material": 0,
             "mode": 4,
@@ -139,7 +193,7 @@ def compile_gltf(mesh: Mesh, uvmap: UVMap, *, buffer_uri: str, base_color_uri: s
                 "source_vertices": len(mesh.vertices),
                 "compiled_vertices": len(positions),
                 "triangles": len(indices) // 3,
-                "truth": "Rigid mesh only. No skeleton, morph targets, tangent channel, animation, or skinning in v0.1.",
+                "truth": "Rigid mesh only. Tangent channel is generated natively. No skeleton, morph targets, animation, or skinning in v0.1.",
             }
         },
     }
