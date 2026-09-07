@@ -1,7 +1,7 @@
 {
-  "registry_version": "0.1.0",
+  "registry_version": "0.2.0",
   "captured": "2026-09-07",
-  "rule": "Mechanisms are studied independently from vendor lock-in. An adapter record is not a claim that the dependency is installed or legally usable everywhere.",
+  "rule": "Mechanisms are studied independently from vendor lock-in. An adapter record is not a claim that the dependency is installed or legally usable everywhere. AXM-native capabilities are preferred where they are truthful and sufficient.",
   "adapters": [
     {
       "id": "internal-manifest",
@@ -10,6 +10,42 @@
       "local": true,
       "network_required": false,
       "license": "AXM code"
+    },
+    {
+      "id": "internal-native-geometry-v0.1",
+      "capabilities": ["geometry_generation", "mesh_processing", "mesh_simplification", "normal_generation", "topology_validation", "collision_generation", "obj_interchange"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Dependency-free primitives, transforms, triangulation, normals, topology checks, AABB collision, OBJ I/O and coarse deterministic vertex-cluster LOD. Current LOD fallback does not preserve UV seams, skin weights, morphs, hard-edge metadata, or material boundaries."
+    },
+    {
+      "id": "internal-native-pbr-v0.1",
+      "capabilities": ["pbr_authoring", "surface_detail", "normal_generation", "engine_texture_packing"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Deterministic painted-metal micro-surface with base color, roughness, metallic, height, normal, AO and ORM packing. Procedural authored material, not a measured scan."
+    },
+    {
+      "id": "internal-native-uv-v0.1",
+      "capabilities": ["uv_unwrap", "uv_validation", "obj_interchange"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Box and spherical projection with explicit face-corner seam state plus UV-aware OBJ round-trip. Not yet a general chart optimizer/atlas packer."
+    },
+    {
+      "id": "internal-native-gltf-v0.1",
+      "capabilities": ["engine_export", "runtime_delivery", "gltf_compile"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Dependency-free rigid glTF 2.0 compiler with POSITION/NORMAL/TEXCOORD_0, indices, base-color, normal, and ORM material bindings. No skeleton, morph targets, tangents, or animation yet."
     },
     {
       "id": "blender-4.5-lts",
