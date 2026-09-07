@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   derive-repaired-head:
@@ -93,7 +93,6 @@ jobs:
           assert len(mesh.faces) > 3246, "v0.2 should recover faces clipped from v0.1"
           assert topology["boundary_edges"] < 374, "v0.2 should reduce artificial v0.1 crop boundaries"
 
-          # Count boundary connected components as a retained diagnostic.
           edges = defaultdict(int)
           for face in mesh.faces:
               for i, a in enumerate(face):
@@ -146,3 +145,20 @@ jobs:
             build/hm08-head-seed-v2/seed-manifest.json
             build/hm08-head-seed-v2/repair-comparison.json
             build/hm08-head-seed-v2/targets/*.target
+
+      - name: Promote audited v0.2 seed beside rejected v0.1
+        if: github.event_name == 'push' && github.ref_name == 'forge/chat-2026-09-08-sentinel-fidelity'
+        run: |
+          set -euo pipefail
+          rm -rf seed_data/hm08_head_v0.2
+          mkdir -p seed_data/hm08_head_v0.2
+          cp -R build/hm08-head-seed-v2/. seed_data/hm08_head_v0.2/
+          git config user.name "axm-forge-evidence"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add seed_data/hm08_head_v0.2
+          if git diff --cached --quiet; then
+            echo "Audited v0.2 seed already matches repository state."
+            exit 0
+          fi
+          git commit -m "data: pin repaired hm08 human head seed v0.2"
+          git push origin HEAD:"${GITHUB_REF_NAME}"
