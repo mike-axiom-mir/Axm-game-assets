@@ -52,6 +52,12 @@ jobs:
         run: python native_fabric_material_test.py
       - name: Native cloth proof test
         run: python native_cloth_proof_test.py
+      - name: Native attachment test
+        run: python native_attachment_test.py
+      - name: Native weapon test
+        run: python native_weapon_test.py
+      - name: Native weapon proof test
+        run: python native_weapon_proof_test.py
       - name: Native PBR test
         run: python native_pbr_test.py
       - name: Native UV test
