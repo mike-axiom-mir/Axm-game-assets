@@ -11,7 +11,7 @@ def run() -> None:
         a = write_painted_metal(root / "a", size=64, seed=77)
         b = write_painted_metal(root / "b", size=64, seed=77)
         c = write_painted_metal(root / "c", size=64, seed=78)
-        assert set(a["maps"]) == {"base_color", "roughness", "metallic", "height", "normal", "ao"}
+        assert set(a["maps"]) == {"base_color", "roughness", "metallic", "height", "normal", "ao", "orm"}
         hashes_a = {k: v["sha256"] for k, v in a["maps"].items()}
         hashes_b = {k: v["sha256"] for k, v in b["maps"].items()}
         hashes_c = {k: v["sha256"] for k, v in c["maps"].items()}
@@ -22,6 +22,7 @@ def run() -> None:
             assert data.startswith(b"\x89PNG\r\n\x1a\n")
         assert a["truth"]["physically_measured"] is False
         assert a["truth"]["deterministic"] is True
+        assert a["maps"]["orm"]["channels"] == 3
         print("NATIVE PBR TEST PASS", len(hashes_a), "maps")
 
 
