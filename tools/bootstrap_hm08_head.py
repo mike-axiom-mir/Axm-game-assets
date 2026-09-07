@@ -6,11 +6,15 @@ application code. It operates on pinned CC0 data files and preserves enough
 source mapping that original hm08 sparse targets can be remapped without
 silently changing meaning.
 
-Coordinate rule:
+Coordinate rules:
 - The canonical seed remains in the raw MakeHuman base.obj coordinate system.
 - MakeHuman .target delta triples are therefore copied directly.
-- Blender/engine axis conversion, if needed, belongs downstream and must be
-  explicit. Do not apply MPFB's Blender conversion inside this bootstrap.
+- MPFB hm08 `dimensions` names refer to Blender-space axes. When those extrema
+  vertex indices are used against the raw MakeHuman OBJ, the axis mapping is:
+    Blender X = MakeHuman X
+    Blender Y = -MakeHuman Z
+    Blender Z = MakeHuman Y
+- Blender/engine coordinate conversion belongs downstream and must be explicit.
 """
 from __future__ import annotations
 
@@ -74,15 +78,32 @@ def parse_obj(path: Path) -> tuple[list[tuple[float, float, float]], list[tuple[
     return vertices, texcoords, faces
 
 
-def _axis_bounds(vertices: list[tuple[float, float, float]], dimensions: dict[str, int]) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float]]:
+def _raw_makehuman_bounds_from_mpfb_dimensions(
+    vertices: list[tuple[float, float, float]],
+    dimensions: dict[str, int],
+) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float]]:
+    """Resolve MPFB Blender-axis extrema indices in raw MakeHuman coordinates.
+
+    MPFB records which hm08 vertices are extrema after MakeHuman geometry is
+    represented in Blender coordinates. The raw OBJ is not in that coordinate
+    system. For raw MakeHuman coordinates the corresponding component lookup is:
+      raw X <- MPFB Blender X extrema
+      raw Y <- MPFB Blender Z extrema
+      raw Z <- MPFB Blender Y extrema (sign reversal does not matter after min/max)
+    """
+    mapping = (
+        ("xmin", "xmax", 0),
+        ("zmin", "zmax", 1),
+        ("ymin", "ymax", 2),
+    )
     bounds = []
-    for axis, axis_name in enumerate(("x", "y", "z")):
-        lo_index = int(dimensions[f"{axis_name}min"])
-        hi_index = int(dimensions[f"{axis_name}max"])
-        if lo_index >= len(vertices) or hi_index >= len(vertices):
-            raise ValueError(f"hm08 dimension index outside source mesh for {axis_name}")
-        a = vertices[lo_index][axis]
-        b = vertices[hi_index][axis]
+    for lo_key, hi_key, raw_axis in mapping:
+        lo_index = int(dimensions[lo_key])
+        hi_index = int(dimensions[hi_key])
+        if lo_index < 0 or hi_index < 0 or lo_index >= len(vertices) or hi_index >= len(vertices):
+            raise ValueError(f"hm08 dimension index outside source mesh for {lo_key}/{hi_key}")
+        a = vertices[lo_index][raw_axis]
+        b = vertices[hi_index][raw_axis]
         bounds.append((min(a, b), max(a, b)))
     return bounds[0], bounds[1], bounds[2]
 
@@ -129,7 +150,7 @@ def derive_head(
     config = json.loads(config_json.read_text(encoding="utf-8"))
     head_dimensions = config["dimensions"]["Head"]
     body_start, body_end = (int(v) for v in config["groups_by_range"]["body"])
-    bounds = _axis_bounds(vertices, head_dimensions)
+    bounds = _raw_makehuman_bounds_from_mpfb_dimensions(vertices, head_dimensions)
 
     eligible = {
         index
@@ -139,7 +160,11 @@ def derive_head(
     candidate_faces = [face for face in faces if face.vertices and all(vertex in eligible for vertex in face.vertices)]
     head_faces = _largest_face_component(candidate_faces)
     if len(head_faces) < minimum_faces:
-        raise ValueError(f"derived head unexpectedly small: {len(head_faces)} faces < {minimum_faces}")
+        raise ValueError(
+            "derived head unexpectedly small: "
+            f"{len(head_faces)} faces < {minimum_faces}; "
+            f"eligible_vertices={len(eligible)} candidate_faces={len(candidate_faces)} raw_bounds={bounds}"
+        )
 
     used_source_vertices = sorted({vertex for face in head_faces for vertex in face.vertices})
     source_to_compact = {source: compact for compact, source in enumerate(used_source_vertices)}
@@ -161,10 +186,16 @@ def derive_head(
         "source_faces": len(faces),
         "body_range": [body_start, body_end],
         "head_bounds": {
+            "coordinate_space": "raw_makehuman_hm08_obj",
             "x": list(bounds[0]),
             "y": list(bounds[1]),
             "z": list(bounds[2]),
-            "extrema_source_indices": head_dimensions,
+            "mpfb_extrema_source_indices": head_dimensions,
+            "mpfb_to_raw_axis_mapping": {
+                "raw_x": ["xmin", "xmax"],
+                "raw_y": ["zmin", "zmax"],
+                "raw_z": ["ymin", "ymax"],
+            },
         },
         "eligible_body_vertices": len(eligible),
         "candidate_faces": len(candidate_faces),
@@ -269,6 +300,7 @@ def build(args: argparse.Namespace) -> dict[str, object]:
         "coordinate_space": {
             "name": "raw_makehuman_hm08_obj",
             "target_delta_rule": "direct_copy_from_raw_makehuman_target",
+            "mpfb_dimension_axis_rule": "Blender X=raw X, Blender Y=-raw Z, Blender Z=raw Y",
             "engine_conversion_applied": False,
         },
         "source": {
@@ -297,6 +329,7 @@ def build(args: argparse.Namespace) -> dict[str, object]:
             "notes": [
                 "This seed replaces the procedural head-like sphere with real fixed human topology.",
                 "The head is derived mechanically from hm08 Head extrema metadata and the largest connected body-face component inside those bounds.",
+                "MPFB extrema labels are Blender-axis names and are explicitly mapped back to raw MakeHuman coordinates before selection.",
                 "The compact neck boundary is expected to be open; closed-manifold status is not required for a head extraction.",
                 "Retained source UVs and source vertex indices are preserved for later skin/eye/hair and target lineage work.",
             ],
