@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AXM Game Asset Forge native deterministic PBR micro-surface generator v0.1."""
+"""AXM Game Asset Forge native deterministic PBR micro-surface generator v0.2."""
 from __future__ import annotations
 
 import hashlib
@@ -21,6 +21,17 @@ class PaintedMetalSpec:
     wear: float = 0.32
     scratches: int = 18
     grain_scale: float = 28.0
+    # The original v0.1 defaults are preserved exactly below so existing
+    # material proofs do not silently change. More restrained materials can
+    # author lower amplitudes explicitly and preserve those choices in receipts.
+    height_grain_amplitude: float = 0.11
+    height_broad_amplitude: float = 0.05
+    height_scratch_depth: float = 0.18
+    height_pit_depth: float = 0.12
+    pit_wear_strength: float = 0.42
+    base_grain_variation: float = 0.16
+    roughness_grain_variation: float = 0.10
+    normal_strength: float = 4.0
 
 
 def _clamp01(value: float) -> float:
@@ -98,6 +109,8 @@ def _scratch_segments(seed: int, count: int) -> list[tuple[float, float, float, 
 def painted_metal_fields(size: int, seed: int, spec: PaintedMetalSpec = PaintedMetalSpec()) -> dict[str, object]:
     if size < 8:
         raise ValueError("size must be >= 8")
+    if spec.normal_strength < 0.0 or not math.isfinite(spec.normal_strength):
+        raise ValueError("normal_strength must be finite and non-negative")
     scratches = _scratch_segments(seed, max(0, spec.scratches))
     height = [0.0] * (size * size)
     wear = [0.0] * (size * size)
@@ -116,10 +129,20 @@ def painted_metal_fields(size: int, seed: int, spec: PaintedMetalSpec = PaintedM
                     scratch_mask = max(scratch_mask, 1.0 - d / (width * 2.5))
             chip_seed = fbm(u * 15.0, v * 15.0, seed + 2903)
             chip = _clamp01((chip_seed - (0.72 - spec.wear * 0.20)) * 6.5)
-            w = _clamp01(chip * 0.82 + scratch_mask * 0.92 + pits * 0.42)
+            w = _clamp01(
+                chip * 0.82
+                + scratch_mask * 0.92
+                + pits * spec.pit_wear_strength
+            )
             idx = y * size + x
             wear[idx] = w
-            height[idx] = _clamp01(0.54 + (grain - 0.5) * 0.11 + (broad - 0.5) * 0.05 - scratch_mask * 0.18 - pits * 0.12)
+            height[idx] = _clamp01(
+                0.54
+                + (grain - 0.5) * spec.height_grain_amplitude
+                + (broad - 0.5) * spec.height_broad_amplitude
+                - scratch_mask * spec.height_scratch_depth
+                - pits * spec.height_pit_depth
+            )
 
     base = bytearray()
     rough = bytearray()
@@ -136,12 +159,16 @@ def painted_metal_fields(size: int, seed: int, spec: PaintedMetalSpec = PaintedM
             idx = y * size + x
             w = wear[idx]
             grain = fbm((x + 0.5) / size * 31.0, (y + 0.5) / size * 31.0, seed + 4201)
-            shade = 0.91 + (grain - 0.5) * 0.16
+            shade = 0.91 + (grain - 0.5) * spec.base_grain_variation
             r = (pr * (1.0 - w) + mr * w) * shade
             g = (pg * (1.0 - w) + mg * w) * shade
             b = (pb * (1.0 - w) + mb * w) * shade
             base.extend((max(0, min(255, round(r))), max(0, min(255, round(g))), max(0, min(255, round(b)))))
-            roughness = spec.paint_roughness * (1.0 - w) + spec.metal_roughness * w + (grain - 0.5) * 0.10
+            roughness = (
+                spec.paint_roughness * (1.0 - w)
+                + spec.metal_roughness * w
+                + (grain - 0.5) * spec.roughness_grain_variation
+            )
             rough.append(_u8(_clamp01(roughness)))
             metal.append(_u8(_clamp01(w)))
             ao_value = _u8(_clamp01(0.82 + height[idx] * 0.18))
@@ -152,8 +179,8 @@ def painted_metal_fields(size: int, seed: int, spec: PaintedMetalSpec = PaintedM
             right = height[y * size + min(size - 1, x + 1)]
             down = height[max(0, y - 1) * size + x]
             up = height[min(size - 1, y + 1) * size + x]
-            dx = (right - left) * 4.0
-            dy = (up - down) * 4.0
+            dx = (right - left) * spec.normal_strength
+            dy = (up - down) * spec.normal_strength
             nx, ny, nz = -dx, -dy, 1.0
             inv = 1.0 / math.sqrt(nx * nx + ny * ny + nz * nz)
             normal.extend((_u8(nx * inv * 0.5 + 0.5), _u8(ny * inv * 0.5 + 0.5), _u8(nz * inv * 0.5 + 0.5)))
@@ -202,7 +229,7 @@ def write_painted_metal(output: str | Path, *, size: int = 512, seed: int = 1, s
         (root / filename).write_bytes(data)
         maps[name] = {"file": filename, "sha256": _sha256(data), "channels": channels}
     manifest = {
-        "schema": "axm.game-assets.native-pbr.v0.1",
+        "schema": "axm.game-assets.native-pbr.v0.2",
         "kind": "painted_metal",
         "seed": seed,
         "size": [size, size],
@@ -214,6 +241,14 @@ def write_painted_metal(output: str | Path, *, size: int = 512, seed: int = 1, s
             "wear": spec.wear,
             "scratches": spec.scratches,
             "grain_scale": spec.grain_scale,
+            "height_grain_amplitude": spec.height_grain_amplitude,
+            "height_broad_amplitude": spec.height_broad_amplitude,
+            "height_scratch_depth": spec.height_scratch_depth,
+            "height_pit_depth": spec.height_pit_depth,
+            "pit_wear_strength": spec.pit_wear_strength,
+            "base_grain_variation": spec.base_grain_variation,
+            "roughness_grain_variation": spec.roughness_grain_variation,
+            "normal_strength": spec.normal_strength,
         },
         "maps": maps,
         "truth": {
@@ -222,7 +257,8 @@ def write_painted_metal(output: str | Path, *, size: int = 512, seed: int = 1, s
             "notes": [
                 "PBR-style authored channels, not a measured scan.",
                 "Wear history is procedural and seed-driven.",
-                "Normal map is derived from the generated height field.",
+                "Normal map is derived from the generated height field with an explicitly receipted strength.",
+                "Height/pit/base/roughness amplitudes are material-authoring state rather than hidden generator constants.",
                 "ORM packs occlusion/roughness/metallic into R/G/B for engine delivery.",
             ],
         },
