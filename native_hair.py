@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""AXM native guide-curve and hair-card state v0.1."""
+"""AXM native guide-curve and hair-card state v0.2."""
 from __future__ import annotations
 
 import random
 from dataclasses import dataclass
 from math import isfinite, sqrt
 
-from native_geometry import Mesh, Vec3, bounds, combine, topology_report, vertex_normals
+from native_geometry import Mesh, Vec3, bounds, combine, vertex_normals
+from native_uv import UVMap
 
 
 @dataclass(slots=True)
@@ -85,9 +86,6 @@ def generate_short_hair(
         root = head.vertices[vertex_index]
         normal = normals[vertex_index]
         root = _add(root, _mul(normal, 0.0006))
-        # Short-hair flow: partly away from scalp, partly down/back, plus a
-        # deterministic style perturbation. This is state generation, not a
-        # claim of learned grooming quality.
         flow = _normalize((
             normal[0] * 0.52 + rng.uniform(-0.22, 0.22),
             normal[1] * 0.38 - 0.42 + rng.uniform(-0.10, 0.10),
@@ -103,13 +101,19 @@ def generate_short_hair(
             position = _add(position, _mul(direction, step))
             points.append(position)
         guides.append(HairGuide(points, normal, root_width, tip_width))
-    return HairSystem(guides, seed, "short_cards_v0.1")
+    return HairSystem(guides, seed, "short_cards_v0.2")
 
 
 def guide_to_ribbon(guide: HairGuide, *, name: str = "hair_card") -> Mesh:
+    mesh, _ = guide_to_ribbon_with_uv(guide, name=name)
+    return mesh
+
+
+def guide_to_ribbon_with_uv(guide: HairGuide, *, name: str = "hair_card") -> tuple[Mesh, UVMap]:
     if len(guide.points) < 2:
         raise ValueError("hair guide needs at least two points")
     vertices: list[Vec3] = []
+    uvs: list[tuple[float, float]] = []
     previous_side: Vec3 | None = None
     count = len(guide.points)
     for index, point in enumerate(guide.points):
@@ -133,18 +137,42 @@ def guide_to_ribbon(guide: HairGuide, *, name: str = "hair_card") -> Mesh:
         half = width * 0.5
         vertices.append(_add(point, _mul(side, -half)))
         vertices.append(_add(point, _mul(side, half)))
+        # Hair texture runs root->tip along V; U spans card width.
+        uvs.append((0.0, t))
+        uvs.append((1.0, t))
     faces = []
+    face_uvs = []
     for index in range(count - 1):
         a = index * 2
         b = a + 1
         c = a + 3
         d = a + 2
-        faces.append((a, b, c, d))
-    return Mesh(name, vertices, faces)
+        face = (a, b, c, d)
+        faces.append(face)
+        face_uvs.append(face)
+    return Mesh(name, vertices, faces), UVMap(uvs, face_uvs, "hair_card_root_to_tip")
 
 
 def hair_cards(system: HairSystem, *, name: str = "hair_cards") -> Mesh:
     return combine([guide_to_ribbon(guide, name=f"card_{index:04d}") for index, guide in enumerate(system.guides)], name=name)
+
+
+def hair_cards_with_uv(system: HairSystem, *, name: str = "hair_cards") -> tuple[Mesh, UVMap]:
+    vertices: list[Vec3] = []
+    faces = []
+    uvs: list[tuple[float, float]] = []
+    face_uvs = []
+    vertex_offset = 0
+    uv_offset = 0
+    for index, guide in enumerate(system.guides):
+        card, card_uv = guide_to_ribbon_with_uv(guide, name=f"card_{index:04d}")
+        vertices.extend(card.vertices)
+        uvs.extend(card_uv.uvs)
+        faces.extend(tuple(vertex + vertex_offset for vertex in face) for face in card.faces)
+        face_uvs.extend(tuple(uv + uv_offset for uv in face) for face in card_uv.face_uvs)
+        vertex_offset += len(card.vertices)
+        uv_offset += len(card_uv.uvs)
+    return Mesh(name, vertices, faces), UVMap(uvs, face_uvs, "hair_cards_root_to_tip")
 
 
 def validate_hair(system: HairSystem) -> dict[str, object]:
@@ -159,7 +187,7 @@ def validate_hair(system: HairSystem) -> dict[str, object]:
         for point in guide.points:
             if not all(isfinite(value) for value in point):
                 failures.append(f"guide {index} contains non-finite point")
-    cards = hair_cards(system) if system.guides else Mesh("empty", [], [])
+    cards, uvmap = hair_cards_with_uv(system) if system.guides else (Mesh("empty", [], []), UVMap([], [], "hair_cards_root_to_tip"))
     return {
         "status": "pass" if not failures else "fail",
         "failures": failures,
@@ -167,5 +195,6 @@ def validate_hair(system: HairSystem) -> dict[str, object]:
         "point_counts": point_counts,
         "card_vertices": len(cards.vertices),
         "card_faces": len(cards.faces),
-        "truth": "Guide/card state only. Groom aesthetics, alpha material, scalp coverage and secondary motion have separate gates."
+        "uvs": len(uvmap.uvs),
+        "truth": "Guide/card/UV state only. Groom aesthetics, alpha sorting, scalp coverage and secondary motion have separate gates.",
     }
