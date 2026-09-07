@@ -2,6 +2,7 @@ extends SceneTree
 
 const ASSET_PATH: String = "res://generated/sentinel_rifle.gltf"
 const RENDER_PATH: String = "res://godot-render.png"
+const DEBUG_RENDER_PATH: String = "res://godot-render-debug.png"
 const RECEIPT_PATH: String = "res://godot-render-receipt.json"
 const SIZE: Vector2i = Vector2i(640, 640)
 const CLEAR_COLOR: Color = Color(0.025, 0.032, 0.045, 1.0)
@@ -74,11 +75,70 @@ func aggregate_mesh_bounds(root: Node) -> Dictionary:
         })
     return {"have_bounds": have_bounds, "bounds": merged, "meshes": mesh_records}
 
+func capture_metrics(viewport: SubViewport, path: String) -> Dictionary:
+    var image: Image = viewport.get_texture().get_image()
+    if image == null or image.is_empty():
+        return {"status": "fail", "failure": "SubViewport produced no image"}
+    var save_error: int = image.save_png(path)
+    if save_error != OK:
+        return {"status": "fail", "failure": "Could not save PNG", "save_error": save_error}
+
+    var width: int = image.get_width()
+    var height: int = image.get_height()
+    var background: Color = image.get_pixel(2, 2)
+    var sampled: int = 0
+    var foreground: int = 0
+    var min_luma: float = 1.0
+    var max_luma: float = 0.0
+    var luma_sum: float = 0.0
+    for y: int in range(0, height, 2):
+        for x: int in range(0, width, 2):
+            var color: Color = image.get_pixel(x, y)
+            var pixel_delta: float = absf(color.r - background.r) + absf(color.g - background.g) + absf(color.b - background.b)
+            if pixel_delta > 0.055:
+                foreground += 1
+            var luma: float = color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722
+            if luma < min_luma:
+                min_luma = luma
+            if luma > max_luma:
+                max_luma = luma
+            luma_sum += luma
+            sampled += 1
+
+    var coverage: float = float(foreground) / float(maxi(sampled, 1))
+    var png_bytes: int = FileAccess.get_file_as_bytes(path).size()
+    return {
+        "status": "pass",
+        "path": path,
+        "width": width,
+        "height": height,
+        "png_bytes": png_bytes,
+        "sampled_pixels": sampled,
+        "foreground_pixels": foreground,
+        "foreground_coverage": coverage,
+        "luma_min": min_luma,
+        "luma_max": max_luma,
+        "luma_mean": luma_sum / float(maxi(sampled, 1)),
+        "luma_range": max_luma - min_luma,
+        "background_sample": [background.r, background.g, background.b, background.a],
+    }
+
+func add_debug_material_override(imported: Node) -> int:
+    var meshes: Array[MeshInstance3D] = []
+    collect_meshes(imported, meshes)
+    var debug_material: StandardMaterial3D = StandardMaterial3D.new()
+    debug_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    debug_material.albedo_color = Color(1.0, 0.08, 0.85, 1.0)
+    debug_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+    for mesh_node: MeshInstance3D in meshes:
+        mesh_node.material_override = debug_material
+    return meshes.size()
+
 func _initialize() -> void:
     var receipt: Dictionary = {
-        "schema": "axm.game-assets.godot-render.v0.4",
+        "schema": "axm.game-assets.godot-render.v0.5",
         "asset": ASSET_PATH,
-        "truth": "Real Godot-rendered screenshot and pixel evidence from an explicit SubViewport. Camera/light framing derives from imported world-space bounds. Pixel heuristics prove visible rendered signal, not aesthetic quality."
+        "truth": "Real Godot-rendered screenshot and pixel evidence from an explicit SubViewport. Camera/light framing derives from imported world-space bounds. A debug-material render is diagnostic only and can never turn a failed production-material capture into a pass."
     }
     if not FileAccess.file_exists(ASSET_PATH):
         fail("Generated glTF fixture does not exist", receipt)
@@ -102,6 +162,7 @@ func _initialize() -> void:
     viewport.name = "AXM_Evidence_Viewport"
     viewport.size = SIZE
     viewport.own_world_3d = true
+    viewport.transparent_bg = false
     viewport.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
     viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
     get_root().add_child(viewport)
@@ -111,8 +172,6 @@ func _initialize() -> void:
     viewport.add_child(scene_root)
     scene_root.add_child(imported)
 
-    # Let transforms register in the SubViewport world before framing from the
-    # actual imported Godot mesh bounds.
     await process_frame
     var bounds_state: Dictionary = aggregate_mesh_bounds(imported)
     if not bool(bounds_state["have_bounds"]):
@@ -160,9 +219,12 @@ func _initialize() -> void:
     camera.far = maxf(100.0, radius * 20.0)
     var camera_direction: Vector3 = Vector3(1.35, 0.62, 1.25).normalized()
     var framing_distance: float = radius / tan(deg_to_rad(camera.fov * 0.5)) * 1.38
-    camera.position = center + camera_direction * framing_distance
+    var camera_position: Vector3 = center + camera_direction * framing_distance
+    # Godot 4.7 explicitly recommends look_at_from_position() when a Node3D
+    # is not yet fully registered in its viewport tree. This avoids a silent
+    # identity camera transform and therefore a clear-color-only capture.
+    camera.look_at_from_position(camera_position, center, Vector3.UP)
     scene_root.add_child(camera)
-    camera.look_at(center, Vector3.UP)
     camera.make_current()
 
     receipt["imported_meshes"] = bounds_state["meshes"]
@@ -171,6 +233,14 @@ func _initialize() -> void:
         "size": [world_bounds.size.x, world_bounds.size.y, world_bounds.size.z],
         "center": [center.x, center.y, center.z],
         "radius": radius,
+    }
+    receipt["camera"] = {
+        "position": [camera_position.x, camera_position.y, camera_position.z],
+        "look_at": [center.x, center.y, center.z],
+        "fov": camera.fov,
+        "near": camera.near,
+        "far": camera.far,
+        "framing_distance": framing_distance,
     }
 
     for _frame: int in range(16):
@@ -181,82 +251,51 @@ func _initialize() -> void:
         fail("SubViewport has no active Camera3D after framing", receipt)
         return
 
-    var image: Image = viewport.get_texture().get_image()
-    if image == null or image.is_empty():
-        fail("Godot SubViewport produced no image", receipt)
-        return
-    var save_error: int = image.save_png(RENDER_PATH)
-    if save_error != OK:
-        fail("Godot could not save render PNG: %s" % save_error, receipt)
-        return
-
-    var width: int = image.get_width()
-    var height: int = image.get_height()
-    var background: Color = image.get_pixel(2, 2)
-    var sampled: int = 0
-    var foreground: int = 0
-    var min_luma: float = 1.0
-    var max_luma: float = 0.0
-    var luma_sum: float = 0.0
-    for y: int in range(0, height, 2):
-        for x: int in range(0, width, 2):
-            var color: Color = image.get_pixel(x, y)
-            var pixel_delta: float = absf(color.r - background.r) + absf(color.g - background.g) + absf(color.b - background.b)
-            if pixel_delta > 0.055:
-                foreground += 1
-            var luma: float = color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722
-            if luma < min_luma:
-                min_luma = luma
-            if luma > max_luma:
-                max_luma = luma
-            luma_sum += luma
-            sampled += 1
-
-    var coverage: float = float(foreground) / float(maxi(sampled, 1))
-    var luma_range: float = max_luma - min_luma
-    var png_bytes: int = FileAccess.get_file_as_bytes(RENDER_PATH).size()
-    receipt["godot_version"] = Engine.get_version_info()
+    var normal_metrics: Dictionary = capture_metrics(viewport, RENDER_PATH)
     receipt["render_target"] = {
         "kind": "SubViewport",
         "requested_width": SIZE.x,
         "requested_height": SIZE.y,
-        "actual_width": width,
-        "actual_height": height,
     }
-    receipt["camera"] = {
-        "position": [camera.position.x, camera.position.y, camera.position.z],
-        "look_at": [center.x, center.y, center.z],
-        "fov": camera.fov,
-        "near": camera.near,
-        "far": camera.far,
-        "framing_distance": framing_distance,
-    }
-    receipt["image"] = {
-        "path": RENDER_PATH,
-        "width": width,
-        "height": height,
-        "png_bytes": png_bytes,
-    }
-    receipt["sampled_pixels"] = sampled
-    receipt["foreground_pixels"] = foreground
-    receipt["foreground_coverage"] = coverage
-    receipt["luma_min"] = min_luma
-    receipt["luma_max"] = max_luma
-    receipt["luma_mean"] = luma_sum / float(maxi(sampled, 1))
-    receipt["luma_range"] = luma_range
-    receipt["background_sample"] = [background.r, background.g, background.b, background.a]
+    receipt["normal_render"] = normal_metrics
+    receipt["godot_version"] = Engine.get_version_info()
 
-    if width != SIZE.x or height != SIZE.y:
-        fail("Unexpected SubViewport dimensions %sx%s" % [width, height], receipt)
+    if str(normal_metrics.get("status", "fail")) != "pass":
+        fail("Godot normal-material render capture failed", receipt)
         return
-    if png_bytes <= 1000:
-        fail("Rendered PNG is unexpectedly small: %s bytes" % png_bytes, receipt)
-        return
-    if coverage < 0.015:
-        fail("Rendered asset coverage too small: %s" % coverage, receipt)
-        return
-    if luma_range < 0.10:
-        fail("Rendered image lacks visible contrast: %s" % luma_range, receipt)
+
+    var normal_width: int = int(normal_metrics["width"])
+    var normal_height: int = int(normal_metrics["height"])
+    var normal_png_bytes: int = int(normal_metrics["png_bytes"])
+    var normal_coverage: float = float(normal_metrics["foreground_coverage"])
+    var normal_luma_range: float = float(normal_metrics["luma_range"])
+
+    receipt["render_target"]["actual_width"] = normal_width
+    receipt["render_target"]["actual_height"] = normal_height
+
+    var normal_failure: String = ""
+    if normal_width != SIZE.x or normal_height != SIZE.y:
+        normal_failure = "Unexpected SubViewport dimensions %sx%s" % [normal_width, normal_height]
+    elif normal_png_bytes <= 1000:
+        normal_failure = "Rendered PNG is unexpectedly small: %s bytes" % normal_png_bytes
+    elif normal_coverage < 0.015:
+        normal_failure = "Rendered asset coverage too small: %s" % normal_coverage
+    elif normal_luma_range < 0.10:
+        normal_failure = "Rendered image lacks visible contrast: %s" % normal_luma_range
+
+    if normal_failure != "":
+        var debug_meshes: int = add_debug_material_override(imported)
+        for _frame: int in range(6):
+            await process_frame
+        var debug_metrics: Dictionary = capture_metrics(viewport, DEBUG_RENDER_PATH)
+        receipt["diagnostic_render"] = {
+            "authority": "diagnostic_only",
+            "material": "unshaded_magenta_double_sided",
+            "mesh_instances_overridden": debug_meshes,
+            "metrics": debug_metrics,
+            "interpretation": "If this debug render has foreground signal while the normal render does not, camera/world/geometry visibility is healthy and the remaining defect is in material/culling/shading. A diagnostic pass never overrides the normal-render failure."
+        }
+        fail(normal_failure, receipt)
         return
 
     receipt["status"] = "pass"
