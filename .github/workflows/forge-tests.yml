@@ -80,6 +80,8 @@ jobs:
         run: python native_multi_gltf_test.py
       - name: Native weapon multi-material test
         run: python native_weapon_multimat_test.py
+      - name: Native recessed weapon multi-material test
+        run: python native_weapon_recess_multimat_test.py
       - name: Native rigid package test
         run: python native_pipeline_test.py
       - name: Native detail proof test
