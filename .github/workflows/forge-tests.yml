@@ -20,6 +20,12 @@ jobs:
         run: python native_modeling_test.py
       - name: Native hard-surface test
         run: python native_hardsurface_test.py
+      - name: Native surface test
+        run: python native_surface_test.py
+      - name: Native target test
+        run: python native_targets_test.py
+      - name: Native parametric test
+        run: python native_parametric_test.py
       - name: Native PBR test
         run: python native_pbr_test.py
       - name: Native UV test
