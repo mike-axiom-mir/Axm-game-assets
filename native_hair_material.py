@@ -69,7 +69,7 @@ def hair_card_fields(size: int, seed: int, spec: HairMaterialSpec = HairMaterial
                     a = (1.0 - d / local_width) ** 1.7 * strength
                     if a > alpha:
                         alpha = a
-                        strand_light = (1.0 - d / local_width)
+                        strand_light = 1.0 - d / local_width
             edge_fade = _clamp01(min(u, 1.0 - u) * 18.0)
             alpha *= edge_fade
             noise = fbm(u * 28.0, v * 18.0, seed + 1701, octaves=3)
@@ -108,21 +108,21 @@ def write_hair_material(output: str | Path, *, size: int = 256, seed: int = 1, s
         "seed": seed,
         "maps": maps,
         "renderer_hints": {
-            "two_sided": true,
+            "two_sided": True,
             "alpha_mode": "MASK_OR_BLEND",
             "alpha_cutoff": spec.alpha_cutoff_hint,
             "metalness": 0.0,
             "roughness_source": "roughness.png",
-            "anisotropic_specular": "recommended when target renderer supports it"
+            "anisotropic_specular": "recommended when target renderer supports it",
         },
         "truth": {
-            "physically_measured": false,
-            "deterministic": true,
+            "physically_measured": False,
+            "deterministic": True,
             "notes": [
                 "Texture represents grouped hair strands on a card, not individual fiber geometry.",
-                "Card orientation, scalp coverage, sorting/alpha artifacts and motion require separate visual/in-engine gates."
-            ]
-        }
+                "Card orientation, scalp coverage, sorting/alpha artifacts and motion require separate visual/in-engine gates.",
+            ],
+        },
     }
     payload = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
     (root / "hair-material.json").write_bytes(payload)
