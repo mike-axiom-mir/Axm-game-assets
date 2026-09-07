@@ -16,6 +16,8 @@ jobs:
         run: python forge.py self-test
       - name: Native geometry test
         run: python native_geometry_test.py
+      - name: Native orientation test
+        run: python native_orientation_test.py
       - name: Native modeling test
         run: python native_modeling_test.py
       - name: Native hard-surface test
