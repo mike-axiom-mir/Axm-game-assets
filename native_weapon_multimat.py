@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""AXM Sentinel rifle semantic multi-material package v0.1.
+"""AXM Sentinel rifle semantic multi-material package v0.2.
 
-This module does not replace the known-good single-material delivery. It builds
-an independently testable four-material package from the same canonical weapon
-component state so material separation can be proven before the Godot smoke
-fixture switches over.
+This package preserves named material groups and a shared physical UV scale.
+It remains independent from the legacy one-material rifle delivery so engine
+A/B evidence can decide which route graduates.
 """
 from __future__ import annotations
 
@@ -15,11 +14,12 @@ from pathlib import Path
 from native_geometry import Mesh, combine, triangulate
 from native_multi_gltf import MaterialPrimitive, write_multi_gltf
 from native_pbr import PaintedMetalSpec, write_painted_metal
-from native_uv import box_project, validate_uv
+from native_uv import box_project_world, validate_uv
 from native_weapon import WeaponAsset, sentinel_rifle, validate_weapon
 
-SCHEMA = "axm.game-assets.weapon-multimat.v0.1"
+SCHEMA = "axm.game-assets.weapon-multimat.v0.2"
 GROUP_ORDER = ("coated", "polymer", "steel", "accessory")
+DEFAULT_WORLD_UNITS_PER_TILE = 0.18
 
 POLYMER_EXACT = {
     "stock_core",
@@ -155,6 +155,7 @@ def build_weapon_multimat_package(
     *,
     texture_size: int = 64,
     seed: int = 8801,
+    world_units_per_tile: float = DEFAULT_WORLD_UNITS_PER_TILE,
 ) -> dict[str, object]:
     root = Path(output)
     root.mkdir(parents=True, exist_ok=True)
@@ -172,7 +173,14 @@ def build_weapon_multimat_package(
     for group_index, group in enumerate(GROUP_ORDER):
         group_mesh = groups[group]["mesh"]
         assert isinstance(group_mesh, Mesh)
-        uv = box_project(group_mesh)
+        # All material groups share the exact same canonical-space scale and
+        # origin. UV phase may cross 0/1 boundaries; glTF repeat sampling is
+        # intentional so surface feature size no longer depends on group bounds.
+        uv = box_project_world(
+            group_mesh,
+            world_units_per_tile=world_units_per_tile,
+            origin=(0.0, 0.0, 0.0),
+        )
         uv_report = validate_uv(group_mesh, uv)
         if uv_report["status"] != "pass":
             raise ValueError(f"{group} UV failed: {uv_report}")
@@ -206,12 +214,20 @@ def build_weapon_multimat_package(
             "components": groups[group]["components"],
             "component_count": len(groups[group]["components"]),
             "triangles": triangles,
+            "surface_scale": {
+                "projection": "world_box_repeat",
+                "world_units_per_tile": world_units_per_tile,
+                "origin": [0.0, 0.0, 0.0],
+                "texture_size_px": texture_size,
+                "nominal_pixels_per_world_unit": texture_size / world_units_per_tile,
+            },
             "uv": uv_report,
             "material": material,
         }
 
     delivery = write_multi_gltf(primitives, root, name="sentinel_rifle_multimat")
     source_triangles = len(triangulate(asset.mesh).faces)
+    expected_uv_method = f"box_projection_world:{world_units_per_tile:.9g}"
     acceptance = {
         "weapon_state_valid": weapon_report["status"] == "pass",
         "all_components_assigned_once": sum(
@@ -226,22 +242,34 @@ def build_weapon_multimat_package(
         "gltf_structural_valid": delivery["validation"]["status"] == "pass",
         "polymer_nonmetal": float(group_receipts["polymer"]["metallic_factor"]) == 0.0,
         "distinct_material_identities": len(set(delivery["material_names"])) == 4,
+        "shared_physical_uv_scale": all(
+            record["uv"]["method"] == expected_uv_method for record in group_receipts.values()
+        ),
     }
     manifest: dict[str, object] = {
         "schema": SCHEMA,
         "asset": asset.name,
         "source_weapon": weapon_report,
+        "surface_scale": {
+            "projection": "world_box_repeat",
+            "world_units_per_tile": world_units_per_tile,
+            "texture_size_px": texture_size,
+            "nominal_pixels_per_world_unit": texture_size / world_units_per_tile,
+            "authority": "deterministic_authoring_state",
+        },
         "groups": group_receipts,
         "delivery": delivery,
         "acceptance": acceptance,
         "truth": {
             "production_material_claim": False,
             "measured_material_claim": False,
+            "atlas_pack_claim": False,
             "notes": [
                 "Semantic material groups are derived from named canonical weapon components before export.",
-                "Each group owns independent UV and deterministic texture lineage.",
+                "All groups share one world-space repeat scale, so material feature size no longer changes with material-group bounds.",
+                "World-box repeat projection preserves physical scale but does not claim optimized unwrap charts, seam hiding, unique baking space or final texel-density art direction.",
                 "The polymer primitive explicitly uses metallicFactor 0 instead of relying on a shared weapon material.",
-                "This package is parallel evidence until the Godot integration route independently accepts it.",
+                "Godot close-inspection views remain the visual gate for visible seams, repetition and surface swimming.",
             ],
         },
     }
