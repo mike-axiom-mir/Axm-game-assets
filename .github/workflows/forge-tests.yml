@@ -32,6 +32,12 @@ jobs:
         run: python native_seed_bundle_test.py
       - name: Native organic proof test
         run: python native_organic_proof_test.py
+      - name: Native skin material test
+        run: python native_skin_material_test.py
+      - name: Native eye geometry test
+        run: python native_eye_test.py
+      - name: Native eye material test
+        run: python native_eye_material_test.py
       - name: Native PBR test
         run: python native_pbr_test.py
       - name: Native UV test
