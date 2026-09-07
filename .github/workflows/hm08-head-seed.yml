@@ -1,0 +1,118 @@
+name: hm08-head-seed
+
+on:
+  push:
+    paths:
+      - "tools/bootstrap_hm08_head.py"
+      - "tools/bootstrap_hm08_head_test.py"
+      - ".github/workflows/hm08-head-seed.yml"
+  pull_request:
+    paths:
+      - "tools/bootstrap_hm08_head.py"
+      - "tools/bootstrap_hm08_head_test.py"
+      - ".github/workflows/hm08-head-seed.yml"
+  workflow_dispatch:
+
+jobs:
+  derive-real-head:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Unit-test extraction algorithm
+        run: python tools/bootstrap_hm08_head_test.py
+
+      - name: Download pinned CC0 hm08 source data
+        env:
+          MH_REV: a8bc2d54ff0ac92e78ff71431b1023eda42bf482
+          MPFB_REV: 437dd513888a92399d1d3200d2e80859fae55abc
+        run: |
+          set -euo pipefail
+          rm -rf build/hm08-source build/hm08-head-seed
+          mkdir -p build/hm08-source
+
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/makehumancommunity/makehuman/${MH_REV}/makehuman/data/3dobjs/base.obj" \
+            -o build/hm08-source/base.obj
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/makehumancommunity/mpfb2/${MPFB_REV}/src/mpfb/data/mesh_metadata/hm08_config.json" \
+            -o build/hm08-source/hm08_config.json
+
+          for target in \
+            "nose/nose-width1-incr.target" \
+            "cheek/l-cheek-bones-incr.target" \
+            "cheek/r-cheek-bones-incr.target"
+          do
+            out="build/hm08-source/$(basename "$target")"
+            curl --fail --location --retry 3 \
+              "https://raw.githubusercontent.com/makehumancommunity/makehuman/${MH_REV}/makehuman/data/targets/${target}" \
+              -o "$out"
+          done
+
+          # Git blob identity is stronger than trusting a mutable filename.
+          test "$(git hash-object build/hm08-source/base.obj)" = "d26635e9326e3cca30778fd7b9c00062b03cce09"
+          test "$(git hash-object build/hm08-source/hm08_config.json)" = "f94e2731356232ed1b6306128fd04d18da5d21ea"
+
+      - name: Derive compact human head and remap face targets
+        env:
+          MH_REV: a8bc2d54ff0ac92e78ff71431b1023eda42bf482
+          MPFB_REV: 437dd513888a92399d1d3200d2e80859fae55abc
+        run: |
+          python tools/bootstrap_hm08_head.py \
+            --base-obj build/hm08-source/base.obj \
+            --config-json build/hm08-source/hm08_config.json \
+            --target build/hm08-source/nose-width1-incr.target \
+            --target build/hm08-source/l-cheek-bones-incr.target \
+            --target build/hm08-source/r-cheek-bones-incr.target \
+            --output build/hm08-head-seed \
+            --makehuman-revision "$MH_REV" \
+            --mpfb-revision "$MPFB_REV"
+
+      - name: Audit real seed with Forge readers
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from native_geometry import read_obj, topology_report
+          from native_targets import parse_target_text, validate_target
+
+          root = Path("build/hm08-head-seed")
+          manifest = json.loads((root / "seed-manifest.json").read_text())
+          assert all(manifest["acceptance"].values()), manifest["acceptance"]
+          mesh = read_obj(root / "head.obj")
+          assert len(mesh.vertices) >= 500, len(mesh.vertices)
+          assert len(mesh.faces) >= 500, len(mesh.faces)
+          topology = topology_report(mesh)
+          assert topology["invalid_indices"] == 0, topology
+          assert topology["degenerate_faces"] == 0, topology
+          assert topology["boundary_edges"] > 0, "neck cut should remain an explicit open boundary"
+
+          for target_path in sorted((root / "targets").glob("*.target")):
+              target = parse_target_text(
+                  target_path.read_text(),
+                  name=target_path.stem,
+                  source=target_path.as_posix(),
+                  license="CC0-source-remap",
+              )
+              assert target.metadata["basemesh"] == "axm-hm08-head-v0.1"
+              report = validate_target(target, vertex_count=len(mesh.vertices))
+              assert report["status"] == "pass", report
+              assert report["rows"] > 0, report
+          print("REAL HM08 HEAD SEED PASS", len(mesh.vertices), len(mesh.faces), topology)
+          PY
+
+      - name: Preserve derived human seed evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: hm08-head-seed
+          if-no-files-found: error
+          path: |
+            build/hm08-head-seed/head.obj
+            build/hm08-head-seed/source-index-map.json
+            build/hm08-head-seed/seed-manifest.json
+            build/hm08-head-seed/targets/*.target
