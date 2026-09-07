@@ -76,10 +76,14 @@ jobs:
         run: python native_morph_test.py
       - name: Native animation test
         run: python native_animation_test.py
+      - name: Native facial driver test
+        run: python native_facial_test.py
       - name: Native character state test
         run: python native_character_state_test.py
       - name: Native character glTF test
         run: python native_character_gltf_test.py
+      - name: Native facial glTF test
+        run: python native_facial_gltf_test.py
       - name: Native attribute LOD test
         run: python native_attribute_lod_test.py
       - name: Native character LOD proof test
