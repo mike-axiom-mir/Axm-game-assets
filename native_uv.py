@@ -23,7 +23,13 @@ def _safe_span(value: float) -> float:
 
 
 def box_project(mesh: Mesh) -> UVMap:
-    """Per-face box projection with explicit seams."""
+    """Per-face normalized box projection with explicit seams.
+
+    This legacy/native fallback deliberately normalizes the whole mesh bounds to
+    0..1. It is useful for self-contained fixtures but does not preserve a
+    physical texel scale across differently sized meshes or material groups.
+    Use ``box_project_world`` when stable world-space surface scale matters.
+    """
     lo, hi = bounds(mesh)
     sx, sy, sz = (_safe_span(hi[i] - lo[i]) for i in range(3))
     uvs: list[Vec2] = []
@@ -50,6 +56,60 @@ def box_project(mesh: Mesh) -> UVMap:
             uvs.append((u, v))
         face_uvs.append(tuple(refs))
     return UVMap(uvs, face_uvs, "box_projection")
+
+
+def box_project_world(
+    mesh: Mesh,
+    *,
+    world_units_per_tile: float = 0.20,
+    origin: Vec3 = (0.0, 0.0, 0.0),
+) -> UVMap:
+    """Per-face box projection with a stable physical/world-space tile scale.
+
+    Unlike :func:`box_project`, coordinates are not normalized to the mesh or
+    material-group bounds. A single UV unit represents ``world_units_per_tile``
+    in canonical mesh space. UVs may therefore lie outside 0..1; glTF's repeat
+    sampler intentionally tiles the deterministic source map.
+
+    This is a texel-scale mechanism, not an atlas/packing claim. It preserves
+    repeat scale across separately compiled material groups and differently
+    sized rigid meshes, but seams/orientation still require visual gates.
+    """
+    if not isfinite(world_units_per_tile) or world_units_per_tile <= EPS:
+        raise ValueError("world_units_per_tile must be finite and positive")
+    if len(origin) != 3 or not all(isfinite(value) for value in origin):
+        raise ValueError("world projection origin must contain three finite values")
+
+    scale = 1.0 / world_units_per_tile
+    ox, oy, oz = origin
+    uvs: list[Vec2] = []
+    face_uvs: list[Face] = []
+    for face in mesh.faces:
+        nx, ny, nz = face_normal(mesh, face)
+        axis = max(range(3), key=lambda i: abs((nx, ny, nz)[i]))
+        refs: list[int] = []
+        for vertex_index in face:
+            x, y, z = mesh.vertices[vertex_index]
+            if axis == 0:
+                u, v = (z - oz) * scale, (y - oy) * scale
+                if nx < 0:
+                    u = -u
+            elif axis == 1:
+                u, v = (x - ox) * scale, (z - oz) * scale
+                if ny < 0:
+                    v = -v
+            else:
+                u, v = (x - ox) * scale, (y - oy) * scale
+                if nz < 0:
+                    u = -u
+            refs.append(len(uvs))
+            uvs.append((u, v))
+        face_uvs.append(tuple(refs))
+    return UVMap(
+        uvs,
+        face_uvs,
+        f"box_projection_world:{world_units_per_tile:.9g}",
+    )
 
 
 def spherical_project(mesh: Mesh) -> UVMap:
