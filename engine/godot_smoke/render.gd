@@ -23,9 +23,9 @@ func fail(message: String, receipt: Dictionary = {}) -> void:
 
 func _initialize() -> void:
     var receipt: Dictionary = {
-        "schema": "axm.game-assets.godot-render.v0.2",
+        "schema": "axm.game-assets.godot-render.v0.3",
         "asset": ASSET_PATH,
-        "truth": "Real Godot-rendered screenshot and pixel evidence. Pixel heuristics prove visible rendered signal, not aesthetic quality."
+        "truth": "Real Godot-rendered screenshot and pixel evidence from an explicit SubViewport. Pixel heuristics prove visible rendered signal, not aesthetic quality."
     }
     if not FileAccess.file_exists(ASSET_PATH):
         fail("Generated glTF fixture does not exist", receipt)
@@ -45,9 +45,19 @@ func _initialize() -> void:
         fail("Godot parsed glTF but could not generate render scene", receipt)
         return
 
+    # Never bind evidence dimensions to the host/Xvfb window. A dedicated
+    # SubViewport owns the render target and therefore the receipt dimensions.
+    var viewport: SubViewport = SubViewport.new()
+    viewport.name = "AXM_Evidence_Viewport"
+    viewport.size = SIZE
+    viewport.own_world_3d = true
+    viewport.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
+    viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    get_root().add_child(viewport)
+
     var scene_root: Node3D = Node3D.new()
     scene_root.name = "AXM_Render_Proof"
-    get_root().add_child(scene_root)
+    viewport.add_child(scene_root)
     scene_root.add_child(imported)
 
     var key: DirectionalLight3D = DirectionalLight3D.new()
@@ -75,13 +85,14 @@ func _initialize() -> void:
     camera.look_at(Vector3(0.10, -0.06, 0.0), Vector3.UP)
     camera.current = true
 
-    for _frame: int in range(8):
+    # Allow imported textures/materials and the SubViewport render target to
+    # settle before reading back pixels.
+    for _frame: int in range(12):
         await process_frame
 
-    var viewport: Window = get_root()
     var image: Image = viewport.get_texture().get_image()
     if image == null or image.is_empty():
-        fail("Godot viewport produced no image", receipt)
+        fail("Godot SubViewport produced no image", receipt)
         return
     var save_error: int = image.save_png(RENDER_PATH)
     if save_error != OK:
@@ -114,6 +125,18 @@ func _initialize() -> void:
     var luma_range: float = max_luma - min_luma
     var png_bytes: int = FileAccess.get_file_as_bytes(RENDER_PATH).size()
     receipt["godot_version"] = Engine.get_version_info()
+    receipt["render_target"] = {
+        "kind": "SubViewport",
+        "requested_width": SIZE.x,
+        "requested_height": SIZE.y,
+        "actual_width": width,
+        "actual_height": height
+    }
+    receipt["camera"] = {
+        "position": [camera.position.x, camera.position.y, camera.position.z],
+        "look_at": [0.10, -0.06, 0.0],
+        "fov": camera.fov
+    }
     receipt["image"] = {
         "path": RENDER_PATH,
         "width": width,
@@ -130,7 +153,7 @@ func _initialize() -> void:
     receipt["background_sample"] = [background.r, background.g, background.b, background.a]
 
     if width != SIZE.x or height != SIZE.y:
-        fail("Unexpected render dimensions %sx%s" % [width, height], receipt)
+        fail("Unexpected SubViewport dimensions %sx%s" % [width, height], receipt)
         return
     if png_bytes <= 1000:
         fail("Rendered PNG is unexpectedly small: %s bytes" % png_bytes, receipt)
@@ -145,5 +168,5 @@ func _initialize() -> void:
     receipt["status"] = "pass"
     write_receipt(receipt)
     print("AXM GODOT RENDER PASS ", JSON.stringify(receipt))
-    scene_root.queue_free()
+    viewport.queue_free()
     quit(0)
