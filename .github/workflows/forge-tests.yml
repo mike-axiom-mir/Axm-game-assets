@@ -38,6 +38,10 @@ jobs:
         run: python native_eye_test.py
       - name: Native eye material test
         run: python native_eye_material_test.py
+      - name: Native hair geometry test
+        run: python native_hair_test.py
+      - name: Native hair material test
+        run: python native_hair_material_test.py
       - name: Native PBR test
         run: python native_pbr_test.py
       - name: Native UV test
