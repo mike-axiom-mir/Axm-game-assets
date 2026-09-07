@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import json
+from math import cos, pi, sin
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from native_animation import AnimationClip, AnimationTrack
 from native_character_gltf import write_character_gltf
 from native_geometry import Mesh
 from native_morph import MorphTarget
@@ -27,14 +29,17 @@ def run() -> None:
         weights=[(0.8, 0.2, 0.0, 0.0), (0.8, 0.2, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0)],
     )
     blink = MorphTarget("blink", [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, -0.05, 0.0), (0.0, -0.05, 0.0)])
+    half = pi * 0.25
+    look = AnimationClip("look_left", [AnimationTrack(1, "rotation", [0.0, 0.5], [(0.0, 0.0, 0.0, 1.0), (0.0, sin(half / 2.0), 0.0, cos(half / 2.0))])])
 
     with TemporaryDirectory() as tmp:
         root = Path(tmp)
         write_painted_metal(root / "textures", size=32, seed=99)
-        result = write_character_gltf(mesh, uv, skeleton, skin, [blink], root)
+        result = write_character_gltf(mesh, uv, skeleton, skin, [blink], root, animations=[look])
         assert result["validation"]["status"] == "pass"
         assert result["joints"] == 2
         assert result["morph_targets"] == 1
+        assert result["animations"] == 1
         document = json.loads((root / result["gltf"]).read_text())
         attributes = document["meshes"][0]["primitives"][0]["attributes"]
         assert "JOINTS_0" in attributes and "WEIGHTS_0" in attributes
@@ -45,7 +50,12 @@ def run() -> None:
         assert len(document["meshes"][0]["primitives"][0]["targets"]) == 1
         assert document["meshes"][0]["extras"]["targetNames"] == ["blink"]
         assert document["nodes"][0]["skin"] == 0
-        print("NATIVE CHARACTER GLTF TEST PASS", result["joints"], "joints", result["morph_targets"], "morph")
+        assert len(document["animations"]) == 1
+        channel = document["animations"][0]["channels"][0]
+        assert channel["target"] == {"node": 2, "path": "rotation"}
+        input_accessor = document["accessors"][document["animations"][0]["samplers"][0]["input"]]
+        assert input_accessor["type"] == "SCALAR" and input_accessor["min"] == [0.0] and input_accessor["max"] == [0.5]
+        print("NATIVE CHARACTER GLTF TEST PASS", result["joints"], "joints", result["morph_targets"], "morph", result["animations"], "animation")
 
 
 if __name__ == "__main__":
