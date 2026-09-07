@@ -258,7 +258,7 @@ jobs:
                   "png": png_path.name,
                   "capture_packet": packet_path.name,
                   "capture_digest": packet["capture_digest"],
-                  "image_sha256": packet["image_sha256"],
+                  "image_sha256": packet["image"]["sha256"],
               })
           payload = (json.dumps(bundle, indent=2, sort_keys=True) + "\n").encode()
           bundle["viewset_digest"] = "sha256:" + hashlib.sha256(payload).hexdigest()
