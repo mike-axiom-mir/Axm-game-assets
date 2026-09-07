@@ -45,7 +45,7 @@ def parse_obj(path: Path) -> tuple[list[tuple[float, float, float]], list[tuple[
     vertices: list[tuple[float, float, float]] = []
     texcoords: list[tuple[float, float]] = []
     faces: list[ObjFace] = []
-    for line_number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
@@ -122,6 +122,8 @@ def _largest_face_component(faces: list[ObjFace]) -> list[ObjFace]:
 def derive_head(
     base_obj: Path,
     config_json: Path,
+    *,
+    minimum_faces: int = 500,
 ) -> tuple[list[tuple[float, float, float]], list[tuple[float, float]], list[ObjFace], dict[int, int], dict[str, object]]:
     vertices, texcoords, faces = parse_obj(base_obj)
     config = json.loads(config_json.read_text(encoding="utf-8"))
@@ -136,8 +138,8 @@ def derive_head(
     }
     candidate_faces = [face for face in faces if face.vertices and all(vertex in eligible for vertex in face.vertices)]
     head_faces = _largest_face_component(candidate_faces)
-    if len(head_faces) < 500:
-        raise ValueError(f"derived head unexpectedly small: {len(head_faces)} faces")
+    if len(head_faces) < minimum_faces:
+        raise ValueError(f"derived head unexpectedly small: {len(head_faces)} faces < {minimum_faces}")
 
     used_source_vertices = sorted({vertex for face in head_faces for vertex in face.vertices})
     source_to_compact = {source: compact for compact, source in enumerate(used_source_vertices)}
@@ -194,15 +196,11 @@ def write_obj(path: Path, vertices, texcoords, faces: Iterable[ObjFace]) -> None
 
 
 def remap_target(source_path: Path, source_to_compact: dict[int, int], output_path: Path) -> dict[str, object]:
-    comments = []
     rows: list[tuple[int, float, float, float]] = []
     source_rows = 0
     for raw in source_path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
-        if not line:
-            continue
-        if line.startswith("#"):
-            comments.append(line)
+        if not line or line.startswith("#"):
             continue
         fields = line.split()
         if len(fields) != 4:
@@ -243,7 +241,11 @@ def build(args: argparse.Namespace) -> dict[str, object]:
     targets_dir = output / "targets"
     targets_dir.mkdir(exist_ok=True)
 
-    vertices, texcoords, faces, source_to_compact, extraction = derive_head(base, config)
+    vertices, texcoords, faces, source_to_compact, extraction = derive_head(
+        base,
+        config,
+        minimum_faces=int(getattr(args, "minimum_faces", 500)),
+    )
     head_obj = output / "head.obj"
     write_obj(head_obj, vertices, texcoords, faces)
 
@@ -260,6 +262,7 @@ def build(args: argparse.Namespace) -> dict[str, object]:
         source = Path(target_path)
         target_reports.append(remap_target(source, source_to_compact, targets_dir / source.name))
 
+    real_threshold = int(getattr(args, "real_threshold", 500))
     manifest: dict[str, object] = {
         "schema": SCHEMA,
         "basemesh_id": "axm-hm08-head-v0.1",
@@ -284,7 +287,7 @@ def build(args: argparse.Namespace) -> dict[str, object]:
             "targets": target_reports,
         },
         "acceptance": {
-            "real_hm08_source_used": len(vertices) >= 500 and len(faces) >= 500,
+            "real_hm08_source_used": len(vertices) >= real_threshold and len(faces) >= real_threshold,
             "source_index_map_complete": len(source_to_compact) == len(vertices),
             "source_uvs_preserved": len(texcoords) > 0,
             "targets_retained": all(int(report["retained_rows"]) > 0 for report in target_reports),
@@ -315,6 +318,8 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--output", required=True)
     p.add_argument("--makehuman-revision", required=True)
     p.add_argument("--mpfb-revision", required=True)
+    p.add_argument("--minimum-faces", type=int, default=500, help="structural extraction floor; lowered only by synthetic tests")
+    p.add_argument("--real-threshold", type=int, default=500, help="acceptance floor for real hm08 seed; lowered only by synthetic tests")
     return p
 
 
