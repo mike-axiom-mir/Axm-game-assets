@@ -113,7 +113,7 @@ def build_rigid_package(input_obj: str | Path, output: str | Path, *, uv_mode: s
         "pass",
         "internal-native-gltf-v0.1",
         delivery,
-        ["Rigid glTF v0.1 has no skeleton, morph targets, tangents, skinning, or animation."],
+        ["Rigid glTF v0.1 generates tangent frames natively but has no skeleton, morph targets, skinning, or animation."],
     ))
 
     collision = aabb_collision(mesh)
@@ -158,7 +158,6 @@ def build_rigid_package(input_obj: str | Path, output: str | Path, *, uv_mode: s
             "high_end_character_claim": False,
             "known_limits": [
                 "Rigid meshes only",
-                "No tangent generation yet",
                 "No skeletal or morph state",
                 "Fallback UV projection is not a production atlas optimizer",
                 "AABB collision only",
