@@ -8,7 +8,7 @@ import struct
 from pathlib import Path
 from typing import Any
 
-from native_geometry import Mesh, face_normal, triangulate, vertex_normals
+from native_geometry import Mesh, vertex_normals
 from native_uv import UVMap, validate_uv
 
 
@@ -30,13 +30,11 @@ def _expanded_triangles(mesh: Mesh, uvmap: UVMap) -> tuple[list[tuple[float, flo
     expanded_normals: list[tuple[float, float, float]] = []
     texcoords: list[tuple[float, float]] = []
     indices: list[int] = []
-
     for face, uvface in zip(mesh.faces, uvmap.face_uvs):
         if len(face) < 3:
             continue
         for corner in range(1, len(face) - 1):
-            tri_corners = (0, corner, corner + 1)
-            for local in tri_corners:
+            for local in (0, corner, corner + 1):
                 vi = face[local]
                 ui = uvface[local]
                 positions.append(mesh.vertices[vi])
@@ -115,11 +113,20 @@ def _add_view(blob: bytearray, payload: bytes, views: list[dict[str, Any]], *, t
     return len(views) - 1
 
 
-def compile_gltf(mesh: Mesh, uvmap: UVMap, *, buffer_uri: str, base_color_uri: str, normal_uri: str, orm_uri: str) -> tuple[dict[str, Any], bytes]:
+def compile_gltf(
+    mesh: Mesh,
+    uvmap: UVMap,
+    *,
+    buffer_uri: str,
+    base_color_uri: str,
+    normal_uri: str,
+    orm_uri: str,
+    material_name: str = "AXM_Native_PaintedMetal",
+    double_sided: bool = False,
+) -> tuple[dict[str, Any], bytes]:
     positions, normals, texcoords, indices = _expanded_triangles(mesh, uvmap)
     if not positions:
         raise ValueError("mesh produced no triangles")
-
     blob = bytearray()
     views: list[dict[str, Any]] = []
     accessors: list[dict[str, Any]] = []
@@ -143,7 +150,6 @@ def compile_gltf(mesh: Mesh, uvmap: UVMap, *, buffer_uri: str, base_color_uri: s
     normal_accessor = add_float_accessor(normals, "VEC3", 3)
     uv_accessor = add_float_accessor(texcoords, "VEC2", 2)
     tangent_accessor = add_float_accessor(_tangents(positions, normals, texcoords), "VEC4", 4)
-
     index_payload = struct.pack("<" + "I" * len(indices), *indices)
     index_view = _add_view(blob, index_payload, views, target=34963)
     accessors.append({
@@ -158,8 +164,22 @@ def compile_gltf(mesh: Mesh, uvmap: UVMap, *, buffer_uri: str, base_color_uri: s
     index_accessor = len(accessors) - 1
     _align4(blob)
 
+    material: dict[str, Any] = {
+        "name": material_name,
+        "pbrMetallicRoughness": {
+            "baseColorTexture": {"index": 0},
+            "metallicRoughnessTexture": {"index": 1},
+            "metallicFactor": 1.0,
+            "roughnessFactor": 1.0,
+        },
+        "normalTexture": {"index": 2},
+        "occlusionTexture": {"index": 1},
+    }
+    if double_sided:
+        material["doubleSided"] = True
+
     document: dict[str, Any] = {
-        "asset": {"version": "2.0", "generator": "AXM Game Asset Forge native_gltf v0.1"},
+        "asset": {"version": "2.0", "generator": "AXM Game Asset Forge native_gltf v0.2"},
         "scene": 0,
         "scenes": [{"nodes": [0]}],
         "nodes": [{"name": mesh.name, "mesh": 0}],
@@ -175,17 +195,7 @@ def compile_gltf(mesh: Mesh, uvmap: UVMap, *, buffer_uri: str, base_color_uri: s
         "samplers": [{"magFilter": 9729, "minFilter": 9987, "wrapS": 10497, "wrapT": 10497}],
         "images": [{"uri": base_color_uri}, {"uri": orm_uri}, {"uri": normal_uri}],
         "textures": [{"sampler": 0, "source": 0}, {"sampler": 0, "source": 1}, {"sampler": 0, "source": 2}],
-        "materials": [{
-            "name": "AXM_Native_PaintedMetal",
-            "pbrMetallicRoughness": {
-                "baseColorTexture": {"index": 0},
-                "metallicRoughnessTexture": {"index": 1},
-                "metallicFactor": 1.0,
-                "roughnessFactor": 1.0,
-            },
-            "normalTexture": {"index": 2},
-            "occlusionTexture": {"index": 1},
-        }],
+        "materials": [material],
         "extras": {
             "axm": {
                 "compiler": "native_gltf",
@@ -193,7 +203,8 @@ def compile_gltf(mesh: Mesh, uvmap: UVMap, *, buffer_uri: str, base_color_uri: s
                 "source_vertices": len(mesh.vertices),
                 "compiled_vertices": len(positions),
                 "triangles": len(indices) // 3,
-                "truth": "Rigid mesh only. Tangent channel is generated natively. No skeleton, morph targets, animation, or skinning in v0.1.",
+                "material_name": material_name,
+                "truth": "Rigid/deformed snapshot mesh delivery only. Tangents are generated natively; skeleton/morph/animation state belongs to the character compiler.",
             }
         },
     }
@@ -206,7 +217,7 @@ def validate_gltf(document: dict[str, Any], binary: bytes, root: str | Path | No
         failures.append("asset.version must be 2.0")
     buffers = document.get("buffers", [])
     if len(buffers) != 1:
-        failures.append("native v0.1 expects exactly one buffer")
+        failures.append("native v0.x expects exactly one buffer")
     elif buffers[0].get("byteLength") != len(binary):
         failures.append("buffer byteLength mismatch")
     views = document.get("bufferViews", [])
@@ -235,7 +246,15 @@ def validate_gltf(document: dict[str, Any], binary: bytes, root: str | Path | No
     return {"status": "pass" if not failures else "fail", "failures": failures}
 
 
-def write_gltf(mesh: Mesh, uvmap: UVMap, output: str | Path, *, texture_dir: str = "textures") -> dict[str, Any]:
+def write_gltf(
+    mesh: Mesh,
+    uvmap: UVMap,
+    output: str | Path,
+    *,
+    texture_dir: str = "textures",
+    material_name: str = "AXM_Native_PaintedMetal",
+    double_sided: bool = False,
+) -> dict[str, Any]:
     root = Path(output)
     root.mkdir(parents=True, exist_ok=True)
     binary_name = f"{mesh.name}.bin"
@@ -246,7 +265,6 @@ def write_gltf(mesh: Mesh, uvmap: UVMap, output: str | Path, *, texture_dir: str
     for uri in (base_uri, normal_uri, orm_uri):
         if not (root / uri).exists():
             raise FileNotFoundError(root / uri)
-
     document, binary = compile_gltf(
         mesh,
         uvmap,
@@ -254,6 +272,8 @@ def write_gltf(mesh: Mesh, uvmap: UVMap, output: str | Path, *, texture_dir: str
         base_color_uri=base_uri,
         normal_uri=normal_uri,
         orm_uri=orm_uri,
+        material_name=material_name,
+        double_sided=double_sided,
     )
     (root / binary_name).write_bytes(binary)
     gltf_bytes = (json.dumps(document, indent=2, sort_keys=True) + "\n").encode()
@@ -269,4 +289,6 @@ def write_gltf(mesh: Mesh, uvmap: UVMap, output: str | Path, *, texture_dir: str
         "validation": report,
         "triangles": document["extras"]["axm"]["triangles"],
         "compiled_vertices": document["extras"]["axm"]["compiled_vertices"],
+        "material_name": material_name,
+        "double_sided": bool(double_sided),
     }
