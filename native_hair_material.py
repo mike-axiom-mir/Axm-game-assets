@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AXM deterministic hair-card material authoring v0.1."""
+"""AXM deterministic hair-card material authoring v0.2."""
 from __future__ import annotations
 
 import hashlib
@@ -52,6 +52,7 @@ def hair_card_fields(size: int, seed: int, spec: HairMaterialSpec = HairMaterial
     rgba = bytearray()
     alpha_map = bytearray()
     rough = bytearray()
+    orm = bytearray()
     root = spec.root_rgb
     tip = spec.tip_rgb
     for y in range(size):
@@ -86,11 +87,15 @@ def hair_card_fields(size: int, seed: int, spec: HairMaterialSpec = HairMaterial
             ))
             alpha_map.append(_u8(alpha))
             roughness = spec.roughness + (noise - 0.5) * 0.08 - strand_light * 0.035
-            rough.append(_u8(roughness))
+            rough_byte = _u8(roughness)
+            rough.append(rough_byte)
+            # glTF metallic-roughness packing: R can serve occlusion, G roughness, B metallic.
+            orm.extend((255, rough_byte, 0))
     return {
         "base_color_alpha": (4, bytes(rgba)),
         "alpha": (1, bytes(alpha_map)),
         "roughness": (1, bytes(rough)),
+        "orm": (3, bytes(orm)),
     }
 
 
@@ -104,7 +109,7 @@ def write_hair_material(output: str | Path, *, size: int = 256, seed: int = 1, s
         (root / filename).write_bytes(data)
         maps[name] = {"file": filename, "channels": channels, "sha256": _sha(data)}
     manifest = {
-        "schema": "axm.game-assets.hair-card-material.v0.1",
+        "schema": "axm.game-assets.hair-card-material.v0.2",
         "seed": seed,
         "maps": maps,
         "renderer_hints": {
@@ -113,6 +118,7 @@ def write_hair_material(output: str | Path, *, size: int = 256, seed: int = 1, s
             "alpha_cutoff": spec.alpha_cutoff_hint,
             "metalness": 0.0,
             "roughness_source": "roughness.png",
+            "metallic_roughness_source": "orm.png",
             "anisotropic_specular": "recommended when target renderer supports it",
         },
         "truth": {
@@ -120,6 +126,7 @@ def write_hair_material(output: str | Path, *, size: int = 256, seed: int = 1, s
             "deterministic": True,
             "notes": [
                 "Texture represents grouped hair strands on a card, not individual fiber geometry.",
+                "ORM packs occlusion=1, generated roughness, metallic=0 for runtime delivery.",
                 "Card orientation, scalp coverage, sorting/alpha artifacts and motion require separate visual/in-engine gates.",
             ],
         },
