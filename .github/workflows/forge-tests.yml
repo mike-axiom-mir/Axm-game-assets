@@ -66,6 +66,8 @@ jobs:
         run: python native_uv_test.py
       - name: Native preview test
         run: python native_preview_test.py
+      - name: Native visual evidence test
+        run: python native_visual_evidence_test.py
       - name: Native glTF test
         run: python native_gltf_test.py
       - name: Native rigid package test
