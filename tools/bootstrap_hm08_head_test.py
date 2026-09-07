@@ -8,14 +8,21 @@ from bootstrap_hm08_head import build
 
 
 def write_fixture(root: Path) -> tuple[Path, Path, list[Path]]:
-    # Two disconnected cubes: source vertices 0..7 are the synthetic head,
-    # 8..15 are body noise outside the head metadata bounds. Each face carries
-    # source UVs so the bootstrap must preserve v/vt pairing.
+    # Two disconnected boxes. The synthetic head uses deliberately asymmetric
+    # raw MakeHuman Y/Z ranges so a mistaken Blender-axis interpretation cannot
+    # accidentally pass:
+    #   raw X = [-1, 1]
+    #   raw Y = [10, 12]
+    #   raw Z = [-4, -2]
+    # In Blender-space metadata this means:
+    #   X extrema use raw X
+    #   Y extrema use -raw Z
+    #   Z extrema use raw Y
     vertices = [
-        (-1,-1,-1),(1,-1,-1),(1,1,-1),(-1,1,-1),
-        (-1,-1,1),(1,-1,1),(1,1,1),(-1,1,1),
-        (-3,-3,-5),(3,-3,-5),(3,3,-5),(-3,3,-5),
-        (-3,-3,-3),(3,-3,-3),(3,3,-3),(-3,3,-3),
+        (-1,10,-4),(1,10,-4),(1,12,-4),(-1,12,-4),
+        (-1,10,-2),(1,10,-2),(1,12,-2),(-1,12,-2),
+        (-3,0,-9),(3,0,-9),(3,4,-9),(-3,4,-9),
+        (-3,0,-7),(3,0,-7),(3,4,-7),(-3,4,-7),
     ]
     faces = [
         (0,3,2,1),(4,5,6,7),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),
@@ -31,9 +38,12 @@ def write_fixture(root: Path) -> tuple[Path, Path, list[Path]]:
     base = root / "base.obj"
     base.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    # Extrema indices point at the head cube vertices.
+    # MPFB extrema names are Blender axes. For the raw head above:
+    # Blender X min/max -> source 0/1
+    # Blender Y min/max (-raw Z) -> source 4/0
+    # Blender Z min/max ( raw Y) -> source 0/2
     config = {
-        "dimensions": {"Head": {"xmin":0,"xmax":1,"ymin":0,"ymax":2,"zmin":0,"zmax":4}},
+        "dimensions": {"Head": {"xmin":0,"xmax":1,"ymin":4,"ymax":0,"zmin":0,"zmax":2}},
         "groups_by_range": {"body":[0,15]},
     }
     config_path = root / "hm08_config.json"
@@ -66,6 +76,12 @@ def run() -> None:
         assert result["extraction"]["compact_vertices"] == 8
         assert result["extraction"]["compact_faces"] == 6
         assert result["extraction"]["compact_uvs"] == 8
+        bounds = result["extraction"]["head_bounds"]
+        assert bounds["x"] == [-1.0, 1.0]
+        assert bounds["y"] == [10.0, 12.0]
+        assert bounds["z"] == [-4.0, -2.0]
+        assert bounds["mpfb_to_raw_axis_mapping"]["raw_y"] == ["zmin", "zmax"]
+        assert bounds["mpfb_to_raw_axis_mapping"]["raw_z"] == ["ymin", "ymax"]
         mapping = json.loads((output / "source-index-map.json").read_text())
         assert mapping["compact_to_source"] == list(range(8))
         remapped = (output / "targets" / "nose-width.target").read_text()
