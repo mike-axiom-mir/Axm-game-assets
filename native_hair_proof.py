@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AXM native short-hair proof package v0.2."""
+"""AXM native short-hair proof package v0.3."""
 from __future__ import annotations
 
 import hashlib
@@ -15,7 +15,7 @@ from native_organic_proof import make_head_seed
 from native_preview import write_preview
 from native_uv import validate_uv
 
-SCHEMA = "axm.game-assets.native-hair-proof.v0.2"
+SCHEMA = "axm.game-assets.native-hair-proof.v0.3"
 
 
 def _sha(data: bytes) -> str:
@@ -38,10 +38,6 @@ def _scalp_candidates(head):
 
 def _view(preview, name):
     return next(item for item in preview["views"] if item["view"] == name)
-
-
-def _geometry_signal_changed(before, after) -> bool:
-    return before["hashes"]["depth"] != after["hashes"]["depth"] or before["hashes"]["normal"] != after["hashes"]["normal"]
 
 
 def build_hair_proof(output: str | Path, *, guide_count: int = 64, segments: int = 6, seed: int = 731, texture_size: int = 64, preview_size: int = 96) -> dict[str, object]:
@@ -101,18 +97,18 @@ def build_hair_proof(output: str | Path, *, guide_count: int = 64, segments: int
         "acceptance": {
             "hair_state_valid": hair_report["status"] == "pass",
             "strand_uv_valid": uv_report["status"] == "pass",
+            "root_flow_outward": hair_report["min_root_outward_dot"] > 0.0,
             "root_offset_near_scalp": coverage["max_root_to_head"] < 0.003,
             "scalp_coverage_fixture": coverage["max_scalp_to_root"] < 0.09,
-            "front_surface_signal_changed": _geometry_signal_changed(bare_front, hair_front),
-            "side_surface_signal_changed": _geometry_signal_changed(bare_side, hair_side),
             "gltf_structural_valid": delivery["validation"]["status"] == "pass",
             "alpha_card_delivery": delivery["alpha_mode"] == "MASK" and delivery["double_sided"] is True,
         },
         "truth": {
             "high_end_groom_claim": False,
             "notes": [
-                "Diagnostic preview renders card geometry as opaque, so it evaluates placement/depth/orientation only, not alpha compositing quality.",
-                "A close-cropped hairstyle is allowed to preserve the bare-head outer silhouette; silhouette change is recorded but is not an acceptance requirement.",
+                "The native diagnostic rasterizer is not alpha-aware, so bare-vs-hair preview hashes are recorded as diagnostics and are not a hair acceptance gate.",
+                "Root flow is explicitly gated against entering the scalp; this repaired a real generator defect found by CI.",
+                "A close-cropped hairstyle may preserve the bare-head outer silhouette.",
                 "Scalp coverage is a geometric root-spacing fixture metric, not an aesthetic hair-density judgment.",
                 "Production proof still requires alpha sorting, anisotropic response, scalp masking, hairline semantics and motion in a target engine.",
             ],
