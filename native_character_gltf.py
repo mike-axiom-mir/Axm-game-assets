@@ -7,6 +7,7 @@ import struct
 from pathlib import Path
 from typing import Any, Sequence
 
+from native_animation import AnimationClip, validate_animation_clip
 from native_geometry import Mesh, vertex_normals
 from native_gltf import _add_view, _align4, _pack_vec, _sha256, _tangents, validate_gltf
 from native_morph import MorphTarget, validate_morph_set
@@ -59,6 +60,7 @@ def compile_character_gltf(
     skeleton: Skeleton,
     skin_weights: SkinWeights,
     morph_targets: Sequence[MorphTarget],
+    animations: Sequence[AnimationClip] = (),
     *,
     buffer_uri: str,
     base_color_uri: str,
@@ -74,6 +76,10 @@ def compile_character_gltf(
     morph_report = validate_morph_set(morph_targets, vertex_count=len(mesh.vertices))
     if morph_report["status"] != "pass":
         raise ValueError(f"invalid morph targets: {morph_report}")
+    for clip in animations:
+        animation_report = validate_animation_clip(clip, skeleton)
+        if animation_report["status"] != "pass":
+            raise ValueError(f"invalid animation {clip.name}: {animation_report}")
 
     positions, normals, texcoords, indices, source_indices = _expanded(mesh, uvmap)
     if not positions:
@@ -143,6 +149,22 @@ def compile_character_gltf(
             entry["NORMAL"] = add_float(normal_deltas, "VEC3", 3)
         morph_entries.append(entry)
 
+    animation_entries: list[dict[str, Any]] = []
+    path_types = {"translation": ("VEC3", 3), "rotation": ("VEC4", 4), "scale": ("VEC3", 3)}
+    for clip in animations:
+        samplers: list[dict[str, Any]] = []
+        channels: list[dict[str, Any]] = []
+        for track in clip.tracks:
+            input_values = [(float(time),) for time in track.times]
+            input_accessor = add_float(input_values, "SCALAR", 1, target=None, include_bounds=True)
+            output_type, output_width = path_types[track.path]
+            output_values = [tuple(float(component) for component in value) for value in track.values]
+            output_accessor = add_float(output_values, output_type, output_width, target=None)
+            sampler_index = len(samplers)
+            samplers.append({"input": input_accessor, "output": output_accessor, "interpolation": track.interpolation})
+            channels.append({"sampler": sampler_index, "target": {"node": track.joint + 1, "path": track.path}})
+        animation_entries.append({"name": clip.name, "samplers": samplers, "channels": channels})
+
     _align4(blob)
 
     mesh_node: dict[str, Any] = {"name": mesh.name, "mesh": 0, "skin": 0}
@@ -209,6 +231,7 @@ def compile_character_gltf(
             "normalTexture": {"index": 2},
             "occlusionTexture": {"index": 1},
         }],
+        "animations": animation_entries,
         "extras": {
             "axm": {
                 "compiler": "native_character_gltf",
@@ -217,7 +240,8 @@ def compile_character_gltf(
                 "triangles": len(indices) // 3,
                 "joints": len(skeleton.joints),
                 "morph_targets": len(morph_targets),
-                "truth": "Native structural character compiler. Rig-generation intelligence, animation authoring, correctives, hair/cloth and engine deformation evidence are separate gates.",
+                "animations": len(animations),
+                "truth": "Native structural character compiler with skeletal animation delivery. Rig-generation intelligence, animation synthesis, correctives, hair/cloth and engine deformation evidence are separate gates.",
             }
         },
     }
@@ -231,6 +255,7 @@ def write_character_gltf(
     skin_weights: SkinWeights,
     morph_targets: Sequence[MorphTarget],
     output: str | Path,
+    animations: Sequence[AnimationClip] = (),
     *,
     texture_dir: str = "textures",
 ) -> dict[str, Any]:
@@ -250,6 +275,7 @@ def write_character_gltf(
         skeleton,
         skin_weights,
         morph_targets,
+        animations,
         buffer_uri=binary_name,
         base_color_uri=base_uri,
         normal_uri=normal_uri,
@@ -271,4 +297,5 @@ def write_character_gltf(
         "compiled_vertices": document["extras"]["axm"]["compiled_vertices"],
         "joints": len(skeleton.joints),
         "morph_targets": len(morph_targets),
+        "animations": len(animations),
     }
