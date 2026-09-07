@@ -12,7 +12,7 @@ The goal is:
 
 ## Current status
 
-The genesis lane now contains both the **truth/evidence spine** and the first executable native manufacturing organs. It is still not a fake high-end character demo.
+The genesis lane now contains both the **truth/evidence spine** and a growing executable native manufacturing stack. It is still not a fake high-end character demo.
 
 Working now:
 
@@ -20,33 +20,45 @@ Working now:
 - deterministic intake and stage receipts
 - non-sacred DAG recipes with parallel execution waves
 - hardware / offline / jurisdiction capability gates
-- AXM-native constructive modeling primitives: profile extrusion, chamfered profiles, cylinders and placement
-- native mesh transforms, triangulation, normals, topology inspection, collision bounds and coarse fallback LOD
-- native UV state, box/spherical projection, validation and UV-aware OBJ interchange
-- deterministic PBR-style micro-surface generation with base color, roughness, metallic, height, normal, AO and engine-ready ORM packing
+- AXM-native constructive hard-surface modeling
+- native mesh transforms, triangulation, normals, topology inspection and collision bounds
+- semantic Sentinel armor detail-source progression
+- native multires organic surface subdivision, smoothing, localized deformation and deterministic micro-displacement
+- sparse fixed-topology target parsing, validation, deterministic blending, composition and lineage
+- native semantic target authoring for reusable region/normal deformations
+- reconstructable parametric variants with seed/target/topology/geometry digest locks
+- receipt-bearing seed bundle importer with basemesh compatibility checks
+- optional MakeHuman `hm08` CC0 seed-data route without depending on MakeHuman application code
+- native UV state, projection, validation and UV-aware OBJ interchange
+- deterministic hard-surface PBR/ORM authoring
+- deterministic organic skin maps with subsurface/thickness state
+- layered eye geometry: sclera, iris, pupil and cornea
+- deterministic iris/sclera material generation and corneal transmission state
 - native tangent-frame generation
 - dependency-free rigid glTF 2.0 compilation
 - native skeleton hierarchy, inverse bind matrices, four-slot skin-weight validation and CPU deformation proof
-- native named morph/blendshape delta state and validation
+- native named morph/blendshape delta state
 - native skeletal animation state, pose sampling and contact-drift evidence
-- native machine-readable character-state packet for future learned rig/animation proposal adapters
+- machine-readable character-state packet for future learned proposal adapters
 - dependency-free character glTF delivery with `JOINTS_0`, `WEIGHTS_0`, skin hierarchy, inverse bind matrices, morph targets and skeletal animation channels
-- receipt-bearing rigid package route
-- Sentinel armor semantic-detail progression and end-to-end native detail proof
+- experimental attribute-aware character LOD carrying UV/skin/morph state with explicit posed deformation-error budgets
+- native silhouette/depth/normal diagnostic previews
+- end-to-end rigid detail and organic mechanism proofs
 - Sentinel-01 difficult proving request
 - CI gates across the native stack plus Genome/DAG validation
 
 Still not claimed:
 
 - a production-quality automatically generated Sentinel character
-- production organic sculpt/anatomy generation
+- production-grade human anatomy generation or face fitting
 - production deformation-aware retopology
 - production rig **inference** or automatic facial rig solving
-- attribute-preserving skinned/morphed runtime LOD generation
+- final Sentinel LOD0-LOD3 approval in real poses and engine transitions
 - high-end hair/cloth/secondary-motion synthesis
+- semantic face UV/material zoning, pose wrinkles and corrective shapes at production quality
 - real Godot/Three.js/Unreal screenshot, motion and performance acceptance receipts
 
-Those capabilities remain research, blocked, or incomplete until they are actually integrated and exercised.
+Those remain research, experimental, blocked for canonization, or incomplete until actually exercised against the real proving asset.
 
 ## Native-first rule
 
@@ -69,10 +81,33 @@ See `docs/NATIVE_FIRST.md`.
 An asset is not just an FBX or GLB. The Forge separates:
 
 1. **Genome**: identity, art direction, dimensions, variants, budgets, targets, lineage and evidence requirements.
-2. **Canonical source state**: geometry, high-detail layers, UVs, materials, rig, weights, animation, simulation, VFX and procedural state.
+2. **Canonical source state**: geometry, parametric targets, high-detail layers, UVs, materials, rig, weights, animation, simulation, VFX and procedural state.
 3. **Compiled deliveries**: GLB/FBX/USD, LODs, collisions, compressed textures, engine imports, screenshots, video and performance receipts.
 
-This is what should later make transformations such as "same character + winter equipment + older + injured arm + RTS LOD" reconstructable rather than blind regeneration.
+This is what should make transformations such as "same character + winter equipment + older + injured arm + RTS LOD" reconstructable rather than blind regeneration.
+
+## Parametric organic route
+
+The current organic architecture is:
+
+```text
+fixed canonical topology
+  -> sparse identity/body/face targets
+  -> exact parametric state receipt
+  -> subdivision / surface detail
+  -> skin / eye / hair / cloth layers
+  -> rig / weights / morphs / animation
+  -> deformation-gated LOD
+  -> engine delivery and evidence
+```
+
+Target edits happen **before** topology-changing subdivision. Target files remain separate source layers with digests and weights, so a variant can be rebuilt instead of silently baking its history away.
+
+### Optional MakeHuman CC0 seed data
+
+The MakeHuman repository explicitly marks the inspected `hm08` base mesh and target assets as CC0 while the MakeHuman application code is AGPL-3.0. Game Asset Forge therefore treats those verified assets as an optional seed-data source only. It does not import or depend on MakeHuman application logic.
+
+See `research/MAKEHUMAN_CC0_SEED.md`.
 
 ## First proving asset: Sentinel-01
 
@@ -93,16 +128,35 @@ It forces the Forge to confront:
 
 A simpler prop would hide too much of the actual fidelity problem.
 
-### First native detail proof
+### Native hard-surface detail proof
 
-The current rigid Sentinel armor component intentionally separates **detail-source progression** from runtime LOD. Its four semantic detail levels grow from:
+The current rigid Sentinel armor component separates **detail-source progression** from runtime LOD. Its four semantic detail levels grow from:
 
 - 28 triangles / 1 component
 - 112 triangles / 4 components
 - 428 triangles / 13 components
 - 732 triangles / 21 components
 
-Added structure includes a raised core, edge rails, fasteners, vents, service ribs, biomechanical ports, micro-fasteners and a spine channel. Each level passes native UV and structural glTF delivery checks. This proves the machine can add coherent geometry layers; it does **not** prove the full character is high-end yet.
+Added structure includes a raised core, edge rails, fasteners, vents, service ribs, biomechanical ports, micro-fasteners and a spine channel. Each level passes native UV, visual-diagnostic and structural glTF checks.
+
+### Native organic mechanism proof
+
+A fixed head fixture now proves:
+
+- semantic nose/brow/cheek/jaw targets
+- reconstructable target-weight identity state
+- topology-preserving variant edits
+- two levels of native subdivision
+- smoothing and deterministic microdetail
+- diagnostic front/side signal changes
+
+The fixture grows from 224 to 3,584 triangles after multires detail. This proves the **mechanism**, not anatomical realism. The next stronger proof is the same pipeline on a suitable human seed topology.
+
+### Experimental character LOD proof
+
+The experimental attribute-aware reducer carries UVs, four-slot skin influences and morph deltas while simplifying. A synthetic skinned fixture currently proves monotonic reduction with structural glTF delivery and a declared deformation-error budget across test poses.
+
+That does **not** approve Sentinel LODs yet. Sentinel must pass the same gates plus visual retention and real engine transition evidence.
 
 ## Run the forge spine
 
@@ -114,21 +168,9 @@ python forge.py init examples/sentinel-request.json build/sentinel
 python forge.py plan recipes/sentinel-character.json
 python forge.py audit build/sentinel/genome.json
 python forge.py doctor
-
-python native_geometry_test.py
-python native_modeling_test.py
-python native_hardsurface_test.py
-python native_pbr_test.py
-python native_uv_test.py
-python native_gltf_test.py
-python native_pipeline_test.py
-python native_detail_proof_test.py
-python native_skin_test.py
-python native_morph_test.py
-python native_animation_test.py
-python native_character_state_test.py
-python native_character_gltf_test.py
 ```
+
+CI exercises the native geometry, modeling, hard-surface, multires, target, target-authoring, parametric, seed-bundle, organic proof, skin material, eye, PBR, UV, preview, glTF, packaging, skinning, morph, animation, character-state and character-LOD paths.
 
 Example capability check:
 
@@ -147,19 +189,26 @@ Current mechanisms being studied include:
 
 - TRELLIS.2 / sparse structured 3D generation and PBR
 - Stable Fast 3D reconstruction/material cleanup
+- Meshy as a capability/pipeline reference, not a required backend
 - SkinTokens, UniRig and RigAnything for rig proposal/skinning proposal
+- MakeHuman CC0 seed topology/targets as an optional parametric source-data route
 - Blender procedural geometry, hair, rigging, bake and repair paths as an optional bridge/reference
 - xatlas UV parameterization
 - meshoptimizer simplification/runtime optimization
 - OpenUSD / UsdSkel layered source composition
-- MaterialX material interchange
+- MaterialX and OpenPBR material interchange/shading semantics
 - MetaHuman and Character Creator as high-end character pipeline references
 - KineFX as a procedural/non-destructive rig architecture reference
-- Simplygon's reduction + mapping + material-casting pattern as an optimization reference
+- Simplygon reduction + mapping + material-casting patterns
 
-Learned riggers are expected to emit the AXM native character-state contract and pass native validation/deformation gates rather than own canonical state.
+Learned generators and riggers are expected to emit AXM-owned state contracts and pass native evidence gates rather than own canonical state.
 
-See `research/STATE_OF_THE_ART.md` and `research/capability-registry.json`.
+See:
+
+- `research/STATE_OF_THE_ART.md`
+- `research/capability-registry.json`
+- `research/native-organic-registry.json`
+- `research/MAKEHUMAN_CC0_SEED.md`
 
 ## Architectural rule
 
@@ -167,7 +216,7 @@ The default lifecycle is a **recipe graph**, not sacred law.
 
 For Sentinel-01, UV and rigging can proceed in parallel after retopology; material authoring and animation can likewise advance on separate branches before final engine convergence. Better future models or algorithms should replace individual stages without forcing a rewrite of the whole Forge.
 
-The Sentinel recipe now annotates native gates on UV, rig, skinning, animation, facial state and engine packaging. Runtime LOD is explicitly blocked from using the coarse native simplifier for the final skinned/morphed character until attribute preservation exists.
+Native validators are gates, not automatic aesthetic judges. A changed screenshot/hash is evidence that a signal changed, not proof that the asset became better.
 
 ## Roots
 
