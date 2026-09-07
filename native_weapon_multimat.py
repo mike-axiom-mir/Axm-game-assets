@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""AXM Sentinel rifle semantic multi-material package v0.2.
+"""AXM Sentinel rifle semantic multi-material package v0.3.
 
-This package preserves named material groups and a shared physical UV scale.
-It remains independent from the legacy one-material rifle delivery so engine
-A/B evidence can decide which route graduates.
+This package preserves named material groups, a shared physical UV scale and
+explicit material-frequency authoring. It remains independent from the legacy
+one-material rifle delivery so real engine evidence can decide what graduates.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from native_pbr import PaintedMetalSpec, write_painted_metal
 from native_uv import box_project_world, validate_uv
 from native_weapon import WeaponAsset, sentinel_rifle, validate_weapon
 
-SCHEMA = "axm.game-assets.weapon-multimat.v0.2"
+SCHEMA = "axm.game-assets.weapon-multimat.v0.3"
 GROUP_ORDER = ("coated", "polymer", "steel", "accessory")
 DEFAULT_WORLD_UNITS_PER_TILE = 0.18
 
@@ -94,56 +94,92 @@ def semantic_material_groups(asset: WeaponAsset) -> dict[str, dict[str, object]]
 
 
 def _material_specs() -> dict[str, dict[str, object]]:
+    # These recipes are intentionally much flatter than the legacy v0.1 PBR
+    # proof preset. Real Godot receiver-close evidence showed that the old
+    # height field read as hammered/pitted sheet metal once world-scale UVs
+    # removed the earlier giant smears.
     return {
         "coated": {
             "name": "AXM_Weapon_CoatedReceiver",
             "spec": PaintedMetalSpec(
-                paint_rgb=(30, 38, 43),
-                metal_rgb=(76, 82, 86),
-                paint_roughness=0.62,
-                metal_roughness=0.39,
-                wear=0.15,
-                scratches=22,
-                grain_scale=34.0,
+                paint_rgb=(29, 36, 41),
+                metal_rgb=(73, 79, 83),
+                paint_roughness=0.64,
+                metal_roughness=0.41,
+                wear=0.10,
+                scratches=8,
+                grain_scale=92.0,
+                height_grain_amplitude=0.014,
+                height_broad_amplitude=0.006,
+                height_scratch_depth=0.025,
+                height_pit_depth=0.002,
+                pit_wear_strength=0.04,
+                base_grain_variation=0.035,
+                roughness_grain_variation=0.025,
+                normal_strength=1.15,
             ),
             "metallic_factor": 1.0,
         },
         "polymer": {
             "name": "AXM_Weapon_DarkPolymer",
             "spec": PaintedMetalSpec(
-                paint_rgb=(14, 17, 19),
-                metal_rgb=(24, 27, 29),
-                paint_roughness=0.82,
-                metal_roughness=0.78,
-                wear=0.025,
-                scratches=10,
-                grain_scale=48.0,
+                paint_rgb=(13, 16, 18),
+                metal_rgb=(21, 23, 25),
+                paint_roughness=0.84,
+                metal_roughness=0.80,
+                wear=0.008,
+                scratches=4,
+                grain_scale=118.0,
+                height_grain_amplitude=0.008,
+                height_broad_amplitude=0.0025,
+                height_scratch_depth=0.008,
+                height_pit_depth=0.0,
+                pit_wear_strength=0.0,
+                base_grain_variation=0.018,
+                roughness_grain_variation=0.018,
+                normal_strength=0.60,
             ),
             "metallic_factor": 0.0,
         },
         "steel": {
             "name": "AXM_Weapon_ExposedSteel",
             "spec": PaintedMetalSpec(
-                paint_rgb=(66, 70, 72),
-                metal_rgb=(112, 118, 121),
-                paint_roughness=0.43,
-                metal_roughness=0.31,
-                wear=0.58,
-                scratches=30,
-                grain_scale=42.0,
+                paint_rgb=(62, 66, 69),
+                metal_rgb=(103, 109, 113),
+                paint_roughness=0.46,
+                metal_roughness=0.34,
+                wear=0.34,
+                scratches=12,
+                grain_scale=104.0,
+                height_grain_amplitude=0.012,
+                height_broad_amplitude=0.005,
+                height_scratch_depth=0.020,
+                height_pit_depth=0.002,
+                pit_wear_strength=0.05,
+                base_grain_variation=0.026,
+                roughness_grain_variation=0.025,
+                normal_strength=0.90,
             ),
             "metallic_factor": 1.0,
         },
         "accessory": {
             "name": "AXM_Weapon_MatteAccessory",
             "spec": PaintedMetalSpec(
-                paint_rgb=(20, 24, 27),
-                metal_rgb=(55, 59, 62),
-                paint_roughness=0.71,
-                metal_roughness=0.48,
-                wear=0.09,
-                scratches=16,
-                grain_scale=38.0,
+                paint_rgb=(18, 22, 25),
+                metal_rgb=(50, 54, 57),
+                paint_roughness=0.73,
+                metal_roughness=0.51,
+                wear=0.045,
+                scratches=6,
+                grain_scale=100.0,
+                height_grain_amplitude=0.010,
+                height_broad_amplitude=0.004,
+                height_scratch_depth=0.012,
+                height_pit_depth=0.001,
+                pit_wear_strength=0.02,
+                base_grain_variation=0.020,
+                roughness_grain_variation=0.022,
+                normal_strength=0.72,
             ),
             "metallic_factor": 0.65,
         },
@@ -173,9 +209,6 @@ def build_weapon_multimat_package(
     for group_index, group in enumerate(GROUP_ORDER):
         group_mesh = groups[group]["mesh"]
         assert isinstance(group_mesh, Mesh)
-        # All material groups share the exact same canonical-space scale and
-        # origin. UV phase may cross 0/1 boundaries; glTF repeat sampling is
-        # intentional so surface feature size no longer depends on group bounds.
         uv = box_project_world(
             group_mesh,
             world_units_per_tile=world_units_per_tile,
@@ -245,6 +278,16 @@ def build_weapon_multimat_package(
         "shared_physical_uv_scale": all(
             record["uv"]["method"] == expected_uv_method for record in group_receipts.values()
         ),
+        "restrained_weapon_normals": (
+            float(group_receipts["coated"]["material"]["spec"]["normal_strength"]) <= 1.2
+            and float(group_receipts["polymer"]["material"]["spec"]["normal_strength"]) <= 0.65
+            and float(group_receipts["steel"]["material"]["spec"]["normal_strength"]) <= 0.95
+            and float(group_receipts["accessory"]["material"]["spec"]["normal_strength"]) <= 0.75
+        ),
+        "polymer_has_no_pitting": (
+            float(group_receipts["polymer"]["material"]["spec"]["height_pit_depth"]) == 0.0
+            and float(group_receipts["polymer"]["material"]["spec"]["pit_wear_strength"]) == 0.0
+        ),
     }
     manifest: dict[str, object] = {
         "schema": SCHEMA,
@@ -267,9 +310,10 @@ def build_weapon_multimat_package(
             "notes": [
                 "Semantic material groups are derived from named canonical weapon components before export.",
                 "All groups share one world-space repeat scale, so material feature size no longer changes with material-group bounds.",
+                "Weapon-specific height/normal amplitudes are deliberately restrained after real Godot close-up evidence showed the legacy proof preset reading as hammered/pitted sheet metal.",
                 "World-box repeat projection preserves physical scale but does not claim optimized unwrap charts, seam hiding, unique baking space or final texel-density art direction.",
-                "The polymer primitive explicitly uses metallicFactor 0 instead of relying on a shared weapon material.",
-                "Godot close-inspection views remain the visual gate for visible seams, repetition and surface swimming.",
+                "The polymer primitive explicitly uses metallicFactor 0 and zero authored pitting response.",
+                "Godot close-inspection views remain the visual gate for visible seams, repetition, highlight response and surface swimming.",
             ],
         },
     }
