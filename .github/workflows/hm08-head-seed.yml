@@ -13,6 +13,9 @@ on:
       - ".github/workflows/hm08-head-seed.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   derive-real-head:
     runs-on: ubuntu-latest
@@ -54,7 +57,6 @@ jobs:
               -o "$out"
           done
 
-          # Git blob identity is stronger than trusting a mutable filename.
           test "$(git hash-object build/hm08-source/base.obj)" = "d26635e9326e3cca30778fd7b9c00062b03cce09"
           test "$(git hash-object build/hm08-source/hm08_config.json)" = "f94e2731356232ed1b6306128fd04d18da5d21ea"
 
@@ -116,3 +118,20 @@ jobs:
             build/hm08-head-seed/source-index-map.json
             build/hm08-head-seed/seed-manifest.json
             build/hm08-head-seed/targets/*.target
+
+      - name: Promote audited seed into this fidelity branch
+        if: github.event_name == 'push' && github.ref_name == 'forge/chat-2026-09-08-sentinel-fidelity'
+        run: |
+          set -euo pipefail
+          rm -rf seed_data/hm08_head_v0.1
+          mkdir -p seed_data/hm08_head_v0.1
+          cp -R build/hm08-head-seed/. seed_data/hm08_head_v0.1/
+          git config user.name "axm-forge-evidence"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add seed_data/hm08_head_v0.1
+          if git diff --cached --quiet; then
+            echo "Audited seed already matches repository state."
+            exit 0
+          fi
+          git commit -m "data: pin audited hm08 human head seed"
+          git push origin HEAD:"${GITHUB_REF_NAME}"
