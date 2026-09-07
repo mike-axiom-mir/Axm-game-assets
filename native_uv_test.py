@@ -62,16 +62,20 @@ def run() -> None:
             assert abs(before - after) < 1e-9, (before_face, after_face)
 
     # Physical scale must survive mesh-size changes instead of renormalizing
-    # every mesh to 0..1. make_box face 0 is a Y-normal face, so its first edge
-    # projects the X dimension into UV U. Doubling X must therefore double that
-    # exact edge's UV length while the world-units-per-tile value stays fixed.
+    # every mesh to 0..1. make_box face 0 is a Y-normal face and therefore
+    # contains alternating projected Z and X edges. A 1x1 footprint yields four
+    # UV-unit edges at 0.25 world units/tile. Doubling only X must produce the
+    # exact per-face pattern 4,8,4,8, independent of which retained corner was
+    # chosen as edge zero.
     long_box = make_box((2.0, 1.0, 1.0), name="long")
     long_uv = box_project_world(long_box, world_units_per_tile=0.25)
     assert validate_uv(long_box, long_uv)["status"] == "pass"
     long_edges = _face_uv_edge_lengths(long_uv)
-    assert abs(unit_edges[0][0] - 4.0) < 1e-9, unit_edges[0]
-    assert abs(long_edges[0][0] - 8.0) < 1e-9, long_edges[0]
-    assert abs(long_edges[0][0] / unit_edges[0][0] - 2.0) < 1e-9
+    assert all(abs(edge - 4.0) < 1e-9 for edge in unit_edges[0]), unit_edges[0]
+    expected_long_face = (4.0, 8.0, 4.0, 8.0)
+    assert all(abs(actual - expected) < 1e-9 for actual, expected in zip(long_edges[0], expected_long_face)), long_edges[0]
+    assert sum(abs(edge - 8.0) < 1e-9 for edge in long_edges[0]) == 2
+    assert sum(abs(edge - 4.0) < 1e-9 for edge in long_edges[0]) == 2
 
     sphere = make_uv_sphere(1.0, segments=16, rings=8)
     sphere_uv = spherical_project(sphere)
@@ -90,9 +94,9 @@ def run() -> None:
         len(world_uv.uvs),
         len(sphere_uv.uvs),
         "translation edge scale preserved",
-        unit_edges[0][0],
+        unit_edges[0],
         "->",
-        long_edges[0][0],
+        long_edges[0],
     )
 
 
