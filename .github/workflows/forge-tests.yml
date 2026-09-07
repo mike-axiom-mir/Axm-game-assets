@@ -16,6 +16,10 @@ jobs:
         run: python forge.py self-test
       - name: Native geometry test
         run: python native_geometry_test.py
+      - name: Native modeling test
+        run: python native_modeling_test.py
+      - name: Native hard-surface test
+        run: python native_hardsurface_test.py
       - name: Native PBR test
         run: python native_pbr_test.py
       - name: Native UV test
@@ -24,12 +28,16 @@ jobs:
         run: python native_gltf_test.py
       - name: Native rigid package test
         run: python native_pipeline_test.py
+      - name: Native detail proof test
+        run: python native_detail_proof_test.py
       - name: Native skin test
         run: python native_skin_test.py
       - name: Native morph test
         run: python native_morph_test.py
       - name: Native animation test
         run: python native_animation_test.py
+      - name: Native character state test
+        run: python native_character_state_test.py
       - name: Native character glTF test
         run: python native_character_gltf_test.py
       - name: Build Sentinel genome
