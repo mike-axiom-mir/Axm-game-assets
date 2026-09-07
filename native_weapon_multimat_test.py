@@ -3,7 +3,12 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from native_weapon_multimat import GROUP_ORDER, build_weapon_multimat_package, component_group
+from native_weapon_multimat import (
+    DEFAULT_WORLD_UNITS_PER_TILE,
+    GROUP_ORDER,
+    build_weapon_multimat_package,
+    component_group,
+)
 
 
 def run() -> None:
@@ -18,6 +23,7 @@ def run() -> None:
         root = Path(tmp)
         package = build_weapon_multimat_package(root, texture_size=16, seed=8801)
         assert all(package["acceptance"].values()), package["acceptance"]
+        assert package["schema"] == "axm.game-assets.weapon-multimat.v0.2"
         assert tuple(package["groups"].keys()) == GROUP_ORDER
         assert package["delivery"]["primitive_count"] == 4
         assert package["delivery"]["material_count"] == 4
@@ -27,6 +33,16 @@ def run() -> None:
         assert package["groups"]["steel"]["component_count"] >= 10
         assert package["groups"]["accessory"]["component_count"] >= 10
         assert package["groups"]["coated"]["component_count"] >= 5
+        assert package["surface_scale"]["world_units_per_tile"] == DEFAULT_WORLD_UNITS_PER_TILE
+        assert package["surface_scale"]["texture_size_px"] == 16
+        assert package["surface_scale"]["nominal_pixels_per_world_unit"] == 16 / DEFAULT_WORLD_UNITS_PER_TILE
+        expected_method = f"box_projection_world:{DEFAULT_WORLD_UNITS_PER_TILE:.9g}"
+        assert all(group["uv"]["method"] == expected_method for group in package["groups"].values())
+        assert all(
+            group["surface_scale"]["world_units_per_tile"] == DEFAULT_WORLD_UNITS_PER_TILE
+            for group in package["groups"].values()
+        )
+        assert package["truth"]["atlas_pack_claim"] is False
         assert (root / "sentinel_rifle_multimat.gltf").exists()
         assert (root / "weapon-multimat.json").exists()
         document = json.loads((root / "sentinel_rifle_multimat.gltf").read_text())
@@ -36,6 +52,8 @@ def run() -> None:
             "NATIVE WEAPON MULTIMAT TEST PASS",
             package["delivery"]["triangles"],
             "triangles",
+            DEFAULT_WORLD_UNITS_PER_TILE,
+            "world units/tile",
             {group: package["groups"][group]["component_count"] for group in GROUP_ORDER},
         )
 
