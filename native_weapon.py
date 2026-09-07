@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""AXM deterministic semantic rifle construction + socket state v0.1."""
+"""AXM deterministic semantic rifle construction + socket state v0.2."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import cos, sin
+from math import cos, sin, sqrt
 
 from native_attachment import Socket
-from native_geometry import Mesh, Vec3, bounds, combine, topology_report, triangulate
+from native_geometry import Mesh, bounds, combine, topology_report, triangulate
 from native_modeling import make_chamfered_box, make_cylinder, place
 
 
@@ -57,36 +57,39 @@ def sentinel_rifle(*, name: str = "sentinel_rifle") -> WeaponAsset:
     components["side_module"] = place(make_chamfered_box(0.105, 0.052, 0.026, 0.007, name="side_module"), x=0.165, y=0.035, z=-0.067)
 
     mesh = combine(components.values(), name=name)
+    half = sqrt(0.5)
     sockets = {
         "primary_grip": Socket("primary_grip", (-0.145, -0.175, 0.0)),
         "support_grip": Socket("support_grip", (0.265, -0.155, 0.0)),
-        "muzzle": Socket("muzzle", (0.875, 0.020, 0.0)),
+        # Weapon geometry points down +X. Rotate socket-local +Z to +X so VFX
+        # and projectile proposal organs inherit an explicit forward direction.
+        "muzzle": Socket("muzzle", (0.875, 0.020, 0.0), (0.0, half, 0.0, half)),
         "magazine": Socket("magazine", (-0.015, -0.305, 0.0)),
         "optic": Socket("optic", (0.015, 0.165, 0.0)),
         "ejection": Socket("ejection", (0.105, 0.045, -0.060)),
     }
-    features = list(components.keys()) + [f"socket:{name}" for name in sockets]
+    features = list(components.keys()) + [f"socket:{socket_name}" for socket_name in sockets]
     return WeaponAsset(name, mesh, components, sockets, features)
 
 
 def validate_weapon(asset: WeaponAsset) -> dict[str, object]:
     failures = []
     component_reports = {}
-    for name, mesh in asset.components.items():
+    for component_name, mesh in asset.components.items():
         report = topology_report(mesh)
-        component_reports[name] = report
+        component_reports[component_name] = report
         if not report["closed_two_manifold_candidate"]:
-            failures.append(f"component {name} is not a closed manifold candidate")
+            failures.append(f"component {component_name} is not a closed manifold candidate")
     required_sockets = {"primary_grip", "support_grip", "muzzle", "magazine"}
     missing = sorted(required_sockets - set(asset.sockets))
     if missing:
         failures.append(f"missing required sockets {missing}")
     lo, hi = bounds(asset.mesh)
     margin = 0.15
-    for name, socket in asset.sockets.items():
+    for socket_name, socket in asset.sockets.items():
         point = socket.position
         if any(point[axis] < lo[axis] - margin or point[axis] > hi[axis] + margin for axis in range(3)):
-            failures.append(f"socket {name} lies implausibly far outside weapon bounds")
+            failures.append(f"socket {socket_name} lies implausibly far outside weapon bounds")
     return {
         "status": "pass" if not failures else "fail",
         "failures": failures,
