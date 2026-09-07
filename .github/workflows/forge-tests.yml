@@ -42,10 +42,16 @@ jobs:
         run: python native_hair_test.py
       - name: Native hair material test
         run: python native_hair_material_test.py
+      - name: Native hair glTF test
+        run: python native_hair_gltf_test.py
+      - name: Native hair proof test
+        run: python native_hair_proof_test.py
       - name: Native cloth test
         run: python native_cloth_test.py
       - name: Native fabric material test
         run: python native_fabric_material_test.py
+      - name: Native cloth proof test
+        run: python native_cloth_proof_test.py
       - name: Native PBR test
         run: python native_pbr_test.py
       - name: Native UV test
