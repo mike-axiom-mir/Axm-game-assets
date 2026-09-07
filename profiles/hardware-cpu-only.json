@@ -1,0 +1,7 @@
+{
+  "id": "cpu-only",
+  "ram_gb": 16,
+  "vram_gb": 0,
+  "offline_only": true,
+  "purpose": "Low-resource degradation profile for planning, auditing and deterministic source processing."
+}
