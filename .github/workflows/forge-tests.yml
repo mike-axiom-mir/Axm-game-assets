@@ -42,6 +42,8 @@ jobs:
         run: python native_hair_test.py
       - name: Native hair material test
         run: python native_hair_material_test.py
+      - name: Native cloth test
+        run: python native_cloth_test.py
       - name: Native PBR test
         run: python native_pbr_test.py
       - name: Native UV test
