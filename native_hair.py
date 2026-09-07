@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AXM native guide-curve and hair-card state v0.2."""
+"""AXM native guide-curve and hair-card state v0.3."""
 from __future__ import annotations
 
 import random
@@ -38,6 +38,10 @@ def _mul(v: Vec3, scalar: float) -> Vec3:
     return v[0] * scalar, v[1] * scalar, v[2] * scalar
 
 
+def _dot(a: Vec3, b: Vec3) -> float:
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
 def _cross(a: Vec3, b: Vec3) -> Vec3:
     return a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]
 
@@ -52,6 +56,20 @@ def _normalize(v: Vec3) -> Vec3:
 def _fallback_side(tangent: Vec3) -> Vec3:
     axis = (0.0, 1.0, 0.0) if abs(tangent[1]) < 0.9 else (1.0, 0.0, 0.0)
     return _normalize(_cross(tangent, axis))
+
+
+def _ensure_outward(direction: Vec3, normal: Vec3, minimum_dot: float = 0.12) -> Vec3:
+    normal = _normalize(normal)
+    direction = _normalize(direction)
+    outward = _dot(direction, normal)
+    if outward >= minimum_dot:
+        return direction
+    tangent = _sub(direction, _mul(normal, outward))
+    tangent_length = sqrt(_dot(tangent, tangent))
+    tangent = _normalize(tangent) if tangent_length > 1e-12 else _fallback_side(normal)
+    # Keep the strand mostly laid over the scalp while guaranteeing its first
+    # motion is not into the head.
+    return _normalize(_add(_mul(tangent, 0.95), _mul(normal, 0.22)))
 
 
 def generate_short_hair(
@@ -84,13 +102,14 @@ def generate_short_hair(
     for guide_index in range(guide_count):
         vertex_index = candidates[guide_index % len(candidates)]
         root = head.vertices[vertex_index]
-        normal = normals[vertex_index]
+        normal = _normalize(normals[vertex_index])
         root = _add(root, _mul(normal, 0.0006))
         flow = _normalize((
             normal[0] * 0.52 + rng.uniform(-0.22, 0.22),
             normal[1] * 0.38 - 0.42 + rng.uniform(-0.10, 0.10),
             normal[2] * 0.35 - 0.28 + rng.uniform(-0.15, 0.12),
         ))
+        flow = _ensure_outward(flow, normal)
         step = length / (segments - 1)
         points = [root]
         position = root
@@ -98,10 +117,12 @@ def generate_short_hair(
         for segment in range(1, segments):
             t = segment / (segments - 1)
             direction = _normalize((direction[0] * 0.95, direction[1] - 0.10 * t, direction[2] - 0.035 * t))
+            if segment == 1:
+                direction = _ensure_outward(direction, normal)
             position = _add(position, _mul(direction, step))
             points.append(position)
         guides.append(HairGuide(points, normal, root_width, tip_width))
-    return HairSystem(guides, seed, "short_cards_v0.2")
+    return HairSystem(guides, seed, "short_cards_v0.3")
 
 
 def guide_to_ribbon(guide: HairGuide, *, name: str = "hair_card") -> Mesh:
@@ -129,7 +150,7 @@ def guide_to_ribbon_with_uv(guide: HairGuide, *, name: str = "hair_card") -> tup
             side = previous_side or _fallback_side(tangent)
         else:
             side = _normalize(side)
-        if previous_side is not None and sum(a * b for a, b in zip(side, previous_side)) < 0.0:
+        if previous_side is not None and _dot(side, previous_side) < 0.0:
             side = _mul(side, -1.0)
         previous_side = side
         t = index / (count - 1)
@@ -137,7 +158,6 @@ def guide_to_ribbon_with_uv(guide: HairGuide, *, name: str = "hair_card") -> tup
         half = width * 0.5
         vertices.append(_add(point, _mul(side, -half)))
         vertices.append(_add(point, _mul(side, half)))
-        # Hair texture runs root->tip along V; U spans card width.
         uvs.append((0.0, t))
         uvs.append((1.0, t))
     faces = []
@@ -178,23 +198,32 @@ def hair_cards_with_uv(system: HairSystem, *, name: str = "hair_cards") -> tuple
 def validate_hair(system: HairSystem) -> dict[str, object]:
     failures = []
     point_counts = []
+    root_outward_dots = []
     for index, guide in enumerate(system.guides):
         point_counts.append(len(guide.points))
         if len(guide.points) < 2:
             failures.append(f"guide {index} has fewer than two points")
+            continue
         if guide.root_width <= 0.0 or guide.tip_width < 0.0 or guide.tip_width > guide.root_width:
             failures.append(f"guide {index} has invalid taper")
         for point in guide.points:
             if not all(isfinite(value) for value in point):
                 failures.append(f"guide {index} contains non-finite point")
+        first_direction = _normalize(_sub(guide.points[1], guide.points[0]))
+        outward = _dot(first_direction, _normalize(guide.root_normal))
+        root_outward_dots.append(outward)
+        if outward <= 0.0:
+            failures.append(f"guide {index} starts into the scalp (dot={outward:.6g})")
     cards, uvmap = hair_cards_with_uv(system) if system.guides else (Mesh("empty", [], []), UVMap([], [], "hair_cards_root_to_tip"))
     return {
         "status": "pass" if not failures else "fail",
         "failures": failures,
         "guides": len(system.guides),
         "point_counts": point_counts,
+        "min_root_outward_dot": min(root_outward_dots, default=0.0),
+        "mean_root_outward_dot": sum(root_outward_dots) / len(root_outward_dots) if root_outward_dots else 0.0,
         "card_vertices": len(cards.vertices),
         "card_faces": len(cards.faces),
         "uvs": len(uvmap.uvs),
-        "truth": "Guide/card/UV state only. Groom aesthetics, alpha sorting, scalp coverage and secondary motion have separate gates.",
+        "truth": "Guide/card/UV state only. Root flow is prevented from entering the scalp; groom aesthetics, alpha sorting, coverage and secondary motion have separate gates.",
     }
