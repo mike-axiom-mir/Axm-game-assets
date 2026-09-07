@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AXM deterministic semantic rifle construction + socket state v0.2."""
+"""AXM deterministic semantic rifle construction + socket state v0.3."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,6 +8,7 @@ from math import cos, sin, sqrt
 from native_attachment import Socket
 from native_geometry import Mesh, bounds, combine, topology_report, triangulate
 from native_modeling import make_chamfered_box, make_cylinder, place
+from native_orientation import winding_report
 
 
 @dataclass(slots=True)
@@ -73,13 +74,21 @@ def sentinel_rifle(*, name: str = "sentinel_rifle") -> WeaponAsset:
 
 
 def validate_weapon(asset: WeaponAsset) -> dict[str, object]:
-    failures = []
-    component_reports = {}
+    failures: list[str] = []
+    component_reports: dict[str, object] = {}
+    winding_reports: dict[str, object] = {}
     for component_name, mesh in asset.components.items():
         report = topology_report(mesh)
         component_reports[component_name] = report
         if not report["closed_two_manifold_candidate"]:
             failures.append(f"component {component_name} is not a closed manifold candidate")
+        winding = winding_report(mesh)
+        winding_reports[component_name] = winding
+        if winding["status"] != "pass":
+            failures.append(
+                f"component {component_name} has unsafe winding classification {winding['classification']}"
+            )
+
     required_sockets = {"primary_grip", "support_grip", "muzzle", "magazine"}
     missing = sorted(required_sockets - set(asset.sockets))
     if missing:
@@ -98,5 +107,6 @@ def validate_weapon(asset: WeaponAsset) -> dict[str, object]:
         "triangles": len(triangulate(asset.mesh).faces),
         "bounds": [list(lo), list(hi)],
         "component_reports": component_reports,
-        "truth": "Semantic procedural rifle fixture. It proves layered geometry/socket state, not final weapon art, ergonomics or ballistics.",
+        "winding_reports": winding_reports,
+        "truth": "Semantic procedural rifle fixture. Closed component shells must also prove outward winding so a valid import cannot hide an inside-out/backface-culling defect. This is still not a production weapon-art or ballistics claim.",
     }
