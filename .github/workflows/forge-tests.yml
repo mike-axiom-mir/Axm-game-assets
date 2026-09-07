@@ -1,0 +1,22 @@
+name: forge-tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  genesis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Self test
+        run: python forge.py self-test
+      - name: Build Sentinel genome
+        run: python forge.py init examples/sentinel-request.json build/sentinel
+      - name: Validate Sentinel genome
+        run: python forge.py audit build/sentinel/genome.json
+      - name: Validate DAG planning
+        run: python forge.py plan recipes/sentinel-character.json
