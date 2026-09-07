@@ -1,0 +1,112 @@
+name: forge-tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  genesis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Self test
+        run: python forge.py self-test
+      - name: Native geometry test
+        run: python native_geometry_test.py
+      - name: Native orientation test
+        run: python native_orientation_test.py
+      - name: Native recess test
+        run: python native_recess_test.py
+      - name: Native modeling test
+        run: python native_modeling_test.py
+      - name: Native hard-surface test
+        run: python native_hardsurface_test.py
+      - name: Native surface test
+        run: python native_surface_test.py
+      - name: Native target test
+        run: python native_targets_test.py
+      - name: Native target authoring test
+        run: python native_target_authoring_test.py
+      - name: Native parametric test
+        run: python native_parametric_test.py
+      - name: Native seed bundle test
+        run: python native_seed_bundle_test.py
+      - name: Native organic proof test
+        run: python native_organic_proof_test.py
+      - name: Native skin material test
+        run: python native_skin_material_test.py
+      - name: Native eye geometry test
+        run: python native_eye_test.py
+      - name: Native eye material test
+        run: python native_eye_material_test.py
+      - name: Native hair geometry test
+        run: python native_hair_test.py
+      - name: Native hair material test
+        run: python native_hair_material_test.py
+      - name: Native hair glTF test
+        run: python native_hair_gltf_test.py
+      - name: Native hair proof test
+        run: python native_hair_proof_test.py
+      - name: Native cloth test
+        run: python native_cloth_test.py
+      - name: Native fabric material test
+        run: python native_fabric_material_test.py
+      - name: Native cloth proof test
+        run: python native_cloth_proof_test.py
+      - name: Native attachment test
+        run: python native_attachment_test.py
+      - name: Native weapon test
+        run: python native_weapon_test.py
+      - name: Native weapon recess variant test
+        run: python native_weapon_recess_variant_test.py
+      - name: Native weapon proof test
+        run: python native_weapon_proof_test.py
+      - name: Native VFX test
+        run: python native_vfx_test.py
+      - name: Native PBR test
+        run: python native_pbr_test.py
+      - name: Native UV test
+        run: python native_uv_test.py
+      - name: Native preview test
+        run: python native_preview_test.py
+      - name: Native visual evidence test
+        run: python native_visual_evidence_test.py
+      - name: Native glTF test
+        run: python native_gltf_test.py
+      - name: Native multi-material glTF test
+        run: python native_multi_gltf_test.py
+      - name: Native weapon multi-material test
+        run: python native_weapon_multimat_test.py
+      - name: Native recessed weapon multi-material test
+        run: python native_weapon_recess_multimat_test.py
+      - name: Native rigid package test
+        run: python native_pipeline_test.py
+      - name: Native detail proof test
+        run: python native_detail_proof_test.py
+      - name: Native skin test
+        run: python native_skin_test.py
+      - name: Native morph test
+        run: python native_morph_test.py
+      - name: Native animation test
+        run: python native_animation_test.py
+      - name: Native facial driver test
+        run: python native_facial_test.py
+      - name: Native character state test
+        run: python native_character_state_test.py
+      - name: Native character glTF test
+        run: python native_character_gltf_test.py
+      - name: Native facial glTF test
+        run: python native_facial_gltf_test.py
+      - name: Native attribute LOD test
+        run: python native_attribute_lod_test.py
+      - name: Native character LOD proof test
+        run: python native_character_lod_proof_test.py
+      - name: Build Sentinel genome
+        run: python forge.py init examples/sentinel-request.json build/sentinel
+      - name: Validate Sentinel genome
+        run: python forge.py audit build/sentinel/genome.json
+      - name: Validate DAG planning
+        run: python forge.py plan recipes/sentinel-character.json

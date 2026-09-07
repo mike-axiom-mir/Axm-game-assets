@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axm.local/schemas/game-asset-genome-0.1.schema.json",
+  "title": "AXM Game Asset Genome",
+  "type": "object",
+  "required": [
+    "genome_version", "asset", "targets", "budgets", "quality",
+    "source_state", "pipeline", "provenance", "genome_digest"
+  ],
+  "properties": {
+    "genome_version": {"const": "0.1.0"},
+    "genome_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "asset": {
+      "type": "object",
+      "required": ["id", "name", "type", "unit_meters"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "type": {"type": "string", "minLength": 1},
+        "unit_meters": {"type": "number", "exclusiveMinimum": 0},
+        "description": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "targets": {"type": "object"},
+    "budgets": {"type": "object"},
+    "quality": {"type": "object"},
+    "variants": {"type": "array"},
+    "source_state": {
+      "type": "object",
+      "required": ["artifacts", "layers", "canonical_stage"],
+      "properties": {
+        "artifacts": {"type": "array"},
+        "layers": {"type": "array"},
+        "canonical_stage": {"type": "string"}
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "required": ["attempts", "status"],
+      "properties": {
+        "attempts": {"type": "array"},
+        "status": {"type": "string"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["created_at", "request_digest", "sources"]
+    }
+  },
+  "additionalProperties": true
+}

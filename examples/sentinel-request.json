@@ -1,0 +1,35 @@
+{
+  "asset": {
+    "id": "sentinel-01",
+    "name": "Sentinel-01",
+    "type": "character",
+    "unit_meters": 1.82,
+    "description": "Biomechanical human soldier proving asset with exposed face, cloth, armor, hair and rifle."
+  },
+  "targets": {
+    "engines": ["godot", "threejs", "unreal"],
+    "delivery": ["glb", "fbx", "usd"],
+    "coordinate_policy": "canonical-right-handed-y-up; adapters convert per engine"
+  },
+  "budgets": {
+    "triangles": {"lod0": 90000, "lod1": 45000, "lod2": 20000, "lod3": 8000},
+    "texture_max_px": 4096,
+    "skin_influences_per_vertex": 4,
+    "animation_fps": 30
+  },
+  "quality": {
+    "pbr_channels": ["base_color", "normal", "roughness", "metallic", "ao", "emissive"],
+    "required_checks": [
+      "silhouette", "proportions", "topology", "uv", "material_response",
+      "rig_deformation", "foot_slide", "weapon_contact", "facial_motion",
+      "clipping", "lod_transition", "engine_import", "performance", "gameplay_capture"
+    ]
+  },
+  "variants": [
+    {"id": "base", "changes": []},
+    {"id": "winter", "changes": ["winter equipment"]},
+    {"id": "wounded-left-arm", "changes": ["left arm injury state"]},
+    {"id": "rts", "changes": ["aggressive distant readability and lower animation/geometry budget"]}
+  ],
+  "sources": []
+}

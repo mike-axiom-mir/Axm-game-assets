@@ -1,0 +1,17 @@
+; AXM Game Asset Forge Godot integration evidence project.
+; This project exists only to exercise generated deliveries in a real engine.
+config_version=5
+
+[application]
+config/name="AXM Game Asset Forge Godot Smoke"
+
+[display]
+window/size/viewport_width=640
+window/size/viewport_height=640
+window/size/window_width_override=640
+window/size/window_height_override=640
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

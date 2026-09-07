@@ -1,0 +1,26 @@
+{
+  "recipe_version": "0.4.0",
+  "id": "sentinel-character-v0",
+  "description": "Default non-sacred DAG for the first difficult character proof. Native gates validate AXM-owned state without taking ownership of neural/generative proposal stages.",
+  "nodes": [
+    {"stage": "intake", "needs": []},
+    {"stage": "art_direction", "needs": ["intake"]},
+    {"stage": "shape", "needs": ["art_direction"], "native_support": "internal-native-parametric-v0.1 + internal-native-targets-v0.1 + optional verified CC0 seed data"},
+    {"stage": "high_detail", "needs": ["shape"], "native_support": "internal-native-surface-v0.1 + internal-native-hardsurface-v0.1", "native_evidence": "internal-native-preview-v0.1 + semantic detail receipts"},
+    {"stage": "retopology", "needs": ["high_detail"], "truth_limit": "Production deformation-aware retopology remains an open capability; native topology tools validate and preserve evidence but do not yet solve final organic retopology."},
+    {"stage": "uv", "needs": ["retopology"], "native_gate": "internal-native-uv-v0.1"},
+    {"stage": "bake", "needs": ["high_detail", "uv"]},
+    {"stage": "materials", "needs": ["bake", "art_direction"], "native_support": "internal-native-pbr-v0.1 + internal-native-skin-material-v0.1 + internal-native-eye-material-v0.1 + native hair/fabric materials"},
+    {"stage": "rig", "needs": ["retopology"], "native_gate": "internal-native-skin-v0.1:skeleton", "truth_limit": "Rig inference remains a replaceable proposal organ; AXM owns validation and deformation truth."},
+    {"stage": "skinning", "needs": ["rig", "retopology"], "native_gate": "internal-native-skin-v0.1:weights+bind_pose+deformation"},
+    {"stage": "animation", "needs": ["skinning"], "native_gate": "internal-native-animation-v0.1:pose+contact_drift + internal-native-attachment-v0.1:two_hand_contact"},
+    {"stage": "secondary_motion", "needs": ["skinning", "materials"], "native_support": "internal-native-cloth-v0.1", "truth_limit": "Cloth motion substrate is real; production garment tailoring/self-collision and hair secondary-motion quality remain open."},
+    {"stage": "facial", "needs": ["skinning", "materials"], "native_gate": "internal-native-morph-v0.1 + internal-native-facial-v0.1 + internal-native-facial-gltf-v0.1", "truth_limit": "Morph-weight runtime delivery and corrective drivers are real; production face fitting, wrinkle semantics, teeth/tongue and final correctives remain open."},
+    {"stage": "vfx", "needs": ["rig", "materials"], "native_support": "internal-native-vfx-v0.1 + weapon muzzle socket state", "truth_limit": "Emitter direction/state is real; final rendered VFX, exposure, smoke/lighting and gameplay timing still require engine evidence."},
+    {"stage": "lod", "needs": ["materials", "skinning"], "native_support": "internal-native-attribute-lod-v0.1 + internal-native-character-lod-proof-v0.1", "truth_limit": "An experimental path carries UV/skin/morph attributes and measures posed deformation loss. Final Sentinel LOD remains blocked until its real mesh passes deformation, material/silhouette retention and engine transition gates."},
+    {"stage": "collision", "needs": ["retopology", "rig"], "native_support": "internal-native-geometry-v0.1:aabb_only", "truth_limit": "AABB state is real; semantic/compound character collision remains incomplete."},
+    {"stage": "engine_pack", "needs": ["animation", "secondary_motion", "facial", "vfx", "lod", "collision"], "native_support": "internal-native-character-gltf-v0.1 + internal-native-facial-gltf-v0.1 + native hair glTF + native rigid/fabric snapshot glTF"},
+    {"stage": "in_game_validation", "needs": ["engine_pack"], "native_support": "Godot 4.7.2 pinned import/instantiation + real viewport render workflow", "truth_limit": "Engine parse/render receipts prove technical acceptance and visible rendered signal; they do not automatically assert aesthetic quality."},
+    {"stage": "canonize", "needs": ["in_game_validation"]}
+  ]
+}

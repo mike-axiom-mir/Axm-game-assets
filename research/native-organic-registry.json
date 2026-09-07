@@ -1,0 +1,99 @@
+{
+  "registry_version": "0.1.0",
+  "captured": "2026-09-07",
+  "scope": "Native organic/parametric detail capabilities added after the genesis registry snapshot.",
+  "rule": "Available means executable and CI-exercised. It does not imply high-end aesthetic quality unless a separate visual/in-engine proof says so.",
+  "capabilities": [
+    {
+      "id": "internal-native-surface-v0.1",
+      "status": "available",
+      "capabilities": ["subdivision", "surface_smoothing", "localized_deformation", "micro_displacement", "multires_validation"],
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "truth": "Owns multires geometry operations, not anatomy knowledge or sculpt artistry."
+    },
+    {
+      "id": "internal-native-targets-v0.1",
+      "status": "available",
+      "capabilities": ["sparse_target_parse", "target_validation", "target_blending", "target_composition", "target_lineage", "morph_conversion"],
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "truth": "Generic fixed-topology sparse delta engine; MakeHuman-compatible .target text is one supported representation."
+    },
+    {
+      "id": "internal-native-target-authoring-v0.1",
+      "status": "available",
+      "capabilities": ["target_authoring", "semantic_region_deform", "normal_push_target", "injury_variant_authoring"],
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "truth": "Authors reusable target deltas from spatial masks. Semantic/anatomical quality still depends on region design and evidence."
+    },
+    {
+      "id": "internal-native-parametric-v0.1",
+      "status": "available",
+      "capabilities": ["parametric_identity", "variant_state", "topology_digest", "geometry_digest", "exact_reconstruction", "target_digest_lock"],
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "truth": "Variant identity is seed mesh + exact target state, not a destructive regenerated mesh."
+    },
+    {
+      "id": "internal-native-seed-bundle-v0.1",
+      "status": "available",
+      "capabilities": ["seed_import", "source_hashing", "basemesh_compatibility", "license_evidence_preservation", "reconstruction_receipt"],
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "truth": "Preserves declared license/source evidence but does not perform legal verification."
+    },
+    {
+      "id": "internal-native-organic-proof-v0.1",
+      "status": "available",
+      "capabilities": ["parametric_head_fixture", "target_to_multires", "organic_diagnostic_evidence"],
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "truth": "Mechanism proof only. Explicitly not an anatomical or high-end face claim."
+    },
+    {
+      "id": "internal-native-skin-material-v0.1",
+      "status": "available",
+      "capabilities": ["skin_base_color", "skin_roughness", "pore_height", "skin_normal", "skin_ao", "subsurface_mask", "thickness_proxy", "orm", "openpbr_skin_state"],
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "truth": "Deterministic authored CG skin, not measured tissue or scan data."
+    },
+    {
+      "id": "internal-native-eye-v0.1",
+      "status": "available",
+      "capabilities": ["layered_eye_geometry", "sclera", "iris", "pupil", "cornea"],
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "truth": "Preserves optical components as distinct geometry. Eyelid/socket integration is not solved yet."
+    },
+    {
+      "id": "internal-native-eye-material-v0.1",
+      "status": "available",
+      "capabilities": ["iris_filaments", "iris_normal", "sclera_variation", "sclera_veins", "cornea_transmission_state"],
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "truth": "Procedural authored eye appearance; optical hints are renderer starting points, not measurements."
+    },
+    {
+      "id": "makehuman-hm08-cc0-seed-reference",
+      "status": "optional_seed_data",
+      "capabilities": ["human_base_topology", "human_sparse_targets"],
+      "local": true,
+      "network_required": false,
+      "license": "CC0-1.0 for inspected base mesh/target assets; MakeHuman application code is AGPL-3.0",
+      "source": "https://github.com/makehumancommunity/makehuman",
+      "truth": "Use explicitly verified CC0 assets as optional seed data. Do not make MakeHuman application code a Forge dependency. See research/MAKEHUMAN_CC0_SEED.md."
+    }
+  ]
+}

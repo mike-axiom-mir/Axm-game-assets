@@ -1,0 +1,208 @@
+name: godot-recess-smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  godot-recess:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Generate recessed four-material Sentinel rifle
+        run: |
+          rm -rf engine/godot_smoke/generated
+          mkdir -p engine/godot_smoke/generated
+          python - <<'PY'
+          from native_weapon_recess_multimat import build_recessed_weapon_multimat_package
+          package = build_recessed_weapon_multimat_package(
+              "engine/godot_smoke/generated",
+              texture_size=128,
+              seed=8801,
+          )
+          assert all(package["acceptance"].values()), package["acceptance"]
+          assert package["delivery"]["primitive_count"] == 4
+          assert package["delivery"]["material_count"] == 4
+          assert package["truth"]["preferred_route_claim"] is False
+          assert package["recess_state"]["inset_clearance"] > 0.010
+          print("FORGE RECESSED FIXTURE PASS", package["delivery"])
+          PY
+          cp \
+            engine/godot_smoke/generated/sentinel_rifle_recessed_multimat.gltf \
+            engine/godot_smoke/generated/sentinel_rifle.gltf
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" --output .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Parse recessed four-material glTF in Godot
+        run: |
+          rm -f engine/godot_smoke/godot-receipt.json
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --headless \
+            --path engine/godot_smoke \
+            --script smoke.gd
+          test -f engine/godot_smoke/godot-receipt.json
+          cat engine/godot_smoke/godot-receipt.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_smoke/godot-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert receipt["mesh_instances"] >= 1, receipt
+          assert receipt["surfaces"] == 4, receipt
+          assert receipt["material_surfaces"] == 4, receipt
+          assert len(receipt["declared_external_images"]) == 12, receipt
+          assert receipt["vertices"] > 0 and receipt["indices"] > 0, receipt
+          print("GODOT RECESSED IMPORT PASS", receipt)
+          PY
+
+      - name: Render recessed close-inspection view set
+        run: |
+          rm -f \
+            engine/godot_smoke/godot-multiview-receipt.json \
+            engine/godot_smoke/godot-view-hero.png \
+            engine/godot_smoke/godot-view-side.png \
+            engine/godot_smoke/godot-view-receiver_close.png \
+            engine/godot_smoke/visual-capture-recess-hero.json \
+            engine/godot_smoke/visual-capture-recess-side.json \
+            engine/godot_smoke/visual-capture-recess-receiver_close.json \
+            engine/godot_smoke/visual-capture-recess-viewset.json
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --display-driver x11 \
+            --rendering-method gl_compatibility \
+            --path engine/godot_smoke \
+            --script render_views.gd
+          test -f engine/godot_smoke/godot-multiview-receipt.json
+          for view in hero side receiver_close; do
+            test -s "engine/godot_smoke/godot-view-${view}.png"
+          done
+          cat engine/godot_smoke/godot-multiview-receipt.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_smoke/godot-multiview-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert receipt["view_count"] == 3, receipt
+          names = [view["name"] for view in receipt["views"]]
+          assert names == ["hero", "side", "receiver_close"], names
+          for view in receipt["views"]:
+              metrics = view["metrics"]
+              assert metrics["width"] == 640 and metrics["height"] == 640, view
+              assert metrics["png_bytes"] > 1000, view
+              assert metrics["foreground_coverage"] >= view["minimum_foreground_coverage"], view
+              assert metrics["luma_range"] >= 0.10, view
+          print("GODOT RECESSED MULTIVIEW PASS", [(v["name"], v["metrics"]["foreground_coverage"]) for v in receipt["views"]])
+          PY
+
+      - name: Bind recessed views to deterministic capture packets
+        env:
+          GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from native_visual_evidence import build_capture_packet, validate_capture_packet, write_capture_packet
+
+          root = Path("engine/godot_smoke")
+          receipt = json.loads((root / "godot-multiview-receipt.json").read_text())
+          package_path = root / "generated" / "weapon-recess-multimat.json"
+          package = json.loads(package_path.read_text())
+          package_digest = "sha256:" + hashlib.sha256(package_path.read_bytes()).hexdigest()
+          bundle = {
+              "schema": "axm.game-assets.visual-capture-recess-viewset.v0.1",
+              "authority": "deterministic_capture_evidence_only",
+              "variant": package["variant"],
+              "asset_digest": package["delivery"]["gltf_sha256"],
+              "control_route": "preferred_nonrecessed_multimat_remains_unchanged",
+              "views": [],
+          }
+          for view in receipt["views"]:
+              name = view["name"]
+              png_path = root / f"godot-view-{name}.png"
+              png = png_path.read_bytes()
+              metrics = view["metrics"]
+              packet = build_capture_packet(
+                  png,
+                  asset_digest=package["delivery"]["gltf_sha256"],
+                  engine={
+                      "name": "Godot",
+                      "version": receipt["godot_version"],
+                      "pinned_archive_sha256": os.environ["GODOT_ARCHIVE_SHA256"],
+                  },
+                  camera=view["camera"],
+                  render_settings={
+                      "renderer": "gl_compatibility",
+                      "view_name": name,
+                      "world_bounds": receipt["world_bounds"],
+                      "material_names": package["delivery"]["material_names"],
+                      "primitive_count": package["delivery"]["primitive_count"],
+                      "variant": package["variant"],
+                      "recess_state": package["recess_state"],
+                      "background_sample": metrics["background_sample"],
+                  },
+                  metrics={
+                      "foreground_coverage": metrics["foreground_coverage"],
+                      "luma_min": metrics["luma_min"],
+                      "luma_max": metrics["luma_max"],
+                      "luma_mean": metrics["luma_mean"],
+                      "luma_range": metrics["luma_range"],
+                  },
+                  source_receipts=[package_digest],
+              )
+              validation = validate_capture_packet(packet, png)
+              assert validation["status"] == "pass", (name, validation)
+              packet_path = root / f"visual-capture-recess-{name}.json"
+              write_capture_packet(packet_path, packet)
+              bundle["views"].append({
+                  "name": name,
+                  "png": png_path.name,
+                  "capture_packet": packet_path.name,
+                  "capture_digest": packet["capture_digest"],
+                  "image_sha256": packet["image"]["sha256"],
+              })
+          payload = (json.dumps(bundle, indent=2, sort_keys=True) + "\n").encode()
+          bundle["viewset_digest"] = "sha256:" + hashlib.sha256(payload).hexdigest()
+          (root / "visual-capture-recess-viewset.json").write_text(json.dumps(bundle, indent=2, sort_keys=True) + "\n")
+          print("RECESSED VIEWSET CAPTURE PASS", bundle["viewset_digest"])
+          PY
+
+      - name: Preserve recessed engine evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-recess-evidence
+          if-no-files-found: warn
+          path: |
+            engine/godot_smoke/godot-receipt.json
+            engine/godot_smoke/godot-multiview-receipt.json
+            engine/godot_smoke/godot-view-hero.png
+            engine/godot_smoke/godot-view-side.png
+            engine/godot_smoke/godot-view-receiver_close.png
+            engine/godot_smoke/visual-capture-recess-hero.json
+            engine/godot_smoke/visual-capture-recess-side.json
+            engine/godot_smoke/visual-capture-recess-receiver_close.json
+            engine/godot_smoke/visual-capture-recess-viewset.json
+            engine/godot_smoke/generated/weapon-recess-multimat.json
+            engine/godot_smoke/generated/sentinel_rifle_recessed_multimat.gltf

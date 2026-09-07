@@ -1,0 +1,280 @@
+{
+  "registry_version": "0.3.0",
+  "captured": "2026-09-07",
+  "rule": "Mechanisms are studied independently from vendor lock-in. An adapter record is not a claim that the dependency is installed or legally usable everywhere. AXM-native capabilities are preferred where they are truthful and sufficient.",
+  "adapters": [
+    {
+      "id": "internal-manifest",
+      "capabilities": ["manifest", "provenance", "recipe_planning"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code"
+    },
+    {
+      "id": "internal-native-geometry-v0.1",
+      "capabilities": ["geometry_generation", "mesh_processing", "mesh_simplification", "normal_generation", "topology_validation", "collision_generation", "obj_interchange"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Dependency-free primitives, transforms, triangulation, normals, topology checks, AABB collision, OBJ I/O and coarse deterministic vertex-cluster LOD. Current LOD fallback does not preserve UV seams, skin weights, morphs, hard-edge metadata, or material boundaries."
+    },
+    {
+      "id": "internal-native-modeling-v0.1",
+      "capabilities": ["geometry_generation", "constructive_modeling", "profile_extrusion", "hard_surface_detail"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Dependency-free profile extrusion, chamfered profiles, cylinders and deterministic placement used by the Sentinel armor semantic-detail proof."
+    },
+    {
+      "id": "internal-native-hardsurface-v0.1",
+      "capabilities": ["geometry_generation", "hard_surface_detail", "detail_progression"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Sentinel armor component detail-source progression grows coherent semantic structure from 28 to 732 triangles without random subdivision. This is not a complete hard-surface DCC replacement."
+    },
+    {
+      "id": "internal-native-pbr-v0.1",
+      "capabilities": ["pbr_authoring", "surface_detail", "normal_generation", "engine_texture_packing"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Deterministic painted-metal micro-surface with base color, roughness, metallic, height, normal, AO and ORM packing. Procedural authored material, not a measured scan."
+    },
+    {
+      "id": "internal-native-uv-v0.1",
+      "capabilities": ["uv_unwrap", "uv_validation", "obj_interchange"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Box and spherical projection with explicit face-corner seam state plus UV-aware OBJ round-trip. Not yet a general chart optimizer/atlas packer."
+    },
+    {
+      "id": "internal-native-gltf-v0.1",
+      "capabilities": ["engine_export", "runtime_delivery", "gltf_compile", "tangent_generation"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Dependency-free rigid glTF 2.0 compiler with POSITION/NORMAL/TEXCOORD_0/TANGENT, indices, base-color, normal and ORM bindings. Rigid path has no skeleton, morph targets or animation because those are handled by the native character compiler."
+    },
+    {
+      "id": "internal-native-skin-v0.1",
+      "capabilities": ["skeleton_state", "skinning", "skin_weight_validation", "inverse_bind_matrices", "deformation_validation"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Validates hierarchy cycles, joint transforms, four-slot weights, joint range and weight sums; computes inverse bind matrices and CPU linear-blend deformation for evidence. It validates/proves rig state but does not yet infer production rigs."
+    },
+    {
+      "id": "internal-native-morph-v0.1",
+      "capabilities": ["morph_state", "blendshape_state", "morph_validation"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Preserves named position/normal delta targets, validates counts and finite data, and applies deterministic morph mixes."
+    },
+    {
+      "id": "internal-native-animation-v0.1",
+      "capabilities": ["animation_state", "pose_sampling", "skeletal_animation", "contact_drift", "animation_validation"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Validates/samples local TRS skeletal tracks and measures designated contact-vertex drift. Contact drift is an evidence primitive, not a claim that foot sliding or weapon contact is fully solved."
+    },
+    {
+      "id": "internal-native-character-state-v0.1",
+      "capabilities": ["character_state", "rig_adapter_contract", "character_validation", "contact_validation"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Machine-readable packet for skeleton, skin weights, morphs, animation and contact constraints. Intended as the boundary neural rig/animation proposal organs must satisfy."
+    },
+    {
+      "id": "internal-native-character-gltf-v0.1",
+      "capabilities": ["engine_export", "runtime_delivery", "skeleton_interchange", "blendshape_interchange", "skeletal_animation_export", "gltf_compile"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "Dependency-free structural character glTF compiler with JOINTS_0/WEIGHTS_0, tangents, skin hierarchy, inverse bind matrices, named morph targets and skeletal animation channels. No claim of production rig inference, correctives or engine deformation quality."
+    },
+    {
+      "id": "internal-native-detail-proof-v0.1",
+      "capabilities": ["detail_progression", "pbr_authoring", "uv_unwrap", "engine_export", "evidence"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "AXM code",
+      "notes": "End-to-end Sentinel rigid armor component proof: semantic geometry detail levels plus PBR/ORM, UV and glTF delivery. Higher detail levels are source-detail progression, not runtime LODs."
+    },
+    {
+      "id": "blender-4.5-lts",
+      "capabilities": ["geometry_generation", "sculpt_or_detail", "retopology", "uv_unwrap", "texture_bake", "pbr_authoring", "rigging", "skinning", "simulation", "facial_rigging", "vfx", "mesh_simplification", "collision_generation", "engine_export", "engine_capture"],
+      "status": "available_if_installed",
+      "local": true,
+      "network_required": false,
+      "license": "GPL-3.0-or-later",
+      "source": "https://docs.blender.org/manual/en/4.5/",
+      "notes": "Optional accelerator/reference bridge, not canonical Forge state."
+    },
+    {
+      "id": "trellis2",
+      "capabilities": ["geometry_generation", "pbr_authoring", "uv_unwrap", "mesh_simplification"],
+      "status": "research_only",
+      "local": true,
+      "network_required": false,
+      "min_vram_gb": 24,
+      "license": "MIT core; dependency licenses require separate review",
+      "source": "https://github.com/microsoft/TRELLIS.2",
+      "notes": "High-fidelity image-to-3D, O-Voxel structured representation, complex topology and full PBR. Upstream benchmark uses H100."
+    },
+    {
+      "id": "hunyuan3d-2.1",
+      "capabilities": ["geometry_generation", "pbr_authoring"],
+      "status": "research_only",
+      "local": true,
+      "network_required": false,
+      "min_vram_gb": 29,
+      "blocked_jurisdictions": ["EU", "UK", "KR"],
+      "license": "Tencent Hunyuan 3D 2.1 Community License",
+      "source": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1",
+      "notes": "Useful shape/PBR architecture reference. Published license says the agreement does not apply in EU/UK/South Korea, so it is not an assumed AXM dependency there."
+    },
+    {
+      "id": "stable-fast-3d",
+      "capabilities": ["geometry_generation", "uv_unwrap", "pbr_authoring"],
+      "status": "research_only",
+      "local": true,
+      "network_required": false,
+      "license": "verify code/model terms before integration",
+      "source": "https://github.com/Stability-AI/stable-fast-3d"
+    },
+    {
+      "id": "xatlas",
+      "capabilities": ["uv_unwrap"],
+      "status": "available_if_installed",
+      "local": true,
+      "network_required": false,
+      "license": "MIT",
+      "source": "https://github.com/jpcy/xatlas"
+    },
+    {
+      "id": "meshoptimizer",
+      "capabilities": ["mesh_simplification", "mesh_optimization", "tangent_generation"],
+      "status": "available_if_installed",
+      "local": true,
+      "network_required": false,
+      "license": "MIT",
+      "source": "https://github.com/zeux/meshoptimizer"
+    },
+    {
+      "id": "skintokens",
+      "capabilities": ["rigging", "skinning"],
+      "status": "research_only",
+      "local": true,
+      "network_required": false,
+      "min_vram_gb": 8,
+      "license": "verify repository/model terms before integration",
+      "source": "https://github.com/VAST-AI-Research/SkinTokens",
+      "notes": "Unified autoregressive skeleton + skin-weight representation; successor to UniRig. Intended future proposal adapter must emit AXM character state and pass native deformation gates."
+    },
+    {
+      "id": "unirig",
+      "capabilities": ["rigging", "skinning"],
+      "status": "research_only",
+      "local": true,
+      "network_required": false,
+      "min_vram_gb": 8,
+      "license": "verify repository/model/dataset terms before integration",
+      "source": "https://github.com/VAST-AI-Research/UniRig"
+    },
+    {
+      "id": "riganything",
+      "capabilities": ["rigging", "skinning"],
+      "status": "research_only",
+      "local": true,
+      "network_required": false,
+      "license": "verify repository/model terms before integration",
+      "source": "https://github.com/Isabella98Liu/RigAnything"
+    },
+    {
+      "id": "openusd",
+      "capabilities": ["source_composition", "skeleton_interchange", "blendshape_interchange", "variants"],
+      "status": "available_if_installed",
+      "local": true,
+      "network_required": false,
+      "license": "Apache-2.0",
+      "source": "https://openusd.org/"
+    },
+    {
+      "id": "materialx",
+      "capabilities": ["material_interchange", "pbr_authoring"],
+      "status": "available_if_installed",
+      "local": true,
+      "network_required": false,
+      "license": "Apache-2.0",
+      "source": "https://materialx.org/"
+    },
+    {
+      "id": "gltf-2.0",
+      "capabilities": ["engine_export", "runtime_delivery"],
+      "status": "available",
+      "local": true,
+      "network_required": false,
+      "license": "open standard",
+      "source": "https://registry.khronos.org/glTF/"
+    },
+    {
+      "id": "metahuman-reference",
+      "capabilities": ["facial_rigging", "skinning", "engine_capture"],
+      "status": "research_only",
+      "local": false,
+      "network_required": true,
+      "license": "Epic terms",
+      "source": "https://dev.epicgames.com/documentation/metahuman/",
+      "notes": "Study topology fitting, correctives, facial solving and LOD-specific feature control. Do not make the backend canonical."
+    },
+    {
+      "id": "character-creator-reference",
+      "capabilities": ["character_system", "rigging", "skinning", "facial_rigging", "secondary_motion", "engine_export"],
+      "status": "research_only",
+      "local": false,
+      "network_required": false,
+      "license": "proprietary",
+      "source": "https://manual.reallusion.com/Character-Creator-5/",
+      "notes": "Study HD morph/subdivision, wrinkles, digital-human shaders, hair/cloth, retargeting and LOD deployment."
+    },
+    {
+      "id": "houdini-kinefx-reference",
+      "capabilities": ["procedural_rigging", "motion", "retargeting", "simulation"],
+      "status": "research_only",
+      "local": false,
+      "network_required": false,
+      "license": "proprietary application; SideFX Labs is open-source",
+      "source": "https://www.sidefx.com/docs/houdini/character/kinefx/",
+      "notes": "Study non-destructive geometry-level rig/animation graphs."
+    },
+    {
+      "id": "simplygon-reference",
+      "capabilities": ["mesh_simplification", "material_bake", "impostor"],
+      "status": "research_only",
+      "local": false,
+      "network_required": false,
+      "license": "proprietary",
+      "source": "https://documentation.simplygon.com/",
+      "notes": "Study reduction/remesh + mapping image + material casting and impostor patterns."
+    }
+  ]
+}
