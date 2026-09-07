@@ -23,7 +23,7 @@ def run() -> None:
         root = Path(tmp)
         package = build_weapon_multimat_package(root, texture_size=16, seed=8801)
         assert all(package["acceptance"].values()), package["acceptance"]
-        assert package["schema"] == "axm.game-assets.weapon-multimat.v0.2"
+        assert package["schema"] == "axm.game-assets.weapon-multimat.v0.3"
         assert tuple(package["groups"].keys()) == GROUP_ORDER
         assert package["delivery"]["primitive_count"] == 4
         assert package["delivery"]["material_count"] == 4
@@ -42,6 +42,12 @@ def run() -> None:
             group["surface_scale"]["world_units_per_tile"] == DEFAULT_WORLD_UNITS_PER_TILE
             for group in package["groups"].values()
         )
+        assert package["groups"]["coated"]["material"]["spec"]["normal_strength"] == 1.15
+        assert package["groups"]["polymer"]["material"]["spec"]["normal_strength"] == 0.60
+        assert package["groups"]["polymer"]["material"]["spec"]["height_pit_depth"] == 0.0
+        assert package["groups"]["polymer"]["material"]["spec"]["pit_wear_strength"] == 0.0
+        assert package["groups"]["steel"]["material"]["spec"]["normal_strength"] == 0.90
+        assert package["groups"]["accessory"]["material"]["spec"]["normal_strength"] == 0.72
         assert package["truth"]["atlas_pack_claim"] is False
         assert (root / "sentinel_rifle_multimat.gltf").exists()
         assert (root / "weapon-multimat.json").exists()
@@ -54,7 +60,8 @@ def run() -> None:
             "triangles",
             DEFAULT_WORLD_UNITS_PER_TILE,
             "world units/tile",
-            {group: package["groups"][group]["component_count"] for group in GROUP_ORDER},
+            "normal strengths",
+            {group: package["groups"][group]["material"]["spec"]["normal_strength"] for group in GROUP_ORDER},
         )
 
 
