@@ -43,13 +43,16 @@ def run() -> None:
     assert bounds(deeper) == (lo, hi)
     assert deeper.vertices != mesh.vertices
 
+    # 0.49 inside a 0.50 shell is still mathematically valid and leaves a
+    # 5 mm border on each side. The rejection fixture must actually touch/cross
+    # the outer boundary rather than encode an unstated aesthetic minimum.
     rejected = False
     try:
         make_recessed_box(
             0.50,
             0.155,
             0.105,
-            recess_width=0.49,
+            recess_width=0.50,
             recess_height=0.10,
             recess_depth=0.018,
         )
