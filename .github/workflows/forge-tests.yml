@@ -26,6 +26,8 @@ jobs:
         run: python native_targets_test.py
       - name: Native parametric test
         run: python native_parametric_test.py
+      - name: Native seed bundle test
+        run: python native_seed_bundle_test.py
       - name: Native PBR test
         run: python native_pbr_test.py
       - name: Native UV test
