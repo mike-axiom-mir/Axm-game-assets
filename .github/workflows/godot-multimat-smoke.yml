@@ -23,7 +23,7 @@ jobs:
           from native_weapon_multimat import build_weapon_multimat_package
           package = build_weapon_multimat_package(
               "engine/godot_smoke/generated",
-              texture_size=32,
+              texture_size=128,
               seed=8801,
           )
           assert all(package["acceptance"].values()), package["acceptance"]
