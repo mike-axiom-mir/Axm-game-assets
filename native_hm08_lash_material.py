@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Deterministic upper-eyelash micro-ribbon material.
 
-Each lash is already represented by its own tapered card, so the texture should
-not contain a sparse bundle of many unrelated fibers. It supplies one soft dark
-filament envelope across the card width and fades along the tip, preserving
-subpixel coverage under alpha blending.
+Each lash is represented by its own tapered card. v0.2 darkens and densifies
+the single-filament envelope after v0.1 real-engine evidence showed that partial
+alpha over skin read reddish and too faint. Geometry fit remains a separate gate.
 """
 from __future__ import annotations
 
@@ -16,15 +15,15 @@ from pathlib import Path
 
 from native_pbr import fbm, png_bytes
 
-SCHEMA = "axm.game-assets.lash-ribbon-material.v0.1"
+SCHEMA = "axm.game-assets.lash-ribbon-material.v0.2"
 
 
 @dataclass(frozen=True, slots=True)
 class LashMaterialSpec:
-    root_rgb: tuple[int, int, int] = (17, 12, 10)
-    tip_rgb: tuple[int, int, int] = (29, 20, 16)
-    density: float = 0.78
-    roughness: float = 0.54
+    root_rgb: tuple[int, int, int] = (8, 6, 5)
+    tip_rgb: tuple[int, int, int] = (18, 12, 10)
+    density: float = 0.95
+    roughness: float = 0.52
 
 
 def _clamp01(value: float) -> float:
@@ -60,15 +59,15 @@ def lash_ribbon_fields(
 
     for y in range(size):
         v = (y + 0.5) / size
-        root_fade = _clamp01(v / 0.035)
-        tip_fade = _clamp01((1.0 - v) / 0.24) ** 0.82
+        root_fade = _clamp01(v / 0.028)
+        tip_fade = _clamp01((1.0 - v) / 0.22) ** 0.78
         length_envelope = root_fade * tip_fade
         for x in range(size):
             u = (x + 0.5) / size
-            # One soft tapered filament. A broad center survives minification;
-            # the outer edge still reaches zero so the ribbon boundary is hidden.
-            across = max(0.0, math.sin(math.pi * u)) ** 1.55
-            grain = 0.94 + (fbm(u * 9.0, v * 16.0, seed + 1711, octaves=2) - 0.5) * 0.10
+            # Slightly broader than v0.1 so a ~0.5 mm card survives close-view
+            # minification while still reaching transparent edges.
+            across = max(0.0, math.sin(math.pi * u)) ** 1.28
+            grain = 0.96 + (fbm(u * 8.0, v * 15.0, seed + 1711, octaves=2) - 0.5) * 0.08
             alpha = _clamp01(spec.density * across * length_envelope * grain)
             total_alpha += alpha
             maximum_alpha = max(maximum_alpha, alpha)
@@ -76,13 +75,13 @@ def lash_ribbon_fields(
             above_035 += int(alpha >= 0.35)
 
             color_noise = fbm(u * 7.0, v * 13.0, seed + 3721, octaves=2)
-            t = _clamp01(v * 0.72 + (color_noise - 0.5) * 0.07)
+            t = _clamp01(v * 0.68 + (color_noise - 0.5) * 0.06)
             r = spec.root_rgb[0] * (1.0 - t) + spec.tip_rgb[0] * t
             g = spec.root_rgb[1] * (1.0 - t) + spec.tip_rgb[1] * t
             b = spec.root_rgb[2] * (1.0 - t) + spec.tip_rgb[2] * t
             rgba.extend((round(r), round(g), round(b), _u8(alpha)))
             alpha_map.append(_u8(alpha))
-            local_rough = _clamp01(spec.roughness + (color_noise - 0.5) * 0.06)
+            local_rough = _clamp01(spec.roughness + (color_noise - 0.5) * 0.05)
             rough_byte = _u8(local_rough)
             rough.append(rough_byte)
             orm.extend((255, rough_byte, 0))
@@ -129,9 +128,10 @@ def write_lash_material(
             "physically_measured": False,
             "deterministic": True,
             "preferred_lash_claim": False,
+            "v0_1_visual_repair": "darker_broader_higher_alpha_filament",
             "notes": [
-                "One micro-ribbon represents one authored lash guide, so the alpha field contains one soft filament rather than a scalp-hair bundle.",
-                "Root fit and visible eyelid contact require separate geometry and Godot evidence gates.",
+                "v0.2 increases dark filament coverage after v0.1 alpha-over-skin read too faint/reddish in Godot.",
+                "One micro-ribbon still represents one authored lash guide; root fit and final aesthetics remain separate gates."
             ],
         },
     }

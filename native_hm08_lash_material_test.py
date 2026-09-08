@@ -6,21 +6,21 @@ from native_hm08_lash_material import LashMaterialSpec, lash_ribbon_fields, writ
 
 
 def run() -> None:
-    spec = LashMaterialSpec(root_rgb=(17, 12, 10), tip_rgb=(29, 20, 16), density=0.78, roughness=0.54)
+    spec = LashMaterialSpec(root_rgb=(8, 6, 5), tip_rgb=(18, 12, 10), density=0.95, roughness=0.52)
     first_fields, first_evidence = lash_ribbon_fields(64, 62081, spec)
     second_fields, second_evidence = lash_ribbon_fields(64, 62081, spec)
     assert first_fields == second_fields
     assert first_evidence == second_evidence
-    assert first_evidence["mean_alpha"] > 0.20, first_evidence
-    assert first_evidence["max_alpha"] > 0.60, first_evidence
-    assert first_evidence["fraction_alpha_ge_0_10"] > 0.55, first_evidence
-    assert first_evidence["fraction_alpha_ge_0_35"] > 0.30, first_evidence
+    assert first_evidence["mean_alpha"] > 0.30, first_evidence
+    assert first_evidence["max_alpha"] > 0.85, first_evidence
+    assert first_evidence["fraction_alpha_ge_0_10"] > 0.70, first_evidence
+    assert first_evidence["fraction_alpha_ge_0_35"] > 0.50, first_evidence
 
     with TemporaryDirectory() as tmp:
         root = Path(tmp)
         first = write_lash_material(root / "a", size=64, seed=62081, spec=spec)
         second = write_lash_material(root / "b", size=64, seed=62081, spec=spec)
-        assert first["schema"] == "axm.game-assets.lash-ribbon-material.v0.1"
+        assert first["schema"] == "axm.game-assets.lash-ribbon-material.v0.2"
         assert first["coverage_evidence"] == second["coverage_evidence"]
         assert {name: item["sha256"] for name, item in first["maps"].items()} == {
             name: item["sha256"] for name, item in second["maps"].items()
@@ -28,6 +28,7 @@ def run() -> None:
         assert first["renderer_hints"]["alpha_mode"] == "BLEND"
         assert first["renderer_hints"]["metalness"] == 0.0
         assert first["truth"]["preferred_lash_claim"] is False
+        assert first["truth"]["v0_1_visual_repair"] == "darker_broader_higher_alpha_filament"
         print("HM08 LASH MATERIAL TEST PASS", first["coverage_evidence"])
 
 

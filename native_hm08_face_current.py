@@ -7,8 +7,8 @@ Current preferred substrate:
 - source-grounded layered eyes
 - promoted brow v0.3 geometry + dedicated density material
 
-v0.4 adds source-grounded upper-lash micro-ribbons as the only new visual
-layer. This moving candidate assembler does not rewrite the underlying organs.
+v0.5 evaluates upper-lash v0.2. v0.1 was structurally valid but real Godot
+evidence showed the roots too high, growth too vertical and alpha too faint.
 """
 from __future__ import annotations
 
@@ -29,8 +29,8 @@ from native_targets import load_target, mix_targets
 from native_geometry import scale
 from native_uv import read_obj_uv, validate_uv
 
-SCHEMA = "axm.game-assets.hm08-face-current.v0.4"
-ASSET_NAME = "sentinel_hm08_face_current_v0_4"
+SCHEMA = "axm.game-assets.hm08-face-current.v0.5"
+ASSET_NAME = "sentinel_hm08_face_current_v0_5"
 
 
 def _sha(data: bytes) -> str:
@@ -92,8 +92,6 @@ def build_current_face_package(
         for layer in ("sclera", "iris", "pupil", "cornea")
     }
 
-    # Brow route was promoted after v0.3 real Godot evidence. Keep its geometry
-    # and density material fixed while upper lashes are evaluated.
     brows = generate_hm08_brows(
         head_m,
         landmarks_raw=landmarks,
@@ -119,10 +117,10 @@ def build_current_face_package(
     )
     lash_root = root / "textures" / "lashes"
     lash_spec = LashMaterialSpec(
-        root_rgb=(17, 12, 10),
-        tip_rgb=(29, 20, 16),
-        density=0.78,
-        roughness=0.54,
+        root_rgb=(8, 6, 5),
+        tip_rgb=(18, 12, 10),
+        density=0.95,
+        roughness=0.52,
     )
     lash_material = write_lash_material(lash_root, size=texture_size, seed=lash_seed, spec=lash_spec)
     lash_flat_normal_sha = _write_flat_normal(lash_root / "normal.png", texture_size)
@@ -185,7 +183,7 @@ def build_current_face_package(
         ),
         MaterialPrimitive(
             lashes.cards, lashes.uvmap,
-            "AXM_Sentinel_Upper_Lashes_v0_1",
+            "AXM_Sentinel_Upper_Lashes_v0_2",
             "textures/lashes/base_color_alpha.png",
             "textures/lashes/normal.png",
             "textures/lashes/orm.png",
@@ -211,11 +209,11 @@ def build_current_face_package(
         "source_grounded_eye_layers_valid": left_eye_report["status"] == "pass" and right_eye_report["status"] == "pass",
         "preferred_brow_geometry_valid": brows.evidence["truth"]["preferred_geometry_route"] is True and brows.evidence["hair_validation"]["status"] == "pass",
         "preferred_brow_density_valid": brow_coverage["mean_alpha"] > 0.20 and brow_coverage["fraction_alpha_ge_0_10"] > 0.70,
-        "lash_guides_valid": lashes.evidence["hair_validation"]["status"] == "pass",
+        "lash_v0_2_guides_valid": lashes.evidence["schema"] == "axm.game-assets.hm08-upper-lashes.v0.2" and lashes.evidence["hair_validation"]["status"] == "pass",
         "lash_uv_valid": lashes.evidence["uv_validation"]["status"] == "pass",
-        "lash_surface_roots_close": lashes.evidence["max_root_surface_distance_m"] <= 0.00031,
-        "lash_eye_fit_bounded": 0.80 < lashes.evidence["min_root_eye_radius_ratio"] and lashes.evidence["max_root_eye_radius_ratio"] < 2.0,
-        "lash_material_coverage": lash_coverage["mean_alpha"] > 0.20 and lash_coverage["fraction_alpha_ge_0_10"] > 0.55,
+        "lash_surface_roots_close": lashes.evidence["max_root_surface_distance_m"] <= 0.00025,
+        "lash_eye_fit_bounded": 0.75 < lashes.evidence["min_root_eye_radius_ratio"] and lashes.evidence["max_root_eye_radius_ratio"] < 1.9,
+        "lash_material_v0_2_coverage": lash_material["schema"] == "axm.game-assets.lash-ribbon-material.v0.2" and lash_coverage["mean_alpha"] > 0.30 and lash_coverage["fraction_alpha_ge_0_10"] > 0.70,
         "seven_semantic_primitives": delivery["primitive_count"] == 7,
         "seven_semantic_materials": delivery["material_count"] == 7,
         "brow_nonmetal_blend": brow_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and brow_gltf_material.get("alphaMode") == "BLEND",
@@ -249,8 +247,9 @@ def build_current_face_package(
             "preferred_lash_claim": False,
             "high_end_character_claim": False,
             "notes": [
-                "Brow route is held fixed from the readable v0.3 Godot evidence while upper lashes are the only new visual layer.",
-                "Upper lash v0.1 uses source-grounded eyelid roots and individual soft-alpha micro-ribbons; technical fit does not imply aesthetic promotion.",
+                "Brow route remains fixed from readable v0.3 Godot evidence.",
+                "Upper-lash v0.2 explicitly repairs the v0.1 high/vertical/faint read by lowering roots, biasing fibers forward and darkening the single-filament material.",
+                "v0.2 is still experimental until the new Godot close views are judged.",
                 "Lower lashes, tearline/meniscus, scalp hair and neck/torso remain later fidelity gates."
             ],
         },

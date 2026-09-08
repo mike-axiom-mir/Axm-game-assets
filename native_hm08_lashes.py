@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Source-grounded upper-eyelash micro-ribbons for the repaired hm08 face.
 
-Upper-lash roots are sampled from the actual front eyelid surface around the
-pinned hm08 eye centers. Each guide grows outward from skin as a tapered
-micro-ribbon. This is geometry, not painted eyeliner, and lower lashes remain a
-separate later gate.
+v0.2 keeps the continuous hm08 eyelid-surface root mechanism from v0.1 but
+moves the authored lash line closer to the eye and redirects growth forward
+rather than mostly upward after real Godot evidence showed a floating dotted
+fringe. Lower lashes remain a separate later gate.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from native_uv import UVMap, read_obj_uv, validate_uv
 
 SEED_ROOT = Path("seed_data/hm08_head_v0.2")
 RAW_TO_M = 0.1
-SCHEMA = "axm.game-assets.hm08-upper-lashes.v0.1"
+SCHEMA = "axm.game-assets.hm08-upper-lashes.v0.2"
 
 
 @dataclass(slots=True)
@@ -66,11 +66,11 @@ def generate_hm08_upper_lashes(
     *,
     landmarks_raw,
     eye_metadata: dict[str, object],
-    guides_per_eye: int = 20,
-    guide_length_m: float = 0.0062,
-    root_width_m: float = 0.00058,
-    tip_width_m: float = 0.00007,
-    root_offset_m: float = 0.00028,
+    guides_per_eye: int = 24,
+    guide_length_m: float = 0.0065,
+    root_width_m: float = 0.00050,
+    tip_width_m: float = 0.000055,
+    root_offset_m: float = 0.00022,
     seed: int = 62081,
 ) -> LashAssembly:
     if guides_per_eye < 8:
@@ -91,11 +91,12 @@ def generate_hm08_upper_lashes(
         eye_x, eye_y, eye_z = center
         for guide_index in range(guides_per_eye):
             t = guide_index / (guides_per_eye - 1)
-            # u=-1 is inner eye and u=+1 outer eye for both mirrored sides.
             u = t * 2.0 - 1.0
             arch = math.sqrt(max(0.0, 1.0 - u * u))
             target_x = eye_x + sign * u * radius_m * 0.78
-            target_y = eye_y + radius_m * (0.14 + 0.22 * arch)
+            # v0.1 used 0.14 + 0.22*arch and read too high in Godot. Lower the
+            # authored line while preserving the same eye-centered curve.
+            target_y = eye_y + radius_m * (0.08 + 0.18 * arch)
             surface, normal, _anchor, method = sample_front_surface(
                 head_m,
                 normals,
@@ -105,15 +106,15 @@ def generate_hm08_upper_lashes(
             )
             root = _add(surface, _mul(normal, root_offset_m))
 
-            # Grow clearly away from the eyelid/eye, with more lateral sweep at
-            # the outer corner. The first segment retains a strong surface-normal
-            # component so validate_hair can reject lashes entering the lid.
-            lateral = sign * (0.05 + 0.16 * t)
-            first_direction = _normalize(_add(_mul(normal, 0.74), (lateral, 0.52 + arch * 0.08, 0.0)))
-            local_length = guide_length_m * (0.90 + 0.10 * arch + 0.05 * t)
-            mid = _add(root, _mul(first_direction, local_length * 0.54))
-            tip_direction = _normalize(_add(_mul(normal, 0.52), (sign * (0.10 + 0.20 * t), 0.66 + arch * 0.06, 0.0)))
-            tip = _add(mid, _mul(tip_direction, local_length * 0.46))
+            # v0.2 grows primarily along the eyelid's outward/front normal,
+            # with only a modest upward curl. This should read in profile rather
+            # than standing vertically above the lid like v0.1.
+            lateral = sign * (0.04 + 0.14 * t)
+            first_direction = _normalize(_add(_mul(normal, 0.88), (lateral, 0.26 + arch * 0.05, 0.0)))
+            local_length = guide_length_m * (0.91 + 0.09 * arch + 0.05 * t)
+            mid = _add(root, _mul(first_direction, local_length * 0.55))
+            tip_direction = _normalize(_add(_mul(normal, 0.70), (sign * (0.08 + 0.18 * t), 0.40 + arch * 0.04, 0.0)))
+            tip = _add(mid, _mul(tip_direction, local_length * 0.45))
 
             guides.append(HairGuide(
                 points=[root, mid, tip],
@@ -127,7 +128,7 @@ def generate_hm08_upper_lashes(
             root_eye_ratios.append(_length(_sub(root, center)) / radius_m)
             per_side_x[side].append(surface[0])
 
-    system = HairSystem(guides=guides, seed=seed, style="hm08_upper_lashes_v0.1")
+    system = HairSystem(guides=guides, seed=seed, style="hm08_upper_lashes_v0.2_forward")
     validation = validate_hair(system)
     if validation["status"] != "pass":
         raise ValueError(f"upper-lash guide validation failed: {validation}")
@@ -159,10 +160,11 @@ def generate_hm08_upper_lashes(
             "placement_basis": "continuous upper-eyelid surface around pinned hm08 eye centers",
             "upper_lashes_only": True,
             "preferred_lash_claim": False,
+            "v0_1_visual_repair": "lower_root_curve_and_forward_bias",
             "notes": [
-                "Roots are sampled from the current human head surface, not from guessed texture coordinates.",
-                "Eye-radius ratios are retained as fit evidence; final eyelid contact and visual density require real Godot close views.",
-                "Lower lashes remain intentionally absent in v0.1."
+                "v0.1 roots were structurally valid but read too high/vertical in Godot; v0.2 lowers the line and increases forward projection without changing the source-grounded eye anchors.",
+                "Final eyelid contact and visual density still require real Godot close views.",
+                "Lower lashes remain intentionally absent."
             ],
         },
     }
