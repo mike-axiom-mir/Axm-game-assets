@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Current equipped Sentinel body candidate.
 
-The pinned hm08 body stays canonical. The promoted face/eyes/hair, graphite
-undersuit, and segmented rigid armor remain separate state layers. v0.4 adds
-source-derived glove/boot uppers and independent rubber soles so extremity gear
-is reconstructable and replaceable rather than baked into human topology.
+The pinned hm08 body stays canonical. Face/eyes/hair, graphite undersuit,
+segmented armor, source-derived gloves/boot uppers and boot rubber all remain
+separate reconstructable layers. v0.5 replaces the sole-only rubber delivery
+with a body-grounded sole + toe-bumper structure so the feet read as boots
+rather than dark human toes.
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from pathlib import Path
 
 from native_geometry import scale
 from native_hair_material import HairMaterialSpec, write_hair_material
+from native_hm08_boot_structure import build_hm08_boot_rubber_structure
 from native_hm08_brow_material import BrowMaterialSpec, write_brow_material
 from native_hm08_brows import generate_hm08_brows
 from native_hm08_extremity_gear import build_hm08_extremity_gear, write_sentinel_extremity_materials
@@ -35,8 +37,8 @@ from native_uv import read_obj_uv, validate_uv
 HEAD_SEED = Path("seed_data/hm08_head_v0.2")
 UPPER_SEED = Path("seed_data/hm08_upper_body_v0.1")
 FULL_SEED = Path("seed_data/hm08_full_body_v0.1")
-SCHEMA = "axm.game-assets.hm08-full-body-current.v0.4"
-ASSET_NAME = "sentinel_hm08_full_body_current_v0_4"
+SCHEMA = "axm.game-assets.hm08-full-body-current.v0.5"
+ASSET_NAME = "sentinel_hm08_full_body_current_v0_5"
 
 
 def _sha(data: bytes) -> str:
@@ -189,7 +191,8 @@ def build_current_full_body_package(
         root / "textures" / "armor", size=texture_size, seed=armor_seed
     )
 
-    extremity_shell, extremity_uv, boot_soles, boot_sole_uv, extremity = build_hm08_extremity_gear(full_m, full_uv)
+    extremity_shell, extremity_uv, boot_soles, _boot_sole_uv, extremity = build_hm08_extremity_gear(full_m, full_uv)
+    boot_rubber, boot_rubber_uv, boot_structure = build_hm08_boot_rubber_structure(full_m, boot_soles)
     extremity_materials = write_sentinel_extremity_materials(
         root / "textures" / "extremity", size=texture_size, seed=extremity_seed
     )
@@ -200,7 +203,7 @@ def build_current_full_body_package(
         MaterialPrimitive(armor_primary, armor_primary_uv, "AXM_Sentinel_Armor_Primary_v0_2", "textures/armor/primary/base_color.png", "textures/armor/primary/normal.png", "textures/armor/primary/orm.png", metallic_factor=1.0, roughness_factor=1.0),
         MaterialPrimitive(armor_accent, armor_accent_uv, "AXM_Sentinel_Armor_Accent_v0_2", "textures/armor/accent/base_color.png", "textures/armor/accent/normal.png", "textures/armor/accent/orm.png", metallic_factor=1.0, roughness_factor=1.0),
         MaterialPrimitive(extremity_shell, extremity_uv, "AXM_Sentinel_Gloves_BootUppers_v0_1", "textures/extremity/textile/base_color.png", "textures/extremity/textile/normal.png", "textures/extremity/textile/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True),
-        MaterialPrimitive(boot_soles, boot_sole_uv, "AXM_Sentinel_BootSoles_v0_1", "textures/extremity/rubber/base_color.png", "textures/extremity/rubber/normal.png", "textures/extremity/rubber/orm.png", metallic_factor=0.0, roughness_factor=1.0),
+        MaterialPrimitive(boot_rubber, boot_rubber_uv, "AXM_Sentinel_BootRubber_v0_1", "textures/extremity/rubber/base_color.png", "textures/extremity/rubber/normal.png", "textures/extremity/rubber/orm.png", metallic_factor=0.0, roughness_factor=1.0),
         MaterialPrimitive(eye_layers["sclera"][0], eye_layers["sclera"][1], "AXM_Eye_Sclera", "textures/eyes/sclera_base_color.png", "textures/eyes/sclera_normal.png", "textures/eyes/sclera_orm.png", metallic_factor=0.0),
         MaterialPrimitive(eye_layers["iris"][0], eye_layers["iris"][1], "AXM_Eye_Iris", "textures/eyes/iris_base_color.png", "textures/eyes/iris_normal.png", "textures/eyes/iris_orm.png", metallic_factor=0.0),
         MaterialPrimitive(eye_layers["pupil"][0], eye_layers["pupil"][1], "AXM_Eye_Pupil", "textures/eyes/pupil_base_color.png", "textures/eyes/pupil_normal.png", "textures/eyes/pupil_orm.png", metallic_factor=0.0, roughness_factor=0.24),
@@ -234,7 +237,9 @@ def build_current_full_body_package(
         "armor_uv_valid": armor["primary_uv_validation"]["status"] == "pass" and armor["accent_uv_validation"]["status"] == "pass",
         "extremity_source_grounded": extremity["truth"]["source_grounded"] is True and extremity["truth"]["canonical_body_mutated"] is False,
         "extremity_shell_valid": extremity["shell_uv_validation"]["status"] == "pass" and extremity["shell_topology"]["invalid_indices"] == 0 and extremity["shell_topology"]["degenerate_faces"] == 0 and extremity["shell_topology"]["nonmanifold_edges"] == 0,
-        "boot_soles_valid": extremity["sole_uv_validation"]["status"] == "pass" and extremity["sole_topology"]["closed_two_manifold_candidate"] is True,
+        "source_soles_valid": extremity["sole_uv_validation"]["status"] == "pass" and extremity["sole_topology"]["closed_two_manifold_candidate"] is True,
+        "boot_rubber_body_grounded": boot_structure["truth"]["body_grounded"] is True and boot_structure["truth"]["canonical_body_mutated"] is False,
+        "boot_rubber_structure_valid": boot_structure["uv_validation"]["status"] == "pass" and boot_structure["topology"]["invalid_indices"] == 0 and boot_structure["topology"]["degenerate_faces"] == 0 and boot_structure["topology"]["nonmanifold_edges"] == 0 and boot_structure["toe_component_count"] == 2,
         "fourteen_semantic_primitives": delivery["primitive_count"] == 14,
         "fourteen_semantic_materials": delivery["material_count"] == 14,
         "body_skin_nonmetal": document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] == 0.0,
@@ -266,6 +271,7 @@ def build_current_full_body_package(
         "rigid_armor_materials": armor_materials,
         "extremity_gear": extremity,
         "extremity_materials": extremity_materials,
+        "boot_rubber_structure": boot_structure,
         "brows": brows.evidence,
         "brow_material": brow_material,
         "brow_flat_normal_sha256": brow_flat_normal_sha,
@@ -292,13 +298,14 @@ def build_current_full_body_package(
             "production_undersuit_claim": False,
             "production_armor_claim": False,
             "production_extremity_gear_claim": False,
+            "production_boot_claim": False,
             "rigged_character_claim": False,
             "high_end_character_claim": False,
             "notes": [
                 "The complete closed human substrate remains untouched underneath all wearable layers.",
-                "Segmented armor v0.2 replaces the visually rejected slab-style torso while preserving separately editable primary/accent component groups.",
-                "Gloves and boot uppers are source-derived textile shells; boot soles are independent nonmetal closed geometry, so hands/feet no longer require baked skin edits.",
-                "This is still a static equipment/readability gate. Production quality still requires glove/boot panel detail, sole tread, pose clearance, articulation and deformation evidence.",
+                "Segmented armor v0.2 remains a separate editable system and is independently covered by fit/conform evidence elsewhere in the Forge.",
+                "Gloves and boot uppers remain source-derived textile shells. The rubber boot layer now combines the proven soles with body-grounded forefoot bumpers so human toe digits no longer define the intended boot silhouette.",
+                "The boot construction is still a first readable tactical shape. Sole tread, heel counter, toe-panel seams and deformation remain later gates.",
                 "Rifle contact, locomotion, facial motion and LOD remain later gates."
             ],
         },
@@ -325,5 +332,6 @@ if __name__ == "__main__":
         "undersuit": result["undersuit"],
         "armor": result["rigid_armor"],
         "extremity_gear": result["extremity_gear"],
+        "boot_rubber_structure": result["boot_rubber_structure"],
         "delivery": result["delivery"],
     }, indent=2))
