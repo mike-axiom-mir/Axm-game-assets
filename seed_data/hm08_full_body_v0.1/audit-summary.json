@@ -1,0 +1,21 @@
+{
+  "boundary_edges": 0,
+  "bounds": {
+    "x": [
+      -4.9627,
+      4.9627
+    ],
+    "y": [
+      -8.1676,
+      8.4913
+    ],
+    "z": [
+      -1.0154,
+      3.2147
+    ]
+  },
+  "faces": 13378,
+  "head_source_vertices": 4197,
+  "upper_body_source_vertices": 10185,
+  "vertices": 13380
+}
