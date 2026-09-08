@@ -1,0 +1,185 @@
+name: godot-rifle-contact-v5-smoke
+
+on:
+  push:
+    paths:
+      - "seed_data/hm08_finger_landmarks_v0.1/**"
+      - "native_hm08_finger_rig.py"
+      - "native_hm08_finger_rig_test.py"
+      - "native_hm08_finger_grip_pose_v2.py"
+      - "native_hm08_finger_grip_pose_v2_test.py"
+      - "native_hm08_rifle_contact_package_v5.py"
+      - "native_hm08_rifle_contact_package_v5_test.py"
+      - "native_hm08_rifle_contact_pose_v4.py"
+      - "native_hm08_humanoid_rig.py"
+      - "native_hm08_humanoid_skin_v2.py"
+      - "native_attachment.py"
+      - "native_weapon_human_scale.py"
+      - "engine/godot_face/render_rifle_contact_v3_views.gd"
+      - ".github/workflows/godot-rifle-contact-v5-smoke.yml"
+  pull_request:
+    paths:
+      - "seed_data/hm08_finger_landmarks_v0.1/**"
+      - "native_hm08_finger_rig.py"
+      - "native_hm08_finger_rig_test.py"
+      - "native_hm08_finger_grip_pose_v2.py"
+      - "native_hm08_finger_grip_pose_v2_test.py"
+      - "native_hm08_rifle_contact_package_v5.py"
+      - "native_hm08_rifle_contact_package_v5_test.py"
+      - "native_hm08_rifle_contact_pose_v4.py"
+      - "native_hm08_humanoid_rig.py"
+      - "native_hm08_humanoid_skin_v2.py"
+      - "native_attachment.py"
+      - "native_weapon_human_scale.py"
+      - "engine/godot_face/render_rifle_contact_v3_views.gd"
+      - ".github/workflows/godot-rifle-contact-v5-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  godot-rifle-contact-v5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Gate source fingers and articulated grip
+        run: |
+          python native_hm08_finger_rig_test.py
+          python native_hm08_finger_grip_pose_v2_test.py
+          python native_hm08_rifle_contact_package_v5_test.py
+
+      - name: Build articulated contact package
+        run: |
+          rm -rf engine/godot_face/generated
+          python - <<'PY'
+          from native_hm08_rifle_contact_package_v5 import build_hm08_rifle_contact_package_v5
+          p=build_hm08_rifle_contact_package_v5("engine/godot_face/generated",texture_size=128)
+          assert all(p["acceptance"].values()),p["acceptance"]
+          assert p["schema"]=="axm.game-assets.hm08-rifle-contact-package.v0.5"
+          assert p["grip"]["finger_rig"]["total_joint_count"]==53
+          assert p["grip"]["truth"]["thumb_coordinate_space_corrected"] is True
+          assert p["grip"]["contact"]["primary_position_error"]<1e-8
+          assert p["grip"]["contact"]["support_position_error"]<1e-6
+          assert p["delivery"]["primitive_count"]==5
+          print("ARTICULATED CONTACT V0.5 BUILD PASS",p["grip"]["curl_search"],p["delivery"])
+          PY
+
+      - name: Derive v0.5 renderer from preserved contact camera lab
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          src=Path("engine/godot_face/render_rifle_contact_v3_views.gd").read_text()
+          replacements={
+              "sentinel_hm08_rifle_contact_v0_3.gltf":"sentinel_hm08_rifle_contact_v0_5.gltf",
+              "rifle-contact-package-v3.json":"rifle-contact-package-v5.json",
+              "godot-rifle-contact-v3-views-receipt.json":"godot-rifle-contact-v5-views-receipt.json",
+              "godot-rifle-contact-v3-%s.png":"godot-rifle-contact-v5-%s.png",
+              "human_scale_rifle_source_dimensions":"source_grounded_finger_articulation_only",
+              'var pose: Dictionary = package["pose"] as Dictionary':'var pose: Dictionary = package["grip"] as Dictionary',
+              "A/B successor to the preserved oversized-rifle v0.2 viewset. Shared rig, palm-socket mechanism and camera class remain; only the authored rifle dimensions change.":"A/B successor to segment-skin contact v0.4. Human-scale rifle, arm pose, palm sockets and camera class remain; only source-grounded finger articulation is added.",
+          }
+          for old,new in replacements.items():
+              if old not in src:
+                  raise SystemExit(f"renderer template contract missing: {old}")
+              src=src.replace(old,new)
+          out=Path("engine/godot_face/render_rifle_contact_v5_runtime.gd")
+          out.write_text(src)
+          print("V0.5 RENDERER DERIVED",out)
+          PY
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" -o .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+
+      - name: Render articulated grip A/B views
+        run: |
+          rm -f engine/godot_face/godot-rifle-contact-v5-*.png engine/godot_face/godot-rifle-contact-v5-views-receipt.json
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --display-driver x11 \
+            --rendering-method gl_compatibility \
+            --path engine/godot_face \
+            --script render_rifle_contact_v5_runtime.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("engine/godot_face/godot-rifle-contact-v5-views-receipt.json").read_text())
+          assert r["status"]=="pass",r
+          assert r["changed_variable"]=="source_grounded_finger_articulation_only"
+          assert r["surfaces"]==5 and r["material_surfaces"]==5
+          assert [v["name"] for v in r["views"]]==["front_contact","three_quarter_contact","hands_close"]
+          for view in r["views"]:
+              assert view["metrics"]["foreground_coverage"]>=view["minimum_foreground_coverage"]
+              assert view["metrics"]["near_white_foreground_fraction"]<=view["maximum_near_white_foreground_fraction"]
+          print("GODOT ARTICULATED GRIP VIEWS PASS",[(v["name"],v["metrics"]["foreground_coverage"]) for v in r["views"]])
+          PY
+
+      - name: Bind articulated-grip captures
+        env:
+          GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          from native_visual_evidence import build_capture_packet,validate_capture_packet,write_capture_packet
+          root=Path("engine/godot_face")
+          receipt=json.loads((root/"godot-rifle-contact-v5-views-receipt.json").read_text())
+          package_path=root/"generated"/"rifle-contact-package-v5.json"
+          package=json.loads(package_path.read_text())
+          source_digest="sha256:"+hashlib.sha256(package_path.read_bytes()).hexdigest()
+          grip=package["grip"]
+          bundle={
+              "schema":"axm.game-assets.godot-rifle-contact-viewset.v0.5",
+              "authority":"deterministic_capture_evidence_only",
+              "asset_digest":package["delivery"]["gltf_sha256"],
+              "changed_variable":"source_grounded_finger_articulation_only",
+              "finger_rig":{"joints":grip["finger_rig"]["total_joint_count"],"source_packet_sha256":grip["finger_rig"]["source_packet_sha256"]},
+              "finger_skin":{"overridden_vertices":grip["finger_skin"]["overridden_finger_vertices"],"minimum_vertices_per_segment":grip["finger_skin"]["minimum_vertices_per_segment"]},
+              "curl_search":grip["curl_search"],
+              "contact":grip["contact"],
+              "views":[],
+              "truth":"v0.5 A/B against preserved v0.4. Human-scale rifle, arm pose, palm sockets and camera class are fixed; only source-grounded finger articulation changes. Visual promotion remains advisory."
+          }
+          for view in receipt["views"]:
+              name=view["name"];png_path=root/f"godot-rifle-contact-v5-{name}.png";png=png_path.read_bytes();m=view["metrics"]
+              packet=build_capture_packet(png,asset_digest=package["delivery"]["gltf_sha256"],engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},camera=view["camera"],render_settings={"renderer":"gl_compatibility","view_name":name,"layer":"articulated_finger_rifle_contact_v0.5","lighting":receipt["lighting"],"foreground_gate":receipt["foreground_gate"]},metrics={"foreground_coverage":m["foreground_coverage"],"foreground_luma_mean":m["foreground_luma_mean"],"near_white_foreground_fraction":m["near_white_foreground_fraction"],"luma_min":m["luma_min"],"luma_max":m["luma_max"],"luma_mean":m["luma_mean"],"luma_range":m["luma_range"]},source_receipts=[source_digest])
+              assert validate_capture_packet(packet,png)["status"]=="pass"
+              write_capture_packet(root/f"visual-capture-rifle-contact-v5-{name}.json",packet)
+              bundle["views"].append({"name":name,"capture_digest":packet["capture_digest"],"image_sha256":packet["image"]["sha256"]})
+          (root/"visual-capture-rifle-contact-v5-viewset.json").write_text(json.dumps(bundle,indent=2,sort_keys=True)+"\n")
+          print("ARTICULATED GRIP CAPTURE PASS",bundle)
+          PY
+
+      - name: Preserve articulated grip evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-rifle-contact-v5-evidence
+          if-no-files-found: error
+          path: |
+            engine/godot_face/godot-rifle-contact-v5-views-receipt.json
+            engine/godot_face/godot-rifle-contact-v5-*.png
+            engine/godot_face/visual-capture-rifle-contact-v5-*.json
+            engine/godot_face/render_rifle_contact_v5_runtime.gd
+            engine/godot_face/generated/rifle-contact-package-v5.json
+            engine/godot_face/generated/sentinel_hm08_rifle_contact_v0_5.gltf
+            engine/godot_face/generated/sentinel_hm08_rifle_contact_v0_5.bin
+            engine/godot_face/generated/textures/contact_body/*
+            engine/godot_face/generated/textures/rifle/**/*
