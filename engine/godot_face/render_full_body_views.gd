@@ -4,6 +4,7 @@ const ASSET_PATH: String = "res://generated/sentinel_hm08_face_candidate_v0_1.gl
 const RECEIPT_PATH: String = "res://godot-full-body-views-receipt.json"
 const SIZE: Vector2i = Vector2i(640, 640)
 const CLEAR_COLOR: Color = Color(0.022, 0.026, 0.034, 1.0)
+const FOREGROUND_DELTA_THRESHOLD: float = 0.010
 const MAX_NEAR_WHITE_FOREGROUND_FRACTION: float = 0.035
 
 func write_receipt(receipt: Dictionary) -> void:
@@ -68,7 +69,7 @@ func capture(viewport: SubViewport, path: String) -> Dictionary:
             var color: Color = image.get_pixel(x, y)
             var delta: float = absf(color.r-background.r)+absf(color.g-background.g)+absf(color.b-background.b)
             var luma: float = color.r*0.2126 + color.g*0.7152 + color.b*0.0722
-            if delta > 0.055:
+            if delta > FOREGROUND_DELTA_THRESHOLD:
                 foreground += 1
                 foreground_luma_sum += luma
                 if luma >= 0.965:
@@ -86,6 +87,7 @@ func capture(viewport: SubViewport, path: String) -> Dictionary:
         "sampled_pixels":sampled,
         "foreground_pixels":foreground,
         "foreground_coverage":float(foreground)/float(maxi(sampled,1)),
+        "foreground_delta_threshold":FOREGROUND_DELTA_THRESHOLD,
         "near_white_foreground_pixels":near_white_foreground,
         "near_white_foreground_fraction":float(near_white_foreground)/float(maxi(foreground,1)),
         "foreground_luma_mean":foreground_luma_sum/float(maxi(foreground,1)),
@@ -98,10 +100,15 @@ func capture(viewport: SubViewport, path: String) -> Dictionary:
 
 func _initialize() -> void:
     var receipt: Dictionary = {
-        "schema":"axm.game-assets.godot-full-body-views.v0.1",
+        "schema":"axm.game-assets.godot-full-body-views.v0.2",
         "asset":ASSET_PATH,
+        "foreground_gate":{
+            "known_clear_color":[CLEAR_COLOR.r,CLEAR_COLOR.g,CLEAR_COLOR.b,CLEAR_COLOR.a],
+            "delta_threshold":FOREGROUND_DELTA_THRESHOLD,
+            "reason":"Whole-body evidence must detect dark garment pixels against the deterministic dark clear color without reducing the silhouette-size acceptance gate."
+        },
         "exposure_gate":{"max_near_white_foreground_fraction":MAX_NEAR_WHITE_FOREGROUND_FRACTION},
-        "truth":"Real Godot whole-body framing and exposure facts for the complete human substrate. Camera framing is specialized for the narrow profile silhouette; no aesthetic score, body-quality promotion, or identity claim is encoded."
+        "truth":"Real Godot whole-body framing and exposure facts. The foreground detector is deliberately sensitive to dark clothing against the known deterministic background; front/three-quarter/profile size gates and the near-white exposure cap remain unchanged. No aesthetic score, body-quality promotion, or identity claim is encoded."
     }
     if not FileAccess.file_exists(ASSET_PATH):
         fail("Full-body glTF missing", receipt)
@@ -210,6 +217,6 @@ func _initialize() -> void:
     receipt["godot_version"] = Engine.get_version_info()
     receipt["status"] = "pass"
     write_receipt(receipt)
-    print("AXM GODOT FULL BODY VIEWS PASS ", JSON.stringify(receipt))
+    print("GAME ASSET FORGE GODOT FULL BODY VIEWS PASS ", JSON.stringify(receipt))
     viewport.queue_free()
     quit(0)
