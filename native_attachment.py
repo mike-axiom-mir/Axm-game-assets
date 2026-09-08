@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""AXM native attachment sockets and two-point contact evidence v0.1."""
+"""AXM native attachment sockets and two-point contact evidence v0.2.
+
+The original joint-origin attachment API remains available. v0.2 adds an
+explicit character-side hand-socket path so anatomical wrist/hand joints do not
+have to be moved to the palm contact point just to satisfy a weapon grip.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -24,6 +29,25 @@ class TwoHandAttachment:
     support_joint: int
     primary_socket: Socket
     support_socket: Socket
+
+
+@dataclass(frozen=True, slots=True)
+class TwoHandSocketAttachment:
+    """Two-hand attachment with explicit character and weapon contact sockets.
+
+    ``primary_hand_socket`` and ``support_hand_socket`` are local to the
+    corresponding character joints. ``primary_weapon_socket`` and
+    ``support_weapon_socket`` are local to the weapon. The primary hand contact
+    defines weapon world placement; support hand contact is measured
+    independently and never silently repaired.
+    """
+
+    primary_joint: int
+    support_joint: int
+    primary_hand_socket: Socket
+    support_hand_socket: Socket
+    primary_weapon_socket: Socket
+    support_weapon_socket: Socket
 
 
 def _distance(a: Vec3, b: Vec3) -> float:
@@ -92,6 +116,41 @@ def contact_evidence(pose: Skeleton, attachment: TwoHandAttachment) -> dict[str,
     }
 
 
+def socket_contact_evidence(pose: Skeleton, attachment: TwoHandSocketAttachment) -> dict[str, object]:
+    if attachment.primary_joint == attachment.support_joint:
+        raise ValueError("primary and support joints must differ")
+    if attachment.primary_joint < 0 or attachment.primary_joint >= len(pose.joints):
+        raise ValueError("primary joint outside skeleton")
+    if attachment.support_joint < 0 or attachment.support_joint >= len(pose.joints):
+        raise ValueError("support joint outside skeleton")
+
+    globals_ = global_joint_matrices(pose)
+    primary_joint_world = globals_[attachment.primary_joint]
+    support_joint_world = globals_[attachment.support_joint]
+    primary_hand_world = matmul(primary_joint_world, socket_matrix(attachment.primary_hand_socket))
+    support_hand_world = matmul(support_joint_world, socket_matrix(attachment.support_hand_socket))
+    weapon_world = matmul(primary_hand_world, inverse4(socket_matrix(attachment.primary_weapon_socket)))
+    primary_weapon_world = matmul(weapon_world, socket_matrix(attachment.primary_weapon_socket))
+    support_weapon_world = matmul(weapon_world, socket_matrix(attachment.support_weapon_socket))
+
+    primary_hand_position = transform_point(primary_hand_world, (0.0, 0.0, 0.0))
+    support_hand_position = transform_point(support_hand_world, (0.0, 0.0, 0.0))
+    primary_weapon_position = transform_point(primary_weapon_world, (0.0, 0.0, 0.0))
+    support_weapon_position = transform_point(support_weapon_world, (0.0, 0.0, 0.0))
+    return {
+        "primary_position_error": _distance(primary_hand_position, primary_weapon_position),
+        "primary_orientation_error_deg": orientation_error_degrees(primary_hand_world, primary_weapon_world),
+        "support_position_error": _distance(support_hand_position, support_weapon_position),
+        "support_orientation_error_deg": orientation_error_degrees(support_hand_world, support_weapon_world),
+        "weapon_world": [list(row) for row in weapon_world],
+        "primary_hand_contact_world_position": list(primary_hand_position),
+        "support_hand_contact_world_position": list(support_hand_position),
+        "primary_weapon_target_world_position": list(primary_weapon_position),
+        "support_weapon_target_world_position": list(support_weapon_position),
+        "truth": "Character hand sockets, not wrist joint origins, define physical contact. Primary hand contact defines weapon placement; support contact is independently measured and no IK repair is silently applied.",
+    }
+
+
 def sample_two_hand_contact(
     bind_skeleton: Skeleton,
     clip: AnimationClip,
@@ -112,4 +171,27 @@ def sample_two_hand_contact(
         "max_support_position_error": max(sample["support_position_error"] for sample in samples),
         "max_support_orientation_error_deg": max(sample["support_orientation_error_deg"] for sample in samples),
         "truth": "Primary socket defines weapon attachment. Support hand is independently measured against its socket; no IK repair is silently applied.",
+    }
+
+
+def sample_two_hand_socket_contact(
+    bind_skeleton: Skeleton,
+    clip: AnimationClip,
+    attachment: TwoHandSocketAttachment,
+    sample_times: Sequence[float],
+) -> dict[str, object]:
+    if not sample_times:
+        raise ValueError("two-hand socket contact proof needs sample times")
+    samples = []
+    for time in sample_times:
+        pose = pose_skeleton(bind_skeleton, clip, float(time))
+        evidence = socket_contact_evidence(pose, attachment)
+        samples.append({"time": float(time), **evidence})
+    return {
+        "samples": samples,
+        "max_primary_position_error": max(sample["primary_position_error"] for sample in samples),
+        "max_primary_orientation_error_deg": max(sample["primary_orientation_error_deg"] for sample in samples),
+        "max_support_position_error": max(sample["support_position_error"] for sample in samples),
+        "max_support_orientation_error_deg": max(sample["support_orientation_error_deg"] for sample in samples),
+        "truth": "Character-side hand sockets remain explicit across animation sampling. Primary hand contact defines weapon placement; support contact is independently measured with no silent IK repair.",
     }
