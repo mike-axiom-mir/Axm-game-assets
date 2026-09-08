@@ -10,6 +10,8 @@ on:
       - "native_hm08_undersuit_test.py"
       - "native_hm08_sentinel_armor.py"
       - "native_hm08_sentinel_armor_test.py"
+      - "native_hm08_extremity_gear.py"
+      - "native_hm08_extremity_gear_test.py"
       - "native_fabric_material.py"
       - "native_hardsurface.py"
       - "native_pbr.py"
@@ -25,6 +27,8 @@ on:
       - "native_hm08_undersuit_test.py"
       - "native_hm08_sentinel_armor.py"
       - "native_hm08_sentinel_armor_test.py"
+      - "native_hm08_extremity_gear.py"
+      - "native_hm08_extremity_gear_test.py"
       - "native_fabric_material.py"
       - "native_hardsurface.py"
       - "native_pbr.py"
@@ -46,19 +50,20 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Build armored Sentinel body candidate
+      - name: Build equipped Sentinel body candidate
         run: |
           rm -rf engine/godot_face/generated
           python native_hm08_full_body_seed_test.py
           python native_hm08_undersuit_test.py
           python native_hm08_sentinel_armor_test.py
+          python native_hm08_extremity_gear_test.py
           python native_hm08_full_body_current_test.py
           python - <<'PY'
           from native_hm08_full_body_current import build_current_full_body_package
           package = build_current_full_body_package("engine/godot_face/generated", texture_size=128)
           assert all(package["acceptance"].values()), package["acceptance"]
-          assert package["schema"] == "axm.game-assets.hm08-full-body-current.v0.3"
-          assert package["candidate_role"] == "sentinel_armored_body_candidate"
+          assert package["schema"] == "axm.game-assets.hm08-full-body-current.v0.4"
+          assert package["candidate_role"] == "sentinel_equipped_body_candidate"
           assert package["head_identity_overlap"]["compared_vertices"] == 4197
           assert package["head_identity_overlap"]["max_error_raw"] <= 1e-12
           assert package["upper_body_identity_overlap"]["compared_vertices"] == 10185
@@ -66,17 +71,24 @@ jobs:
           assert package["full_seed"]["source_vertices"] == 13380
           assert package["full_seed"]["source_faces"] == 13378
           assert package["undersuit"]["surface_coverage_fraction"] > 0.70
-          assert package["rigid_armor"]["primary_component_count"] >= 14
-          assert package["rigid_armor"]["accent_component_count"] >= 8
-          assert package["delivery"]["primitive_count"] == 12
-          assert package["delivery"]["material_count"] == 12
-          assert package["delivery"]["material_names"][1] == "AXM_Sentinel_Graphite_Undersuit_v0_1"
-          assert package["delivery"]["material_names"][2] == "AXM_Sentinel_Armor_Primary_v0_1"
-          assert package["delivery"]["material_names"][3] == "AXM_Sentinel_Armor_Accent_v0_1"
-          print("ARMORED SENTINEL BODY BUILD PASS", package["head_identity_overlap"], package["upper_body_identity_overlap"], package["undersuit"], package["rigid_armor"], package["delivery"])
+          assert package["rigid_armor"]["schema"] == "axm.game-assets.hm08-sentinel-rigid-armor.v0.2"
+          assert package["rigid_armor"]["primary_component_count"] >= 20
+          assert package["rigid_armor"]["accent_component_count"] >= 12
+          assert package["extremity_gear"]["glove_face_count"] > 3000
+          assert package["extremity_gear"]["boot_upper_face_count"] > 2000
+          assert package["extremity_gear"]["truth"]["canonical_body_mutated"] is False
+          assert package["delivery"]["primitive_count"] == 14
+          assert package["delivery"]["material_count"] == 14
+          names = package["delivery"]["material_names"]
+          assert names[1] == "AXM_Sentinel_Graphite_Undersuit_v0_1"
+          assert names[2] == "AXM_Sentinel_Armor_Primary_v0_2"
+          assert names[3] == "AXM_Sentinel_Armor_Accent_v0_2"
+          assert names[4] == "AXM_Sentinel_Gloves_BootUppers_v0_1"
+          assert names[5] == "AXM_Sentinel_BootSoles_v0_1"
+          print("EQUIPPED SENTINEL BODY BUILD PASS", package["head_identity_overlap"], package["upper_body_identity_overlap"], package["undersuit"], package["rigid_armor"], package["extremity_gear"], package["delivery"])
           PY
           cp \
-            engine/godot_face/generated/sentinel_hm08_full_body_current_v0_3.gltf \
+            engine/godot_face/generated/sentinel_hm08_full_body_current_v0_4.gltf \
             engine/godot_face/generated/sentinel_hm08_face_candidate_v0_1.gltf
 
       - name: Download pinned Godot 4.7.2
@@ -91,7 +103,7 @@ jobs:
           chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
           .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
 
-      - name: Parse armored Sentinel body in Godot
+      - name: Parse equipped Sentinel body in Godot
         run: |
           rm -f engine/godot_face/godot-face-eyes-import-receipt.json
           .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
@@ -103,15 +115,15 @@ jobs:
           from pathlib import Path
           receipt = json.loads(Path("engine/godot_face/godot-face-eyes-import-receipt.json").read_text())
           assert receipt["status"] == "pass", receipt
-          assert receipt["surfaces"] == 12, receipt
-          assert receipt["material_surfaces"] == 12, receipt
-          assert len(receipt["declared_external_images"]) == 36, receipt
-          assert receipt["vertices"] > 65000, receipt
-          assert receipt["indices"] > 65000, receipt
-          print("ARMORED SENTINEL GODOT IMPORT PASS", receipt)
+          assert receipt["surfaces"] == 14, receipt
+          assert receipt["material_surfaces"] == 14, receipt
+          assert len(receipt["declared_external_images"]) == 42, receipt
+          assert receipt["vertices"] > 75000, receipt
+          assert receipt["indices"] > 75000, receipt
+          print("EQUIPPED SENTINEL GODOT IMPORT PASS", receipt)
           PY
 
-      - name: Render armored Sentinel views
+      - name: Render equipped Sentinel views
         run: |
           rm -f engine/godot_face/godot-full-body-views-receipt.json engine/godot_face/godot-full-body-front.png engine/godot_face/godot-full-body-three_quarter.png engine/godot_face/godot-full-body-profile.png
           if ! command -v xvfb-run >/dev/null 2>&1; then
@@ -136,10 +148,10 @@ jobs:
               metrics = view["metrics"]
               assert metrics["foreground_coverage"] >= view["minimum_foreground_coverage"]
               assert metrics["near_white_foreground_fraction"] <= view["maximum_near_white_foreground_fraction"]
-          print("ARMORED SENTINEL VIEWS PASS", [(v["name"],v["metrics"]["foreground_coverage"],v["metrics"]["near_white_foreground_fraction"]) for v in receipt["views"]])
+          print("EQUIPPED SENTINEL VIEWS PASS", [(v["name"],v["metrics"]["foreground_coverage"],v["metrics"]["near_white_foreground_fraction"]) for v in receipt["views"]])
           PY
 
-      - name: Bind armored-character captures to evidence packets
+      - name: Bind equipped-character captures to evidence packets
         env:
           GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
         run: |
@@ -153,17 +165,18 @@ jobs:
           package = json.loads(package_path.read_text())
           source_digest = "sha256:" + hashlib.sha256(package_path.read_bytes()).hexdigest()
           bundle = {
-              "schema":"axm.game-assets.godot-armored-body-viewset.v0.3",
+              "schema":"axm.game-assets.godot-equipped-body-viewset.v0.4",
               "authority":"deterministic_capture_evidence_only",
               "asset_digest":package["delivery"]["gltf_sha256"],
               "candidate_role":package["candidate_role"],
               "head_identity_overlap":package["head_identity_overlap"],
               "upper_body_identity_overlap":package["upper_body_identity_overlap"],
               "undersuit":{"surface_coverage_fraction":package["undersuit"]["surface_coverage_fraction"],"offset_m":package["undersuit"]["offset_m"]},
-              "armor":{"primary_components":package["rigid_armor"]["primary_component_count"],"accent_components":package["rigid_armor"]["accent_component_count"],"anchors_m":package["rigid_armor"]["anchors_m"]},
+              "armor":{"schema":package["rigid_armor"]["schema"],"primary_components":package["rigid_armor"]["primary_component_count"],"accent_components":package["rigid_armor"]["accent_component_count"],"anchors_m":package["rigid_armor"]["anchors_m"]},
+              "extremity_gear":{"schema":package["extremity_gear"]["schema"],"glove_faces":package["extremity_gear"]["glove_face_count"],"boot_upper_faces":package["extremity_gear"]["boot_upper_face_count"],"shell_offset_m":package["extremity_gear"]["shell_offset_m"]},
               "foreground_gate":receipt["foreground_gate"],
               "views":[],
-              "truth":"Godot proves import/render/capture facts for the first body-grounded rigid Sentinel armor over the fitted undersuit. It does not promote final armor fit, articulation, manufacturing detail, rigging or AAA quality."
+              "truth":"Godot proves import/render/capture facts for segmented armor plus source-derived gloves and boots. It does not promote final fit, finger articulation, sole tread, rigging, weapon contact or AAA quality."
           }
           for view in receipt["views"]:
               name=view["name"]
@@ -174,7 +187,7 @@ jobs:
                   asset_digest=package["delivery"]["gltf_sha256"],
                   engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},
                   camera=view["camera"],
-                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"sentinel_armored_body_v0.3","lighting":receipt["lighting"],"foreground_gate":receipt["foreground_gate"]},
+                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"sentinel_equipped_body_v0.4","lighting":receipt["lighting"],"foreground_gate":receipt["foreground_gate"]},
                   metrics={"foreground_coverage":metrics["foreground_coverage"],"foreground_luma_mean":metrics["foreground_luma_mean"],"near_white_foreground_fraction":metrics["near_white_foreground_fraction"],"luma_min":metrics["luma_min"],"luma_max":metrics["luma_max"],"luma_mean":metrics["luma_mean"],"luma_range":metrics["luma_range"]},
                   source_receipts=[source_digest],
               )
@@ -182,10 +195,10 @@ jobs:
               write_capture_packet(root/f"visual-capture-full-body-{name}.json",packet)
               bundle["views"].append({"name":name,"capture_digest":packet["capture_digest"],"image_sha256":packet["image"]["sha256"]})
           (root/"visual-capture-full-body-viewset.json").write_text(json.dumps(bundle,indent=2,sort_keys=True)+"\n")
-          print("ARMORED SENTINEL CAPTURE PASS",bundle)
+          print("EQUIPPED SENTINEL CAPTURE PASS",bundle)
           PY
 
-      - name: Preserve armored Sentinel evidence
+      - name: Preserve equipped Sentinel evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -199,12 +212,14 @@ jobs:
             engine/godot_face/godot-full-body-profile.png
             engine/godot_face/visual-capture-full-body-*.json
             engine/godot_face/generated/full-body-package.json
-            engine/godot_face/generated/sentinel_hm08_full_body_current_v0_3.gltf
-            engine/godot_face/generated/sentinel_hm08_full_body_current_v0_3.bin
+            engine/godot_face/generated/sentinel_hm08_full_body_current_v0_4.gltf
+            engine/godot_face/generated/sentinel_hm08_full_body_current_v0_4.bin
             engine/godot_face/generated/textures/skin/*
             engine/godot_face/generated/textures/undersuit/*
             engine/godot_face/generated/textures/armor/primary/*
             engine/godot_face/generated/textures/armor/accent/*
+            engine/godot_face/generated/textures/extremity/textile/*
+            engine/godot_face/generated/textures/extremity/rubber/*
             engine/godot_face/generated/textures/eyes/*
             engine/godot_face/generated/textures/brows/*
             engine/godot_face/generated/textures/lashes/*
