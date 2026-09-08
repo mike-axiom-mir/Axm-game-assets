@@ -1,0 +1,38 @@
+{
+  "schema": "axm.asset-genome-families.v0.1",
+  "families": [
+    {"id": "character", "editable_domains": ["body", "face", "hair", "skin", "eyes", "clothing", "armor", "rig", "animation", "lod"]},
+    {"id": "weapon", "editable_domains": ["frame", "barrel", "stock", "grip", "magazine", "attachments", "materials", "wear", "sockets", "vfx", "lod"]},
+    {"id": "armor_clothing", "editable_domains": ["fit", "layers", "cloth", "rigid_parts", "materials", "damage", "simulation", "lod"]},
+    {"id": "prop", "editable_domains": ["components", "materials", "wear", "damage", "collision", "lod"]},
+    {"id": "building", "editable_domains": ["footprint", "floors", "facade", "roof", "openings", "interior", "damage", "materials", "collision", "lod"]},
+    {"id": "environment_kit", "editable_domains": ["biome", "modules", "scatter", "materials", "weathering", "transitions", "lod"]},
+    {"id": "vegetation", "editable_domains": ["species", "growth", "trunk", "branches", "leaves", "season", "health", "wind", "lod"]},
+    {"id": "material", "editable_domains": ["base_color", "roughness", "metallic", "microdetail", "wear", "dirt", "scale", "packing"]},
+    {"id": "vfx", "editable_domains": ["emitter", "shape", "timing", "direction", "particles", "color", "budget"]}
+  ],
+  "quality_tiers": [
+    "prototype",
+    "gameplay",
+    "hero",
+    "hero_closeup",
+    "cinematic",
+    "mass_rts",
+    "mobile"
+  ],
+  "acceptance_classes": [
+    "structural",
+    "visual",
+    "motion_behavior",
+    "runtime_engine",
+    "provenance_truth"
+  ],
+  "truth": {
+    "canonical_state_owner": "AXM Game Asset Forge",
+    "editors_are": "bounded derived-state clients",
+    "notes": [
+      "Families share the edit/compile/evidence contract but may use different internal mechanisms.",
+      "Player-facing creators and AI game-edit engines may expose only a safe subset of each family."
+    ]
+  }
+}
