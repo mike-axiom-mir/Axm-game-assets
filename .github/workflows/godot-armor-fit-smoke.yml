@@ -1,22 +1,6 @@
 name: godot-armor-fit-smoke
 
 on:
-  push:
-    paths:
-      - "native_armor_conform.py"
-      - "native_armor_conform_test.py"
-      - "native_armor_fit_evidence.py"
-      - "native_hm08_full_body_fitted.py"
-      - "native_hm08_full_body_fitted_test.py"
-      - ".github/workflows/godot-armor-fit-smoke.yml"
-  pull_request:
-    paths:
-      - "native_armor_conform.py"
-      - "native_armor_conform_test.py"
-      - "native_armor_fit_evidence.py"
-      - "native_hm08_full_body_fitted.py"
-      - "native_hm08_full_body_fitted_test.py"
-      - ".github/workflows/godot-armor-fit-smoke.yml"
   workflow_dispatch:
 
 permissions:
