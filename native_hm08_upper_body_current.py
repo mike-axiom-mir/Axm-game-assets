@@ -239,6 +239,8 @@ def build_current_upper_body_package(
     delivery = write_multi_gltf(primitives, root, name=ASSET_NAME)
     document = json.loads((root / delivery["gltf"]).read_text(encoding="utf-8"))
 
+    upper_weight_signature = [(row["name"], float(row["weight"])) for row in upper_target_state["applied"]]
+    head_weight_signature = [(row["name"], float(row["weight"])) for row in head_target_state["applied"]]
     acceptance = {
         "pinned_upper_seed_green": all(upper_manifest["acceptance"].values()),
         "promoted_head_is_exact_source_subset": upper_manifest["relationship_to_head_seed"]["head_source_subset"] is True,
@@ -246,7 +248,7 @@ def build_current_upper_body_package(
         "upper_body_expected_topology": len(upper_variant.vertices) == 10185 and len(upper_variant.faces) == 10158,
         "upper_body_uv_preserved": upper_uv_report["status"] == "pass",
         "head_uv_preserved": head_uv_report["status"] == "pass",
-        "same_face_target_weights": upper_target_state["applied"] == head_target_state["applied"],
+        "same_face_target_weights": upper_weight_signature == head_weight_signature,
         "preferred_face_control_green": face_control["skin_mode"] == "physical_v0.1" and all(face_control["acceptance"].values()),
         "source_grounded_eye_layers_valid": left_eye_report["status"] == "pass" and right_eye_report["status"] == "pass",
         "brow_route_valid": brows.evidence["truth"]["preferred_geometry_route"] is True,
@@ -272,6 +274,7 @@ def build_current_upper_body_package(
         "head_identity_overlap": overlap,
         "upper_target_mix": upper_target_state,
         "head_target_mix": head_target_state,
+        "target_weight_signature": upper_weight_signature,
         "landmarks": landmark_packet(landmarks),
         "brows": brows.evidence,
         "brow_material": brow_material,
@@ -299,7 +302,8 @@ def build_current_upper_body_package(
             "high_end_character_claim": False,
             "notes": [
                 "The human surface is one continuous hm08 topology from the pinned CC0 seed; the head is not glued onto a separate torso.",
-                "All 4,197 promoted head source vertices are present in the upper body and the same facial target mix must produce zero positional drift on that overlap.",
+                "All 4,197 promoted head source vertices are present in the upper body and the same facial target names/weights must produce zero positional drift on that overlap.",
+                "Remapped target digests are expected to differ because compact vertex indices differ; name/weight equality plus source-position overlap is the correct continuity test.",
                 "The physical face texture is reused on the original hm08 atlas. UV regions outside the authored head receive neutral padding and are therefore a continuity material, not finished body skin.",
                 "Neutral hm08 torso/body proportions are a source substrate, not final Sentinel anatomy or musculature.",
                 "Undersuit, armor, body rigging, deformation, hand/rifle contact and lower body remain later gates."
