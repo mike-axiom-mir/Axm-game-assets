@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axm.local/schemas/asset-edit-surface-v0.1.schema.json",
+  "title": "AXM Asset Edit Surface v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "surface_id", "asset_family", "parameters"],
+  "properties": {
+    "schema": {"const": "axm.asset-edit-surface.v0.1"},
+    "surface_id": {"type": "string", "minLength": 1},
+    "asset_family": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "parameters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "path", "type", "editable_by"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "path": {"type": "string", "minLength": 1},
+          "type": {"enum": ["number", "integer", "boolean", "enum", "string"]},
+          "editable_by": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"enum": ["player", "ai", "tool"]}
+          },
+          "minimum": {"type": "number"},
+          "maximum": {"type": "number"},
+          "step": {"type": "number", "exclusiveMinimum": 0},
+          "values": {"type": "array", "minItems": 1, "uniqueItems": true},
+          "default": {},
+          "max_length": {"type": "integer", "minimum": 1},
+          "ui": {"type": "object"},
+          "tags": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "truth": {"type": "object"}
+  }
+}
