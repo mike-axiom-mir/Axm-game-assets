@@ -1,0 +1,17 @@
+{
+  "schema": "axm.asset-edit-packet.v0.1",
+  "surface_id": "sentinel-weapon-editor-v0.1",
+  "base_genome_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "actor": {"kind": "ai", "id": "axm-game-editor"},
+  "operations": [
+    {"op": "set", "parameter": "barrel.length_class", "value": "compact"},
+    {"op": "set", "parameter": "stock.type", "value": "compact"},
+    {"op": "set", "parameter": "sight.type", "value": "reflex"},
+    {"op": "set", "parameter": "wear.amount", "value": 0.62},
+    {"op": "set", "parameter": "environment.winter_wrap", "value": true}
+  ],
+  "metadata": {
+    "purpose": "AI game-edit engine weapon variant example",
+    "quality_target": "gameplay"
+  }
+}
