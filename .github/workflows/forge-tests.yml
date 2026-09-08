@@ -60,8 +60,12 @@ jobs:
         run: python native_hm08_boot_structure_test.py
       - name: Full-body Sentinel humanoid rig test
         run: python native_hm08_humanoid_rig_test.py
+      - name: Character-side hand socket attachment test
+        run: python native_attachment_hand_socket_test.py
       - name: HM08 two-hand rifle contact pose test
         run: python native_hm08_rifle_contact_pose_test.py
+      - name: HM08 rifle contact package test
+        run: python native_hm08_rifle_contact_package_test.py
       - name: Native hm08 facial landmark test
         run: python native_hm08_landmarks_test.py
       - name: Native hm08 secondary facial forms test
