@@ -23,7 +23,7 @@ from native_uv import UVMap, read_obj_uv, validate_uv
 
 SEED_ROOT = Path("seed_data/hm08_head_v0.2")
 RAW_TO_M = 0.1
-SCHEMA = "axm.game-assets.hm08-brows.v0.2"
+SCHEMA = "axm.game-assets.hm08-brows.v0.3"
 
 
 @dataclass(slots=True)
@@ -88,7 +88,7 @@ def _barycentric_xy(point_x: float, point_y: float, a: Vec3, b: Vec3, c: Vec3):
     return w0, w1, w2
 
 
-def _sample_front_surface(
+def sample_front_surface(
     mesh: Mesh,
     normals: list[Vec3],
     target_x: float,
@@ -96,6 +96,12 @@ def _sample_front_surface(
     *,
     minimum_z: float,
 ) -> tuple[Vec3, Vec3, int, str]:
+    """Sample the front-most projected mesh surface at an authored X/Y point.
+
+    This is intentionally public because brows, lashes and later facial cards
+    need one shared continuous surface truth instead of each re-inventing a
+    nearest-vertex approximation.
+    """
     tri = triangulate(mesh)
     candidates = []
     for face_index, face in enumerate(tri.faces):
@@ -118,15 +124,12 @@ def _sample_front_surface(
         _, face_index, surface, normal = max(candidates, key=lambda item: item[0])
         return surface, normal, face_index, "barycentric_front_triangle"
 
-    # Rare fallback for a target landing in a tiny projected crack or outside
-    # the current front surface. Keep it explicit in evidence rather than
-    # silently changing the authored brow curve.
     fallback = [
         index for index, (point, normal) in enumerate(zip(mesh.vertices, normals))
         if point[2] >= minimum_z and normal[2] > 0.10
     ]
     if not fallback:
-        raise ValueError("no front-facing hm08 surface available for brow anchor")
+        raise ValueError("no front-facing hm08 surface available for facial anchor")
     vertex = min(
         fallback,
         key=lambda index: (
@@ -142,10 +145,10 @@ def generate_hm08_brows(
     *,
     landmarks_raw,
     eye_metadata: dict[str, object],
-    guides_per_brow: int = 16,
-    guide_length_m: float = 0.0052,
-    root_width_m: float = 0.00125,
-    tip_width_m: float = 0.00022,
+    guides_per_brow: int = 24,
+    guide_length_m: float = 0.0050,
+    root_width_m: float = 0.00180,
+    tip_width_m: float = 0.00038,
     root_offset_m: float = 0.00055,
     seed: int = 52081,
 ) -> BrowAssembly:
@@ -180,7 +183,7 @@ def generate_hm08_brows(
             target_x = eye_x_m + u * eye_half_sep_m * 0.78
             arch = 1.0 - (u * 0.82) ** 2
             target_y = eye_y_m + eye_to_nose_m * (0.29 + 0.095 * arch + 0.025 * sign * u)
-            surface, normal, anchor_index, sampling_method = _sample_front_surface(
+            surface, normal, anchor_index, sampling_method = sample_front_surface(
                 head_m,
                 normals,
                 target_x,
@@ -209,7 +212,7 @@ def generate_hm08_brows(
             sampling_methods.append(sampling_method)
             per_side_anchor_x[side].append(surface[0])
 
-    system = HairSystem(guides=guides, seed=seed, style="hm08_brows_v0.2")
+    system = HairSystem(guides=guides, seed=seed, style="hm08_brows_v0.3_density_route")
     validation = validate_hair(system)
     if validation["status"] != "pass":
         raise ValueError(f"hm08 brow guide validation failed: {validation}")
@@ -241,10 +244,11 @@ def generate_hm08_brows(
         "truth": {
             "source_grounded": True,
             "placement_basis": "continuous current identity front surface + pinned hm08 eye landmarks",
-            "aesthetic_brow_claim": False,
+            "preferred_geometry_route": True,
+            "high_end_brow_claim": False,
             "notes": [
-                "Brow roots are barycentrically sampled from the real front surface wherever possible, avoiding vertex-spacing quantization.",
-                "Card groom is an authored first pass; density/shape still requires real engine visual judgment."
+                "48-guide continuous-surface placement plus overlapping card widths is the current preferred brow geometry route after real Godot v0.3 evidence produced a readable eyebrow mass.",
+                "The dedicated brow-density material remains a separate organ; geometry preference does not imply final groom quality.",
             ],
         },
     }

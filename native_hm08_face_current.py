@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """Current preferred Sentinel human-face candidate assembly.
 
-Run 2 current state starts from the evidence-promoted components:
+Current preferred substrate:
 - repaired hm08 v0.2 topology + identity target mix
 - physical-scale v0.1 skin
 - source-grounded layered eyes
-and adds the current source-grounded eyebrow-card candidate.
+- promoted brow v0.3 geometry + dedicated density material
 
-This file is intentionally the moving *candidate* assembler. Canonical source
-organs remain separate and reconstructable; a visual layer only becomes
-preferred after Godot evidence.
+v0.4 adds source-grounded upper-lash micro-ribbons as the only new visual
+layer. This moving candidate assembler does not rewrite the underlying organs.
 """
 from __future__ import annotations
 
@@ -22,14 +21,16 @@ from native_hm08_brows import generate_hm08_brows
 from native_hm08_face_eyes import RAW_TO_M, SEED_ROOT, _combine_with_uv, _translated_eye_layers, build_face_eyes_package
 from native_hm08_face_proof import DEFAULT_WEIGHTS
 from native_hm08_landmarks import derive_hm08_face_landmarks, landmark_packet
+from native_hm08_lash_material import LashMaterialSpec, write_lash_material
+from native_hm08_lashes import generate_hm08_upper_lashes
 from native_multi_gltf import MaterialPrimitive, write_multi_gltf
 from native_pbr import png_bytes
 from native_targets import load_target, mix_targets
 from native_geometry import scale
 from native_uv import read_obj_uv, validate_uv
 
-SCHEMA = "axm.game-assets.hm08-face-current.v0.3"
-ASSET_NAME = "sentinel_hm08_face_current_v0_3"
+SCHEMA = "axm.game-assets.hm08-face-current.v0.4"
+ASSET_NAME = "sentinel_hm08_face_current_v0_4"
 
 
 def _sha(data: bytes) -> str:
@@ -50,6 +51,7 @@ def build_current_face_package(
     skin_seed: int = 20801,
     eye_seed: int = 31991,
     brow_seed: int = 52081,
+    lash_seed: int = 62081,
 ) -> dict[str, object]:
     root = Path(output)
     root.mkdir(parents=True, exist_ok=True)
@@ -90,22 +92,13 @@ def build_current_face_package(
         for layer in ("sclera", "iris", "pupil", "cornea")
     }
 
-    # v0.2 proved that denser guide placement and BLEND are structurally valid,
-    # but the generic scalp-hair alpha map still rasterized as dots. Keep that
-    # exact geometry and change only the dedicated brow density field in v0.3.
-    brow_candidate = {
-        "guides_per_brow": 24,
-        "guide_length_m": 0.0050,
-        "root_width_m": 0.00180,
-        "tip_width_m": 0.00038,
-        "root_offset_m": 0.00055,
-    }
+    # Brow route was promoted after v0.3 real Godot evidence. Keep its geometry
+    # and density material fixed while upper lashes are evaluated.
     brows = generate_hm08_brows(
         head_m,
         landmarks_raw=landmarks,
         eye_metadata=eye_metadata,
         seed=brow_seed,
-        **brow_candidate,
     )
     brow_root = root / "textures" / "brows"
     brow_spec = BrowMaterialSpec(
@@ -117,6 +110,22 @@ def build_current_face_package(
     )
     brow_material = write_brow_material(brow_root, size=texture_size, seed=brow_seed, spec=brow_spec)
     brow_flat_normal_sha = _write_flat_normal(brow_root / "normal.png", texture_size)
+
+    lashes = generate_hm08_upper_lashes(
+        head_m,
+        landmarks_raw=landmarks,
+        eye_metadata=eye_metadata,
+        seed=lash_seed,
+    )
+    lash_root = root / "textures" / "lashes"
+    lash_spec = LashMaterialSpec(
+        root_rgb=(17, 12, 10),
+        tip_rgb=(29, 20, 16),
+        density=0.78,
+        roughness=0.54,
+    )
+    lash_material = write_lash_material(lash_root, size=texture_size, seed=lash_seed, spec=lash_spec)
+    lash_flat_normal_sha = _write_flat_normal(lash_root / "normal.png", texture_size)
 
     primitives = [
         MaterialPrimitive(
@@ -174,30 +183,44 @@ def build_current_face_package(
             double_sided=True,
             alpha_mode="BLEND",
         ),
+        MaterialPrimitive(
+            lashes.cards, lashes.uvmap,
+            "AXM_Sentinel_Upper_Lashes_v0_1",
+            "textures/lashes/base_color_alpha.png",
+            "textures/lashes/normal.png",
+            "textures/lashes/orm.png",
+            metallic_factor=0.0,
+            roughness_factor=1.0,
+            double_sided=True,
+            alpha_mode="BLEND",
+        ),
     ]
     delivery = write_multi_gltf(primitives, root, name=ASSET_NAME)
 
     document = json.loads((root / delivery["gltf"]).read_text(encoding="utf-8"))
-    brow_gltf_material = document["materials"][-1]
+    brow_gltf_material = document["materials"][-2]
+    lash_gltf_material = document["materials"][-1]
     skin_hashes = {name: control["skin"]["maps"][name]["sha256"] for name in ("base_color", "normal", "orm")}
-    coverage = brow_material["coverage_evidence"]
+    brow_coverage = brow_material["coverage_evidence"]
+    lash_coverage = lash_material["coverage_evidence"]
 
     acceptance = {
         "preferred_physical_skin_control_green": control["skin_mode"] == "physical_v0.1" and all(control["acceptance"].values()),
         "repaired_identity_used": len(identity.vertices) == 4197 and len(identity_state["applied"]) == len(DEFAULT_WEIGHTS),
         "head_uv_preserved": head_uv_report["status"] == "pass",
         "source_grounded_eye_layers_valid": left_eye_report["status"] == "pass" and right_eye_report["status"] == "pass",
-        "brow_guides_valid": brows.evidence["hair_validation"]["status"] == "pass",
-        "brow_uv_valid": brows.evidence["uv_validation"]["status"] == "pass",
-        "brow_surface_anchors_close": brows.evidence["max_root_surface_distance_m"] <= 0.00056,
-        "brow_anchor_diversity": brows.evidence["unique_anchor_count"] >= 40,
-        "brow_dense_candidate": brows.evidence["guide_count"] == 48 and brows.evidence["guides_per_brow"] == 24,
-        "brow_density_field_broad": coverage["mean_alpha"] > 0.20 and coverage["fraction_alpha_ge_0_10"] > 0.70 and coverage["fraction_alpha_ge_0_25"] > 0.45,
-        "six_semantic_primitives": delivery["primitive_count"] == 6,
-        "six_semantic_materials": delivery["material_count"] == 6,
-        "brow_nonmetal": brow_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0,
-        "brow_alpha_blend": brow_gltf_material.get("alphaMode") == "BLEND" and "alphaCutoff" not in brow_gltf_material,
-        "brow_double_sided": brow_gltf_material.get("doubleSided") is True,
+        "preferred_brow_geometry_valid": brows.evidence["truth"]["preferred_geometry_route"] is True and brows.evidence["hair_validation"]["status"] == "pass",
+        "preferred_brow_density_valid": brow_coverage["mean_alpha"] > 0.20 and brow_coverage["fraction_alpha_ge_0_10"] > 0.70,
+        "lash_guides_valid": lashes.evidence["hair_validation"]["status"] == "pass",
+        "lash_uv_valid": lashes.evidence["uv_validation"]["status"] == "pass",
+        "lash_surface_roots_close": lashes.evidence["max_root_surface_distance_m"] <= 0.00031,
+        "lash_eye_fit_bounded": 0.80 < lashes.evidence["min_root_eye_radius_ratio"] and lashes.evidence["max_root_eye_radius_ratio"] < 2.0,
+        "lash_material_coverage": lash_coverage["mean_alpha"] > 0.20 and lash_coverage["fraction_alpha_ge_0_10"] > 0.55,
+        "seven_semantic_primitives": delivery["primitive_count"] == 7,
+        "seven_semantic_materials": delivery["material_count"] == 7,
+        "brow_nonmetal_blend": brow_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and brow_gltf_material.get("alphaMode") == "BLEND",
+        "lash_nonmetal_blend": lash_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and lash_gltf_material.get("alphaMode") == "BLEND",
+        "lash_double_sided": lash_gltf_material.get("doubleSided") is True,
         "gltf_structural_valid": delivery["validation"]["status"] == "pass",
     }
     manifest: dict[str, object] = {
@@ -209,24 +232,26 @@ def build_current_face_package(
             "skin_mode": "physical_v0.1",
             "skin_map_hashes": skin_hashes,
             "eyes": "source_grounded_hm08_helper_geometry",
+            "brows": "hm08-brows.v0.3 + brow-density-material.v0.1",
         },
         "identity_target_mix": identity_state,
         "landmarks": landmark_packet(landmarks),
-        "brow_candidate_parameters": brow_candidate,
-        "brow_render_strategy": "dense_overlapping_cards_with_soft_density_blend",
         "brows": brows.evidence,
         "brow_material": brow_material,
         "brow_flat_normal_sha256": brow_flat_normal_sha,
+        "upper_lashes": lashes.evidence,
+        "lash_material": lash_material,
+        "lash_flat_normal_sha256": lash_flat_normal_sha,
         "delivery": delivery,
         "acceptance": acceptance,
         "truth": {
-            "preferred_brow_claim": False,
+            "preferred_brow_route": True,
+            "preferred_lash_claim": False,
             "high_end_character_claim": False,
             "notes": [
-                "Brow v0.3 preserves the source-grounded v0.2 geometry/placement and replaces only the sparse generic scalp-hair alpha field.",
-                "The dedicated density material keeps a broad soft alpha envelope with filament modulation so eyebrow cards can survive 640 px close-view minification.",
-                "Technical coverage gates do not imply aesthetic promotion; real Godot close views decide that.",
-                "This candidate assembler is expected to evolve with lashes, scalp hair and later neck/torso while source organs remain separate."
+                "Brow route is held fixed from the readable v0.3 Godot evidence while upper lashes are the only new visual layer.",
+                "Upper lash v0.1 uses source-grounded eyelid roots and individual soft-alpha micro-ribbons; technical fit does not imply aesthetic promotion.",
+                "Lower lashes, tearline/meniscus, scalp hair and neck/torso remain later fidelity gates."
             ],
         },
     }
@@ -245,4 +270,4 @@ if __name__ == "__main__":
     parser.add_argument("--texture-size", type=int, default=128)
     args = parser.parse_args()
     result = build_current_face_package(args.output, texture_size=args.texture_size)
-    print(json.dumps({"acceptance": result["acceptance"], "brows": result["brows"], "delivery": result["delivery"]}, indent=2))
+    print(json.dumps({"acceptance": result["acceptance"], "brows": result["brows"], "upper_lashes": result["upper_lashes"], "delivery": result["delivery"]}, indent=2))

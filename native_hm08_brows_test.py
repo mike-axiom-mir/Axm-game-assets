@@ -12,9 +12,10 @@ def run() -> None:
     assert first.uvmap.face_uvs == second.uvmap.face_uvs
 
     evidence = first.evidence
-    assert evidence["guide_count"] == 32
-    assert evidence["guides_per_brow"] == 16
-    assert evidence["unique_anchor_count"] >= 24, evidence
+    assert evidence["schema"] == "axm.game-assets.hm08-brows.v0.3"
+    assert evidence["guide_count"] == 48
+    assert evidence["guides_per_brow"] == 24
+    assert evidence["unique_anchor_count"] >= 40, evidence
     assert 0.00050 <= evidence["mean_root_surface_distance_m"] <= 0.00060, evidence
     assert evidence["max_root_surface_distance_m"] <= 0.00056, evidence
     assert evidence["left_anchor_x_range"][0] > 0.0, evidence["left_anchor_x_range"]
@@ -24,7 +25,8 @@ def run() -> None:
     assert evidence["hair_validation"]["status"] == "pass"
     assert evidence["hair_validation"]["min_root_outward_dot"] > 0.0
     assert evidence["uv_validation"]["status"] == "pass"
-    assert evidence["truth"]["aesthetic_brow_claim"] is False
+    assert evidence["truth"]["preferred_geometry_route"] is True
+    assert evidence["truth"]["high_end_brow_claim"] is False
 
     print("HM08 BROWS TEST PASS", {
         "guides": evidence["guide_count"],

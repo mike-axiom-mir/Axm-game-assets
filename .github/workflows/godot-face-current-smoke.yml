@@ -35,24 +35,31 @@ jobs:
           python - <<'PY'
           from native_hm08_brows_test import run as brow_test
           from native_hm08_brow_material_test import run as brow_material_test
+          from native_hm08_lashes_test import run as lash_test
+          from native_hm08_lash_material_test import run as lash_material_test
           from native_hair_gltf_test import run as hair_gltf_test
           from native_hm08_face_current import build_current_face_package
           brow_test()
           brow_material_test()
+          lash_test()
+          lash_material_test()
           hair_gltf_test()
           package = build_current_face_package("engine/godot_face/generated", texture_size=128)
           assert all(package["acceptance"].values()), package["acceptance"]
           assert package["candidate_role"] == "current_face_candidate"
-          assert package["schema"] == "axm.game-assets.hm08-face-current.v0.3"
-          assert package["delivery"]["primitive_count"] == 6
-          assert package["delivery"]["material_count"] == 6
-          assert package["delivery"]["material_names"][-1] == "AXM_Sentinel_Brows_v0_3_Density"
+          assert package["schema"] == "axm.game-assets.hm08-face-current.v0.4"
+          assert package["truth"]["preferred_brow_route"] is True
+          assert package["truth"]["preferred_lash_claim"] is False
+          assert package["delivery"]["primitive_count"] == 7
+          assert package["delivery"]["material_count"] == 7
+          assert package["delivery"]["material_names"][-2] == "AXM_Sentinel_Brows_v0_3_Density"
+          assert package["delivery"]["material_names"][-1] == "AXM_Sentinel_Upper_Lashes_v0_1"
           assert package["brows"]["guide_count"] == 48
-          assert package["brow_render_strategy"] == "dense_overlapping_cards_with_soft_density_blend"
-          print("CURRENT FACE BUILD PASS", package["brows"], package["brow_material"]["coverage_evidence"], package["delivery"])
+          assert package["upper_lashes"]["guide_count"] == 40
+          print("CURRENT FACE BUILD PASS", package["brows"], package["upper_lashes"], package["delivery"])
           PY
           cp \
-            engine/godot_face/generated/sentinel_hm08_face_current_v0_3.gltf \
+            engine/godot_face/generated/sentinel_hm08_face_current_v0_4.gltf \
             engine/godot_face/generated/sentinel_hm08_face_candidate_v0_1.gltf
 
       - name: Download pinned Godot 4.7.2
@@ -79,9 +86,9 @@ jobs:
           from pathlib import Path
           receipt = json.loads(Path("engine/godot_face/godot-face-eyes-import-receipt.json").read_text())
           assert receipt["status"] == "pass", receipt
-          assert receipt["surfaces"] == 6, receipt
-          assert receipt["material_surfaces"] == 6, receipt
-          assert len(receipt["declared_external_images"]) == 18, receipt
+          assert receipt["surfaces"] == 7, receipt
+          assert receipt["material_surfaces"] == 7, receipt
+          assert len(receipt["declared_external_images"]) == 21, receipt
           assert receipt["vertices"] > 0 and receipt["indices"] > 0
           print("CURRENT FACE GODOT IMPORT PASS", receipt)
           PY
@@ -126,11 +133,11 @@ jobs:
           package=json.loads(package_path.read_text())
           source_digest="sha256:"+hashlib.sha256(package_path.read_bytes()).hexdigest()
           bundle={
-              "schema":"axm.game-assets.godot-current-face-viewset.v0.3",
+              "schema":"axm.game-assets.godot-current-face-viewset.v0.4",
               "authority":"deterministic_capture_evidence_only",
               "asset_digest":package["delivery"]["gltf_sha256"],
               "candidate_role":"current_face_candidate",
-              "layers":["hm08_v0.2_identity","physical_skin_v0.1","source_grounded_eyes","brows_v0.3_density_blend"],
+              "layers":["hm08_v0.2_identity","physical_skin_v0.1","source_grounded_eyes","brows_v0.3_density_blend","upper_lashes_v0.1"],
               "views":[],
           }
           for view in receipt["views"]:
@@ -142,7 +149,7 @@ jobs:
                   asset_digest=package["delivery"]["gltf_sha256"],
                   engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},
                   camera=view["camera"],
-                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"current_face_candidate_v0.3","lighting":receipt["lighting"]},
+                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"current_face_candidate_v0.4","lighting":receipt["lighting"]},
                   metrics={"foreground_coverage":m["foreground_coverage"],"foreground_luma_mean":m["foreground_luma_mean"],"near_white_foreground_fraction":m["near_white_foreground_fraction"],"luma_min":m["luma_min"],"luma_max":m["luma_max"],"luma_mean":m["luma_mean"],"luma_range":m["luma_range"]},
                   source_receipts=[source_digest],
               )
@@ -167,5 +174,6 @@ jobs:
             engine/godot_face/godot-face-profile.png
             engine/godot_face/visual-capture-current-face-*.json
             engine/godot_face/generated/current-face-package.json
-            engine/godot_face/generated/sentinel_hm08_face_current_v0_3.gltf
+            engine/godot_face/generated/sentinel_hm08_face_current_v0_4.gltf
             engine/godot_face/generated/textures/brows/*
+            engine/godot_face/generated/textures/lashes/*
