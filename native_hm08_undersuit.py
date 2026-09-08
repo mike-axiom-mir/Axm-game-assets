@@ -9,6 +9,7 @@ It is intended to become the soft layer underneath rigid Sentinel armor.
 from __future__ import annotations
 
 import json
+from math import sqrt
 from pathlib import Path
 
 from native_fabric_material import FabricSpec, write_fabric_material
@@ -43,6 +44,27 @@ def _is_suit_vertex(
     return y <= collar_y_m and y >= ankle_y_m and abs(x) <= wrist_abs_x_m
 
 
+def _triangle_area(a, b, c) -> float:
+    ab = (b[0]-a[0], b[1]-a[1], b[2]-a[2])
+    ac = (c[0]-a[0], c[1]-a[1], c[2]-a[2])
+    cross = (
+        ab[1]*ac[2] - ab[2]*ac[1],
+        ab[2]*ac[0] - ab[0]*ac[2],
+        ab[0]*ac[1] - ab[1]*ac[0],
+    )
+    return 0.5 * sqrt(cross[0]*cross[0] + cross[1]*cross[1] + cross[2]*cross[2])
+
+
+def _face_area(mesh: Mesh, face: tuple[int, ...]) -> float:
+    if len(face) < 3:
+        return 0.0
+    anchor = mesh.vertices[face[0]]
+    total = 0.0
+    for index in range(1, len(face)-1):
+        total += _triangle_area(anchor, mesh.vertices[face[index]], mesh.vertices[face[index+1]])
+    return total
+
+
 def build_hm08_undersuit(
     body_m: Mesh,
     body_uv: UVMap,
@@ -51,9 +73,12 @@ def build_hm08_undersuit(
     collar_y_m: float = 0.565,
     ankle_y_m: float = -0.690,
     wrist_abs_x_m: float = 0.405,
+    minimum_surface_coverage: float = 0.68,
 ) -> tuple[Mesh, UVMap, dict[str, object]]:
     if offset_m <= 0.0 or offset_m > 0.006:
         raise ValueError("undersuit offset must be >0 and <=6 mm")
+    if not 0.5 <= minimum_surface_coverage <= 0.9:
+        raise ValueError("undersuit surface coverage gate must stay within [0.5, 0.9]")
     if len(body_uv.face_uvs) != len(body_m.faces):
         raise ValueError("body UV face count must match body faces")
 
@@ -69,8 +94,17 @@ def build_hm08_undersuit(
             for index in face
         ):
             selected_faces.append(face_index)
-    if len(selected_faces) < 4000:
-        raise ValueError(f"undersuit selected too little body surface: {len(selected_faces)} faces")
+    if len(selected_faces) < 1000:
+        raise ValueError(f"undersuit selection catastrophically small: {len(selected_faces)} faces")
+
+    source_area = sum(_face_area(body_m, face) for face in body_m.faces)
+    selected_source_area = sum(_face_area(body_m, body_m.faces[index]) for index in selected_faces)
+    coverage = selected_source_area / max(source_area, 1e-12)
+    if coverage < minimum_surface_coverage:
+        raise ValueError(
+            f"undersuit covers only {coverage:.6f} of body surface; "
+            f"minimum is {minimum_surface_coverage:.6f}"
+        )
 
     normals = vertex_normals(body_m)
     used_vertices = sorted({index for face_index in selected_faces for index in body_m.faces[face_index]})
@@ -106,6 +140,10 @@ def build_hm08_undersuit(
         "source_body_faces": len(body_m.faces),
         "selected_face_count": len(selected_faces),
         "selected_vertex_count": len(used_vertices),
+        "source_surface_area_m2": source_area,
+        "selected_source_surface_area_m2": selected_source_area,
+        "surface_coverage_fraction": coverage,
+        "minimum_surface_coverage": minimum_surface_coverage,
         "offset_m": offset_m,
         "cuts": {
             "collar_y_m": collar_y_m,
@@ -127,6 +165,7 @@ def build_hm08_undersuit(
             "notes": [
                 "The shell is derived from the complete pinned CC0 hm08 body and does not alter canonical skin geometry.",
                 "Open collar, wrist and ankle boundaries are intentional garment openings, not body-topology damage.",
+                "Surface coverage is the garment-coverage gate because hm08 intentionally spends dense topology on exposed face/hands/feet; raw polygon fraction is not a physical coverage measure.",
                 "The first fitted shell establishes clothing separation and armor clearance; production tailoring still needs seam/panel logic, wrinkles and deformation evidence."
             ],
         },
