@@ -105,8 +105,8 @@ def derive_face_landmarks(mesh: Mesh, eye_landmarks: dict[str, object]) -> FaceL
         for axis in range(3)
     )
     nose_tip = max(mesh.vertices, key=lambda vertex: vertex[2])
-    left_eye = tuple(float(value) for value in eye_landmarks["eyes"]["left"]["center_raw_dm"])
-    right_eye = tuple(float(value) for value in eye_landmarks["eyes"]["right"]["center_raw_dm"])
+    left_eye = tuple(float(value) for value in eye_landmarks["eyes"]["left"]["center_raw"])
+    right_eye = tuple(float(value) for value in eye_landmarks["eyes"]["right"]["center_raw"])
     lo, hi = bounds(mesh)
     return FaceLandmarks(
         mouth_center=mouth_center,  # type: ignore[arg-type]
