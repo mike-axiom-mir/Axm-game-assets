@@ -1,26 +1,6 @@
 name: godot-rifle-contact-smoke
 
 on:
-  push:
-    paths:
-      - "native_hm08_humanoid_rig.py"
-      - "native_attachment.py"
-      - "native_hm08_rifle_contact_pose_v2.py"
-      - "native_hm08_rifle_contact_pose_v2_test.py"
-      - "native_hm08_rifle_contact_package.py"
-      - "native_hm08_rifle_contact_package_test.py"
-      - "engine/godot_face/render_rifle_contact_views.gd"
-      - ".github/workflows/godot-rifle-contact-smoke.yml"
-  pull_request:
-    paths:
-      - "native_hm08_humanoid_rig.py"
-      - "native_attachment.py"
-      - "native_hm08_rifle_contact_pose_v2.py"
-      - "native_hm08_rifle_contact_pose_v2_test.py"
-      - "native_hm08_rifle_contact_package.py"
-      - "native_hm08_rifle_contact_package_test.py"
-      - "engine/godot_face/render_rifle_contact_views.gd"
-      - ".github/workflows/godot-rifle-contact-smoke.yml"
   workflow_dispatch:
 
 permissions:
