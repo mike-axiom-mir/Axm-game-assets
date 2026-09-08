@@ -1,0 +1,179 @@
+name: godot-rifle-contact-v3-smoke
+
+on:
+  push:
+    paths:
+      - "native_weapon_human_scale.py"
+      - "native_weapon_human_scale_test.py"
+      - "native_hm08_humanoid_rig.py"
+      - "native_hm08_humanoid_rig_test.py"
+      - "native_attachment.py"
+      - "native_attachment_hand_socket_test.py"
+      - "native_hm08_rifle_contact_pose_v3.py"
+      - "native_hm08_rifle_contact_pose_v3_test.py"
+      - "native_hm08_rifle_contact_package_v3.py"
+      - "native_hm08_rifle_contact_package_v3_test.py"
+      - "native_weapon.py"
+      - "native_weapon_multimat.py"
+      - "engine/godot_face/render_rifle_contact_v3_views.gd"
+      - ".github/workflows/godot-rifle-contact-v3-smoke.yml"
+  pull_request:
+    paths:
+      - "native_weapon_human_scale.py"
+      - "native_weapon_human_scale_test.py"
+      - "native_hm08_humanoid_rig.py"
+      - "native_hm08_humanoid_rig_test.py"
+      - "native_attachment.py"
+      - "native_attachment_hand_socket_test.py"
+      - "native_hm08_rifle_contact_pose_v3.py"
+      - "native_hm08_rifle_contact_pose_v3_test.py"
+      - "native_hm08_rifle_contact_package_v3.py"
+      - "native_hm08_rifle_contact_package_v3_test.py"
+      - "native_weapon.py"
+      - "native_weapon_multimat.py"
+      - "engine/godot_face/render_rifle_contact_v3_views.gd"
+      - ".github/workflows/godot-rifle-contact-v3-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  godot-rifle-contact-v3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Gate human-scale source and shared-rig contact
+        run: |
+          python native_weapon_human_scale_test.py
+          python native_hm08_humanoid_rig_test.py
+          python native_attachment_hand_socket_test.py
+          python native_hm08_rifle_contact_pose_v3_test.py
+          python native_hm08_rifle_contact_package_v3_test.py
+
+      - name: Build human-scale contact package
+        run: |
+          rm -rf engine/godot_face/generated
+          python - <<'PY'
+          from native_hm08_rifle_contact_package_v3 import build_hm08_rifle_contact_package_v3
+          p=build_hm08_rifle_contact_package_v3("engine/godot_face/generated",texture_size=128)
+          assert all(p["acceptance"].values()),p["acceptance"]
+          assert p["schema"]=="axm.game-assets.hm08-rifle-contact-package.v0.3"
+          assert p["candidate_role"]=="human_scale_shared_rig_rifle_contact_visual_proof"
+          dims=p["rifle"]["dimensional_evidence"]
+          assert 0.92<=dims["overall_length_m"]<=1.04
+          assert 0.27<=dims["grip_socket_separation_m"]<=0.30
+          assert p["rifle"]["scale"]==[1.0,1.0,1.0]
+          assert p["delivery"]["primitive_count"]==5
+          assert p["delivery"]["material_count"]==5
+          pose=p["pose"]
+          assert pose["shared_rig"]["joint_count"]==23
+          assert pose["contact"]["primary_position_error"]<1e-8
+          assert pose["contact"]["support_position_error"]<1e-6
+          print("HUMAN-SCALE CONTACT BUILD PASS",dims,pose["contact"],p["delivery"])
+          PY
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" -o .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Render human-scale contact A/B views
+        run: |
+          rm -f engine/godot_face/godot-rifle-contact-v3-*.png engine/godot_face/godot-rifle-contact-v3-views-receipt.json
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --display-driver x11 \
+            --rendering-method gl_compatibility \
+            --path engine/godot_face \
+            --script render_rifle_contact_v3_views.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("engine/godot_face/godot-rifle-contact-v3-views-receipt.json").read_text())
+          assert r["status"]=="pass",r
+          assert r["schema"]=="axm.game-assets.godot-rifle-contact-views.v0.2"
+          assert r["changed_variable"]=="human_scale_rifle_source_dimensions"
+          assert r["surfaces"]==5 and r["material_surfaces"]==5
+          assert [v["name"] for v in r["views"]]==["front_contact","three_quarter_contact","hands_close"]
+          for view in r["views"]:
+              m=view["metrics"]
+              assert m["foreground_coverage"]>=view["minimum_foreground_coverage"]
+              assert m["near_white_foreground_fraction"]<=view["maximum_near_white_foreground_fraction"]
+          print("GODOT HUMAN-SCALE CONTACT VIEWS PASS",[(v["name"],v["metrics"]["foreground_coverage"]) for v in r["views"]])
+          PY
+
+      - name: Bind v0.3 captures to evidence packets
+        env:
+          GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          from native_visual_evidence import build_capture_packet,validate_capture_packet,write_capture_packet
+          root=Path("engine/godot_face")
+          receipt=json.loads((root/"godot-rifle-contact-v3-views-receipt.json").read_text())
+          package_path=root/"generated"/"rifle-contact-package-v3.json"
+          package=json.loads(package_path.read_text())
+          source_digest="sha256:"+hashlib.sha256(package_path.read_bytes()).hexdigest()
+          bundle={
+              "schema":"axm.game-assets.godot-rifle-contact-viewset.v0.3",
+              "authority":"deterministic_capture_evidence_only",
+              "asset_digest":package["delivery"]["gltf_sha256"],
+              "changed_variable":"human_scale_rifle_source_dimensions",
+              "weapon_dimensions":package["rifle"]["dimensional_evidence"],
+              "contact":package["pose"]["contact"],
+              "views":[],
+              "truth":"v0.3 A/B against preserved oversized-rifle v0.2. Same shared rig/socket/contact class; only authored weapon dimensions change. Visual quality remains observational."
+          }
+          for view in receipt["views"]:
+              name=view["name"]
+              png_path=root/f"godot-rifle-contact-v3-{name}.png"
+              png=png_path.read_bytes();m=view["metrics"]
+              packet=build_capture_packet(
+                  png,
+                  asset_digest=package["delivery"]["gltf_sha256"],
+                  engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},
+                  camera=view["camera"],
+                  render_settings={"renderer":"gl_compatibility","view_name":name,"layer":"human_scale_rifle_contact_v0.3","lighting":receipt["lighting"],"foreground_gate":receipt["foreground_gate"]},
+                  metrics={"foreground_coverage":m["foreground_coverage"],"foreground_luma_mean":m["foreground_luma_mean"],"near_white_foreground_fraction":m["near_white_foreground_fraction"],"luma_min":m["luma_min"],"luma_max":m["luma_max"],"luma_mean":m["luma_mean"],"luma_range":m["luma_range"]},
+                  source_receipts=[source_digest],
+              )
+              assert validate_capture_packet(packet,png)["status"]=="pass"
+              write_capture_packet(root/f"visual-capture-rifle-contact-v3-{name}.json",packet)
+              bundle["views"].append({"name":name,"capture_digest":packet["capture_digest"],"image_sha256":packet["image"]["sha256"]})
+          (root/"visual-capture-rifle-contact-v3-viewset.json").write_text(json.dumps(bundle,indent=2,sort_keys=True)+"\n")
+          print("HUMAN-SCALE CONTACT CAPTURE PASS",bundle)
+          PY
+
+      - name: Preserve human-scale contact evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-rifle-contact-v3-evidence
+          if-no-files-found: error
+          path: |
+            engine/godot_face/godot-rifle-contact-v3-views-receipt.json
+            engine/godot_face/godot-rifle-contact-v3-*.png
+            engine/godot_face/visual-capture-rifle-contact-v3-*.json
+            engine/godot_face/generated/rifle-contact-package-v3.json
+            engine/godot_face/generated/sentinel_hm08_rifle_contact_v0_3.gltf
+            engine/godot_face/generated/sentinel_hm08_rifle_contact_v0_3.bin
+            engine/godot_face/generated/textures/contact_body/*
+            engine/godot_face/generated/textures/rifle/**/*
