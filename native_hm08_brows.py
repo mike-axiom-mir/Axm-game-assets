@@ -2,9 +2,10 @@
 """Source-grounded eyebrow card generation for the repaired hm08 face.
 
 Brow anchors are derived from the current identity mesh and pinned eye centers.
-Each short guide is snapped to a real front-face surface vertex, offset slightly
-along the local normal, then grown along the local tangent plane. No painted
-brow mask, face scan, or external grooming runtime is required.
+Requested brow X/Y positions are sampled continuously on the real front-facing
+triangle surface (barycentric interpolation), then offset slightly along the
+interpolated local normal. This avoids quantizing a groom to source-vertex
+spacing. No painted brow mask, face scan, or external grooming runtime is used.
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from dataclasses import dataclass
 from math import sqrt
 from pathlib import Path
 
-from native_geometry import Mesh, Vec3, scale, vertex_normals
+from native_geometry import Mesh, Vec3, scale, triangulate, vertex_normals
 from native_hair import HairGuide, HairSystem, hair_cards_with_uv, validate_hair
 from native_hm08_face_proof import DEFAULT_WEIGHTS
 from native_hm08_landmarks import derive_hm08_face_landmarks
@@ -22,7 +23,7 @@ from native_uv import UVMap, read_obj_uv, validate_uv
 
 SEED_ROOT = Path("seed_data/hm08_head_v0.2")
 RAW_TO_M = 0.1
-SCHEMA = "axm.game-assets.hm08-brows.v0.1"
+SCHEMA = "axm.game-assets.hm08-brows.v0.2"
 
 
 @dataclass(slots=True)
@@ -69,32 +70,71 @@ def _tangent_direction(desired: Vec3, normal: Vec3) -> Vec3:
         projected = (1.0, 0.0, 0.0)
         projected = _sub(projected, _mul(normal, _dot(projected, normal)))
     tangent = _normalize(projected)
-    # Tiny normal component keeps the free end above the skin instead of
-    # allowing a tangent-plane numerical wobble to enter the forehead.
     return _normalize(_add(_mul(tangent, 0.985), _mul(normal, 0.17)))
 
 
-def _nearest_front_surface_vertex(
+def _barycentric_xy(point_x: float, point_y: float, a: Vec3, b: Vec3, c: Vec3):
+    x0, y0 = a[0], a[1]
+    x1, y1 = b[0], b[1]
+    x2, y2 = c[0], c[1]
+    denominator = (y1-y2)*(x0-x2) + (x2-x1)*(y0-y2)
+    if abs(denominator) <= 1e-14:
+        return None
+    w0 = ((y1-y2)*(point_x-x2) + (x2-x1)*(point_y-y2)) / denominator
+    w1 = ((y2-y0)*(point_x-x2) + (x0-x2)*(point_y-y2)) / denominator
+    w2 = 1.0 - w0 - w1
+    if min(w0, w1, w2) < -1e-7:
+        return None
+    return w0, w1, w2
+
+
+def _sample_front_surface(
     mesh: Mesh,
     normals: list[Vec3],
     target_x: float,
     target_y: float,
     *,
     minimum_z: float,
-) -> int:
-    candidates = [
+) -> tuple[Vec3, Vec3, int, str]:
+    tri = triangulate(mesh)
+    candidates = []
+    for face_index, face in enumerate(tri.faces):
+        a, b, c = (tri.vertices[index] for index in face)
+        bary = _barycentric_xy(target_x, target_y, a, b, c)
+        if bary is None:
+            continue
+        w0, w1, w2 = bary
+        z = a[2]*w0 + b[2]*w1 + c[2]*w2
+        if z < minimum_z:
+            continue
+        normal = _normalize(tuple(
+            normals[face[0]][axis]*w0 + normals[face[1]][axis]*w1 + normals[face[2]][axis]*w2
+            for axis in range(3)
+        ))
+        if normal[2] <= 0.10:
+            continue
+        candidates.append((z, face_index, (target_x, target_y, z), normal))
+    if candidates:
+        _, face_index, surface, normal = max(candidates, key=lambda item: item[0])
+        return surface, normal, face_index, "barycentric_front_triangle"
+
+    # Rare fallback for a target landing in a tiny projected crack or outside
+    # the current front surface. Keep it explicit in evidence rather than
+    # silently changing the authored brow curve.
+    fallback = [
         index for index, (point, normal) in enumerate(zip(mesh.vertices, normals))
         if point[2] >= minimum_z and normal[2] > 0.10
     ]
-    if not candidates:
-        raise ValueError("no front-facing hm08 surface vertices available for brow anchor")
-    return min(
-        candidates,
+    if not fallback:
+        raise ValueError("no front-facing hm08 surface available for brow anchor")
+    vertex = min(
+        fallback,
         key=lambda index: (
             (mesh.vertices[index][0]-target_x)**2 + (mesh.vertices[index][1]-target_y)**2,
             -mesh.vertices[index][2],
         ),
     )
+    return mesh.vertices[vertex], _normalize(normals[vertex]), vertex, "nearest_vertex_fallback"
 
 
 def generate_hm08_brows(
@@ -125,7 +165,8 @@ def generate_hm08_brows(
     guides: list[HairGuide] = []
     anchor_indices: list[int] = []
     anchor_distances: list[float] = []
-    per_side_rows: dict[str, list[int]] = {"left": [], "right": []}
+    anchor_surfaces: list[Vec3] = []
+    sampling_methods: list[str] = []
     per_side_anchor_x: dict[str, list[float]] = {"left": [], "right": []}
 
     for side, sign, eye in (
@@ -137,28 +178,21 @@ def generate_hm08_brows(
             t = guide_index / (guides_per_brow - 1)
             u = t * 2.0 - 1.0
             target_x = eye_x_m + u * eye_half_sep_m * 0.78
-            # Soft arch: center/outer brow sits slightly higher than inner.
             arch = 1.0 - (u * 0.82) ** 2
             target_y = eye_y_m + eye_to_nose_m * (0.29 + 0.095 * arch + 0.025 * sign * u)
-            anchor = _nearest_front_surface_vertex(
+            surface, normal, anchor_index, sampling_method = _sample_front_surface(
                 head_m,
                 normals,
                 target_x,
                 target_y,
                 minimum_z=minimum_z,
             )
-            surface = head_m.vertices[anchor]
-            normal = _normalize(normals[anchor])
             root = _add(surface, _mul(normal, root_offset_m))
 
-            # Inner hairs stand more vertically; outer hairs increasingly flow
-            # laterally toward the temple. Mirror the rule between sides.
             outward_amount = 0.18 + 0.66 * t
             desired = _normalize((sign * outward_amount, 0.96 - 0.28 * t, 0.0))
             direction = _tangent_direction(desired, normal)
             mid = _add(root, _mul(direction, guide_length_m * 0.52))
-            # Slightly taper the tip back toward the face tangent while keeping
-            # a tiny outward normal offset.
             tip_direction = _tangent_direction((sign * (outward_amount + 0.10), 0.66 - 0.22*t, 0.0), normal)
             tip = _add(mid, _mul(tip_direction, guide_length_m * 0.48))
 
@@ -169,12 +203,13 @@ def generate_hm08_brows(
                 tip_width=tip_width_m,
                 group=f"brow_{side}",
             ))
-            anchor_indices.append(anchor)
+            anchor_indices.append(anchor_index)
             anchor_distances.append(_length(_sub(root, surface)))
-            per_side_rows[side].append(anchor)
+            anchor_surfaces.append(surface)
+            sampling_methods.append(sampling_method)
             per_side_anchor_x[side].append(surface[0])
 
-    system = HairSystem(guides=guides, seed=seed, style="hm08_brows_v0.1")
+    system = HairSystem(guides=guides, seed=seed, style="hm08_brows_v0.2")
     validation = validate_hair(system)
     if validation["status"] != "pass":
         raise ValueError(f"hm08 brow guide validation failed: {validation}")
@@ -183,6 +218,8 @@ def generate_hm08_brows(
     if uv_report["status"] != "pass":
         raise ValueError(f"hm08 brow card UV failed: {uv_report}")
 
+    unique_surface_points = len({tuple(round(value, 8) for value in point) for point in anchor_surfaces})
+    method_counts = {method: sampling_methods.count(method) for method in sorted(set(sampling_methods))}
     evidence = {
         "schema": SCHEMA,
         "guides_per_brow": guides_per_brow,
@@ -192,7 +229,9 @@ def generate_hm08_brows(
         "tip_width_m": tip_width_m,
         "root_offset_m": root_offset_m,
         "anchor_count": len(anchor_indices),
-        "unique_anchor_count": len(set(anchor_indices)),
+        "unique_anchor_count": unique_surface_points,
+        "unique_anchor_face_count": len(set(anchor_indices)),
+        "surface_sampling": method_counts,
         "max_root_surface_distance_m": max(anchor_distances, default=0.0),
         "mean_root_surface_distance_m": sum(anchor_distances)/len(anchor_distances) if anchor_distances else 0.0,
         "left_anchor_x_range": [min(per_side_anchor_x["left"]), max(per_side_anchor_x["left"])],
@@ -201,10 +240,10 @@ def generate_hm08_brows(
         "uv_validation": uv_report,
         "truth": {
             "source_grounded": True,
-            "placement_basis": "current identity mesh surface + pinned hm08 eye landmarks",
+            "placement_basis": "continuous current identity front surface + pinned hm08 eye landmarks",
             "aesthetic_brow_claim": False,
             "notes": [
-                "Brow roots are real head-surface anchors, not painted texture coordinates.",
+                "Brow roots are barycentrically sampled from the real front surface wherever possible, avoiding vertex-spacing quantization.",
                 "Card groom is an authored first pass; density/shape still requires real engine visual judgment."
             ],
         },
