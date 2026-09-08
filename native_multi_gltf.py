@@ -32,6 +32,9 @@ class MaterialPrimitive:
     metallic_factor: float = 1.0
     roughness_factor: float = 1.0
     double_sided: bool = False
+    base_color_factor: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0)
+    alpha_mode: str | None = None
+    alpha_cutoff: float | None = None
 
 
 def compile_multi_gltf(
@@ -76,6 +79,13 @@ def compile_multi_gltf(
         return len(accessors) - 1
 
     for material_index, spec in enumerate(primitives):
+        if spec.alpha_mode not in (None, "OPAQUE", "MASK", "BLEND"):
+            raise ValueError(f"unsupported alpha mode {spec.alpha_mode!r}")
+        if spec.alpha_cutoff is not None and spec.alpha_mode != "MASK":
+            raise ValueError("alpha_cutoff is only valid with alpha_mode='MASK'")
+        if len(spec.base_color_factor) != 4 or any(value < 0.0 or value > 1.0 for value in spec.base_color_factor):
+            raise ValueError("base_color_factor must contain four values within [0,1]")
+
         positions, normals, texcoords, indices = _expanded_triangles(spec.mesh, spec.uvmap)
         if not positions:
             raise ValueError(f"primitive {material_index} ({spec.mesh.name}) produced no triangles")
@@ -111,18 +121,24 @@ def compile_multi_gltf(
             {"sampler": 0, "source": base_image + 1},
             {"sampler": 0, "source": base_image + 2},
         ])
-        materials.append({
+        material: dict[str, Any] = {
             "name": spec.material_name,
             "doubleSided": bool(spec.double_sided),
             "pbrMetallicRoughness": {
                 "baseColorTexture": {"index": base_texture},
+                "baseColorFactor": [float(value) for value in spec.base_color_factor],
                 "metallicRoughnessTexture": {"index": base_texture + 1},
                 "metallicFactor": float(spec.metallic_factor),
                 "roughnessFactor": float(spec.roughness_factor),
             },
             "normalTexture": {"index": base_texture + 2},
             "occlusionTexture": {"index": base_texture + 1},
-        })
+        }
+        if spec.alpha_mode is not None:
+            material["alphaMode"] = spec.alpha_mode
+        if spec.alpha_cutoff is not None:
+            material["alphaCutoff"] = float(spec.alpha_cutoff)
+        materials.append(material)
         gltf_primitives.append({
             "attributes": {
                 "POSITION": position_accessor,
@@ -139,7 +155,7 @@ def compile_multi_gltf(
 
     _align4(blob)
     document: dict[str, Any] = {
-        "asset": {"version": "2.0", "generator": "AXM Game Asset Forge native_multi_gltf v0.1"},
+        "asset": {"version": "2.0", "generator": "AXM Game Asset Forge native_multi_gltf v0.2"},
         "scene": 0,
         "scenes": [{"nodes": [0]}],
         "nodes": [{"name": name, "mesh": 0}],
@@ -158,7 +174,7 @@ def compile_multi_gltf(
                 "material_count": len(materials),
                 "triangles": total_triangles,
                 "compiled_vertices": total_compiled_vertices,
-                "truth": "Rigid multi-primitive delivery. Each material group owns explicit mesh/UV/material state. Skeleton, morphs, animation and material-quality judgment remain separate gates.",
+                "truth": "Rigid multi-primitive delivery. Each material group owns explicit mesh/UV/material state. Optional standard glTF alpha state is supported for layers such as prototype cornea; optical refraction remains a separate engine gate.",
             }
         },
     }
