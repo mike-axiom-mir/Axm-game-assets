@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Current complete Sentinel body candidate with clothing and rigid armor.
+"""Current equipped Sentinel body candidate.
 
-The complete pinned hm08 body remains the closed human substrate. The promoted
-face/eyes/hair state and fitted graphite undersuit stay unchanged, while v0.3
-adds a body-grounded Forge-native rigid armor set over the suit. This is the
-first readable armored Sentinel silhouette, not yet a production fit/rig claim.
+The pinned hm08 body stays canonical. The promoted face/eyes/hair, graphite
+undersuit, and segmented rigid armor remain separate state layers. v0.4 adds
+source-derived glove/boot uppers and independent rubber soles so extremity gear
+is reconstructable and replaceable rather than baked into human topology.
 """
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from native_geometry import scale
 from native_hair_material import HairMaterialSpec, write_hair_material
 from native_hm08_brow_material import BrowMaterialSpec, write_brow_material
 from native_hm08_brows import generate_hm08_brows
+from native_hm08_extremity_gear import build_hm08_extremity_gear, write_sentinel_extremity_materials
 from native_hm08_face_eyes import RAW_TO_M, _combine_with_uv, _translated_eye_layers, build_face_eyes_package
 from native_hm08_face_proof import DEFAULT_WEIGHTS
 from native_hm08_landmarks import derive_hm08_face_landmarks, landmark_packet
@@ -34,8 +35,8 @@ from native_uv import read_obj_uv, validate_uv
 HEAD_SEED = Path("seed_data/hm08_head_v0.2")
 UPPER_SEED = Path("seed_data/hm08_upper_body_v0.1")
 FULL_SEED = Path("seed_data/hm08_full_body_v0.1")
-SCHEMA = "axm.game-assets.hm08-full-body-current.v0.3"
-ASSET_NAME = "sentinel_hm08_full_body_current_v0_3"
+SCHEMA = "axm.game-assets.hm08-full-body-current.v0.4"
+ASSET_NAME = "sentinel_hm08_full_body_current_v0_4"
 
 
 def _sha(data: bytes) -> str:
@@ -72,6 +73,7 @@ def build_current_full_body_package(
     scalp_underlay_seed: int = 82081,
     undersuit_seed: int = 91021,
     armor_seed: int = 93021,
+    extremity_seed: int = 95021,
 ) -> dict[str, object]:
     root = Path(output)
     root.mkdir(parents=True, exist_ok=True)
@@ -119,11 +121,7 @@ def build_current_full_body_package(
         raise ValueError(f"facial target semantics drifted across source topologies: {signatures}")
 
     face_control = build_face_eyes_package(
-        root,
-        texture_size=texture_size,
-        skin_seed=skin_seed,
-        eye_seed=eye_seed,
-        skin_mode="physical_v0.1",
+        root, texture_size=texture_size, skin_seed=skin_seed, eye_seed=eye_seed, skin_mode="physical_v0.1"
     )
     if not all(face_control["acceptance"].values()):
         raise ValueError(f"preferred face control is not green: {face_control['acceptance']}")
@@ -146,9 +144,7 @@ def build_current_full_body_package(
     brows = generate_hm08_brows(head_m, landmarks_raw=landmarks, eye_metadata=eye_metadata, seed=brow_seed)
     brow_root = root / "textures" / "brows"
     brow_material = write_brow_material(
-        brow_root,
-        size=texture_size,
-        seed=brow_seed,
+        brow_root, size=texture_size, seed=brow_seed,
         spec=BrowMaterialSpec(root_rgb=(29,21,18), tip_rgb=(43,31,25), density=0.58, roughness=0.58, filament_contrast=0.18),
     )
     brow_flat_normal_sha = _write_flat_normal(brow_root / "normal.png", texture_size)
@@ -156,9 +152,7 @@ def build_current_full_body_package(
     lashes = generate_hm08_upper_lashes(head_m, landmarks_raw=landmarks, eye_metadata=eye_metadata, seed=lash_seed)
     lash_root = root / "textures" / "lashes"
     lash_material = write_lash_material(
-        lash_root,
-        size=texture_size,
-        seed=lash_seed,
+        lash_root, size=texture_size, seed=lash_seed,
         spec=LashMaterialSpec(root_rgb=(8,6,5), tip_rgb=(18,12,10), density=0.95, roughness=0.52),
     )
     lash_flat_normal_sha = _write_flat_normal(lash_root / "normal.png", texture_size)
@@ -168,9 +162,7 @@ def build_current_full_body_package(
     )
     scalp_root = root / "textures" / "scalp_hair"
     scalp_material = write_hair_material(
-        scalp_root,
-        size=texture_size,
-        seed=scalp_hair_seed,
+        scalp_root, size=texture_size, seed=scalp_hair_seed,
         spec=HairMaterialSpec(
             root_rgb=(18,12,9), tip_rgb=(42,29,20), strand_count=40,
             roughness=0.48, alpha_cutoff_hint=0.12,
@@ -197,11 +189,18 @@ def build_current_full_body_package(
         root / "textures" / "armor", size=texture_size, seed=armor_seed
     )
 
+    extremity_shell, extremity_uv, boot_soles, boot_sole_uv, extremity = build_hm08_extremity_gear(full_m, full_uv)
+    extremity_materials = write_sentinel_extremity_materials(
+        root / "textures" / "extremity", size=texture_size, seed=extremity_seed
+    )
+
     primitives = [
         MaterialPrimitive(full_m, full_uv, "AXM_Sentinel_FullBody_Skin_Continuity_v0_1", "textures/skin/base_color.png", "textures/skin/normal.png", "textures/skin/orm.png", metallic_factor=0.0),
         MaterialPrimitive(undersuit_mesh, undersuit_uv, "AXM_Sentinel_Graphite_Undersuit_v0_1", "textures/undersuit/base_color.png", "textures/undersuit/normal.png", "textures/undersuit/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True),
-        MaterialPrimitive(armor_primary, armor_primary_uv, "AXM_Sentinel_Armor_Primary_v0_1", "textures/armor/primary/base_color.png", "textures/armor/primary/normal.png", "textures/armor/primary/orm.png", metallic_factor=1.0, roughness_factor=1.0),
-        MaterialPrimitive(armor_accent, armor_accent_uv, "AXM_Sentinel_Armor_Accent_v0_1", "textures/armor/accent/base_color.png", "textures/armor/accent/normal.png", "textures/armor/accent/orm.png", metallic_factor=1.0, roughness_factor=1.0),
+        MaterialPrimitive(armor_primary, armor_primary_uv, "AXM_Sentinel_Armor_Primary_v0_2", "textures/armor/primary/base_color.png", "textures/armor/primary/normal.png", "textures/armor/primary/orm.png", metallic_factor=1.0, roughness_factor=1.0),
+        MaterialPrimitive(armor_accent, armor_accent_uv, "AXM_Sentinel_Armor_Accent_v0_2", "textures/armor/accent/base_color.png", "textures/armor/accent/normal.png", "textures/armor/accent/orm.png", metallic_factor=1.0, roughness_factor=1.0),
+        MaterialPrimitive(extremity_shell, extremity_uv, "AXM_Sentinel_Gloves_BootUppers_v0_1", "textures/extremity/textile/base_color.png", "textures/extremity/textile/normal.png", "textures/extremity/textile/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True),
+        MaterialPrimitive(boot_soles, boot_sole_uv, "AXM_Sentinel_BootSoles_v0_1", "textures/extremity/rubber/base_color.png", "textures/extremity/rubber/normal.png", "textures/extremity/rubber/orm.png", metallic_factor=0.0, roughness_factor=1.0),
         MaterialPrimitive(eye_layers["sclera"][0], eye_layers["sclera"][1], "AXM_Eye_Sclera", "textures/eyes/sclera_base_color.png", "textures/eyes/sclera_normal.png", "textures/eyes/sclera_orm.png", metallic_factor=0.0),
         MaterialPrimitive(eye_layers["iris"][0], eye_layers["iris"][1], "AXM_Eye_Iris", "textures/eyes/iris_base_color.png", "textures/eyes/iris_normal.png", "textures/eyes/iris_orm.png", metallic_factor=0.0),
         MaterialPrimitive(eye_layers["pupil"][0], eye_layers["pupil"][1], "AXM_Eye_Pupil", "textures/eyes/pupil_base_color.png", "textures/eyes/pupil_normal.png", "textures/eyes/pupil_orm.png", metallic_factor=0.0, roughness_factor=0.24),
@@ -230,21 +229,25 @@ def build_current_full_body_package(
         "undersuit_source_grounded": undersuit["truth"]["source_grounded"] is True and undersuit["uv_validation"]["status"] == "pass",
         "undersuit_surface_coverage": undersuit["surface_coverage_fraction"] >= undersuit["minimum_surface_coverage"] and undersuit["surface_coverage_fraction"] > 0.70,
         "undersuit_topology_valid": undersuit["topology"]["invalid_indices"] == 0 and undersuit["topology"]["degenerate_faces"] == 0 and undersuit["topology"]["nonmanifold_edges"] == 0,
-        "armor_body_grounded": armor["truth"]["body_grounded"] is True and armor["primary_component_count"] >= 14 and armor["accent_component_count"] >= 8,
+        "armor_body_grounded": armor["truth"]["body_grounded"] is True and armor["schema"] == "axm.game-assets.hm08-sentinel-rigid-armor.v0.2" and armor["primary_component_count"] >= 20 and armor["accent_component_count"] >= 12,
         "armor_topology_valid": armor["primary_topology"]["invalid_indices"] == 0 and armor["primary_topology"]["degenerate_faces"] == 0 and armor["primary_topology"]["nonmanifold_edges"] == 0 and armor["accent_topology"]["invalid_indices"] == 0 and armor["accent_topology"]["degenerate_faces"] == 0 and armor["accent_topology"]["nonmanifold_edges"] == 0,
         "armor_uv_valid": armor["primary_uv_validation"]["status"] == "pass" and armor["accent_uv_validation"]["status"] == "pass",
-        "twelve_semantic_primitives": delivery["primitive_count"] == 12,
-        "twelve_semantic_materials": delivery["material_count"] == 12,
+        "extremity_source_grounded": extremity["truth"]["source_grounded"] is True and extremity["truth"]["canonical_body_mutated"] is False,
+        "extremity_shell_valid": extremity["shell_uv_validation"]["status"] == "pass" and extremity["shell_topology"]["invalid_indices"] == 0 and extremity["shell_topology"]["degenerate_faces"] == 0 and extremity["shell_topology"]["nonmanifold_edges"] == 0,
+        "boot_soles_valid": extremity["sole_uv_validation"]["status"] == "pass" and extremity["sole_topology"]["closed_two_manifold_candidate"] is True,
+        "fourteen_semantic_primitives": delivery["primitive_count"] == 14,
+        "fourteen_semantic_materials": delivery["material_count"] == 14,
         "body_skin_nonmetal": document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] == 0.0,
         "undersuit_nonmetal": document["materials"][1]["pbrMetallicRoughness"]["metallicFactor"] == 0.0,
         "armor_metallic_channels_enabled": document["materials"][2]["pbrMetallicRoughness"]["metallicFactor"] == 1.0 and document["materials"][3]["pbrMetallicRoughness"]["metallicFactor"] == 1.0,
+        "extremity_nonmetal": document["materials"][4]["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and document["materials"][5]["pbrMetallicRoughness"]["metallicFactor"] == 0.0,
         "gltf_structural_valid": delivery["validation"]["status"] == "pass",
     }
 
     manifest: dict[str, object] = {
         "schema": SCHEMA,
         "asset": ASSET_NAME,
-        "candidate_role": "sentinel_armored_body_candidate",
+        "candidate_role": "sentinel_equipped_body_candidate",
         "coordinate_conversion": {"source_unit":"decimeter","delivery_unit":"meter","scale":RAW_TO_M},
         "full_seed": {
             "basemesh_id": full_manifest["basemesh_id"],
@@ -261,6 +264,8 @@ def build_current_full_body_package(
         "undersuit_material": undersuit_material,
         "rigid_armor": armor,
         "rigid_armor_materials": armor_materials,
+        "extremity_gear": extremity,
+        "extremity_materials": extremity_materials,
         "brows": brows.evidence,
         "brow_material": brow_material,
         "brow_flat_normal_sha256": brow_flat_normal_sha,
@@ -286,14 +291,15 @@ def build_current_full_body_package(
             "production_hair_claim": False,
             "production_undersuit_claim": False,
             "production_armor_claim": False,
+            "production_extremity_gear_claim": False,
             "rigged_character_claim": False,
             "high_end_character_claim": False,
             "notes": [
-                "The complete closed human substrate and fitted undersuit are unchanged; rigid armor is a separate semantic layer over the suit.",
-                "Armor anchor heights derive from human body bounds and torso depth is sampled from the actual body surface, so this is not a detached prefab coordinate frame.",
-                "The v0.1 armor set establishes chest/back cores, pauldrons, forearm guards, hip/thigh/knee/shin protection and mechanical rails/spines as individually reconstructable components.",
-                "This pass is a silhouette/readability gate only. Production armor still requires pose clearance, articulation, panel fit, manufacturing detail, wear-history tuning and close-up engine evidence.",
-                "Rigging, hand/rifle contact, locomotion and LOD remain later gates."
+                "The complete closed human substrate remains untouched underneath all wearable layers.",
+                "Segmented armor v0.2 replaces the visually rejected slab-style torso while preserving separately editable primary/accent component groups.",
+                "Gloves and boot uppers are source-derived textile shells; boot soles are independent nonmetal closed geometry, so hands/feet no longer require baked skin edits.",
+                "This is still a static equipment/readability gate. Production quality still requires glove/boot panel detail, sole tread, pose clearance, articulation and deformation evidence.",
+                "Rifle contact, locomotion, facial motion and LOD remain later gates."
             ],
         },
     }
@@ -312,4 +318,12 @@ if __name__ == "__main__":
     parser.add_argument("--texture-size", type=int, default=128)
     args = parser.parse_args()
     result = build_current_full_body_package(args.output, texture_size=args.texture_size)
-    print(json.dumps({"acceptance":result["acceptance"],"head_overlap":result["head_identity_overlap"],"upper_overlap":result["upper_body_identity_overlap"],"undersuit":result["undersuit"],"armor":result["rigid_armor"],"delivery":result["delivery"]}, indent=2))
+    print(json.dumps({
+        "acceptance": result["acceptance"],
+        "head_overlap": result["head_identity_overlap"],
+        "upper_overlap": result["upper_body_identity_overlap"],
+        "undersuit": result["undersuit"],
+        "armor": result["rigid_armor"],
+        "extremity_gear": result["extremity_gear"],
+        "delivery": result["delivery"],
+    }, indent=2))
