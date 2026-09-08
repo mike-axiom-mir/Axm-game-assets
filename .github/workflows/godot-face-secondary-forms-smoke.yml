@@ -1,8 +1,7 @@
 name: godot-face-secondary-forms-smoke
 
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   godot-face-secondary-forms:

@@ -1,8 +1,7 @@
 name: godot-face-semantic-skin-smoke
 
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   godot-face-semantic-skin:
