@@ -1,0 +1,132 @@
+name: hm08-finger-landmarks
+
+on:
+  push:
+    paths:
+      - "tools/bootstrap_hm08_finger_landmarks.py"
+      - "tools/bootstrap_hm08_finger_landmarks_test.py"
+      - ".github/workflows/hm08-finger-landmarks.yml"
+  pull_request:
+    paths:
+      - "tools/bootstrap_hm08_finger_landmarks.py"
+      - "tools/bootstrap_hm08_finger_landmarks_test.py"
+      - ".github/workflows/hm08-finger-landmarks.yml"
+  workflow_dispatch:
+
+# Temporary one-shot promotion authority. Returned to read-only/manual after
+# the audited landmark packet is pinned to this branch.
+permissions:
+  contents: write
+
+jobs:
+  derive-finger-landmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Unit-test finger landmark extractor
+        run: python tools/bootstrap_hm08_finger_landmarks_test.py
+
+      - name: Download pinned CC0 hm08 mesh and rig data
+        env:
+          MH_REV: a8bc2d54ff0ac92e78ff71431b1023eda42bf482
+        run: |
+          set -euo pipefail
+          rm -rf build/hm08-finger-source build/hm08-finger-landmarks
+          mkdir -p build/hm08-finger-source build/hm08-finger-landmarks
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/makehumancommunity/makehuman/${MH_REV}/makehuman/data/3dobjs/base.obj" \
+            -o build/hm08-finger-source/base.obj
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/makehumancommunity/makehuman/${MH_REV}/makehuman/data/rigs/default.mhskel" \
+            -o build/hm08-finger-source/default.mhskel
+          test "$(git hash-object build/hm08-finger-source/base.obj)" = "d26635e9326e3cca30778fd7b9c00062b03cce09"
+          test "$(git hash-object build/hm08-finger-source/default.mhskel)" = "b02cbecae00143856410d7561adf006d83bf9b3e"
+
+      - name: Derive source-indexed finger packet
+        env:
+          MH_REV: a8bc2d54ff0ac92e78ff71431b1023eda42bf482
+        run: |
+          python tools/bootstrap_hm08_finger_landmarks.py \
+            --base-obj build/hm08-finger-source/base.obj \
+            --rig-json build/hm08-finger-source/default.mhskel \
+            --output build/hm08-finger-landmarks/finger-landmarks.json \
+            --makehuman-revision "$MH_REV" \
+            --base-blob-sha1 d26635e9326e3cca30778fd7b9c00062b03cce09 \
+            --rig-blob-sha1 b02cbecae00143856410d7561adf006d83bf9b3e \
+            --expected-bones 30
+
+      - name: Audit against pinned complete body
+        run: |
+          python - <<'PY'
+          import json, math
+          from pathlib import Path
+          from native_uv import read_obj_uv
+
+          packet = json.loads(Path("build/hm08-finger-landmarks/finger-landmarks.json").read_text())
+          assert all(packet["acceptance"].values()), packet["acceptance"]
+          assert packet["finger_bone_count"] == 30
+          assert packet["side_counts"] == {"L": 15, "R": 15}
+          assert packet["source"]["base_obj_git_blob_sha1"] == "d26635e9326e3cca30778fd7b9c00062b03cce09"
+          assert packet["source"]["default_mhskel_git_blob_sha1"] == "b02cbecae00143856410d7561adf006d83bf9b3e"
+
+          source_map = json.loads(Path("seed_data/hm08_full_body_v0.1/source-index-map.json").read_text())
+          source_to_compact = {int(k): int(v) for k, v in source_map["source_to_compact"].items()}
+          body, _uv = read_obj_uv(Path("seed_data/hm08_full_body_v0.1/body.obj"), name="hm08_full_body_v0_1")
+          max_error = 0.0
+          referenced = set()
+          for row in packet["bones"]:
+              for kind in ("head", "tail"):
+                  indices = [int(v) for v in row[f"{kind}_source_indices"]]
+                  assert all(index in source_to_compact for index in indices), (row["source_bone"], kind, indices)
+                  referenced.update(indices)
+                  inv = 1.0 / len(indices)
+                  centroid = tuple(sum(body.vertices[source_to_compact[index]][axis] for index in indices) * inv for axis in range(3))
+                  expected = tuple(float(v) for v in row[f"{kind}_raw"])
+                  error = math.sqrt(sum((centroid[axis]-expected[axis])**2 for axis in range(3)))
+                  max_error = max(max_error, error)
+          assert max_error <= 1e-12, max_error
+          audit = {
+              "schema": "axm.game-assets.hm08-finger-landmarks-audit.v0.1",
+              "finger_bones": packet["finger_bone_count"],
+              "unique_source_vertices": len(referenced),
+              "full_body_reconciliation_max_error_raw": max_error,
+              "source_index_range": packet["source_index_range"],
+              "length_m_range": packet["length_m_range"],
+              "truth": "Pinned source rig landmarks reconcile exactly against the pinned complete hm08 body. This does not yet claim finger skeleton or skinning quality."
+          }
+          Path("build/hm08-finger-landmarks/audit-summary.json").write_text(json.dumps(audit, indent=2, sort_keys=True)+"\n")
+          print("REAL HM08 FINGER LANDMARKS PASS", audit)
+          PY
+
+      - name: Preserve finger landmark evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: hm08-finger-landmarks
+          if-no-files-found: error
+          path: |
+            build/hm08-finger-landmarks/finger-landmarks.json
+            build/hm08-finger-landmarks/audit-summary.json
+
+      - name: One-shot promote audited landmark packet
+        if: github.event_name == 'push' && github.ref == 'refs/heads/forge/chat-2026-09-08-sentinel-fidelity'
+        run: |
+          set -euo pipefail
+          dest="seed_data/hm08_finger_landmarks_v0.1"
+          rm -rf "$dest"
+          mkdir -p "$dest"
+          cp build/hm08-finger-landmarks/finger-landmarks.json "$dest/finger-landmarks.json"
+          cp build/hm08-finger-landmarks/audit-summary.json "$dest/audit-summary.json"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$dest"
+          if git diff --cached --quiet; then
+            echo "Finger landmark packet already pinned."
+            exit 0
+          fi
+          git commit -m "data: pin audited hm08 finger landmarks"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
