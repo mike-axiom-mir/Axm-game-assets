@@ -1,8 +1,43 @@
 # Native-First Asset Manufacturing
 
-Game Asset Forge should internalize reproducible asset operations where practical instead of making Blender, Houdini, Unreal, Unity, or another DCC application part of the machine's identity.
+Game Asset Forge should internalize reproducible asset operations where practical instead of making Blender, Houdini, Unreal, Unity, a learned model, hosted service, or another external application part of the machine's identity.
 
-External tools remain useful bridges, accelerators, comparators, and escape hatches. They are not the canonical source of truth.
+External systems remain useful research references, bridges, accelerators, comparators, and escape hatches. They are not canonical source state and they are not allowed to become required runtime backends for capabilities the Forge calls native or standalone.
+
+## Standalone invariant
+
+The Forge must remain independently operable as an AXM machine.
+
+For any capability claimed as native/standalone:
+
+1. The implementation and state contract live in this repository.
+2. Another AXM repository is not required at runtime.
+3. A third-party model, DCC, cloud service, hosted API, proprietary application, or external repository is not required at runtime.
+4. Removing an optional bridge may reduce convenience, speed, comparison coverage or experimental quality, but it must not make the native capability disappear.
+5. Research references may influence architecture and mechanism design without being shipped, embedded, called, wrapped or required.
+6. Restricted code, weights, assets or data are never silently absorbed. Only material whose license permits the intended use may be imported, and provenance must be retained.
+
+The current Python host requirement is a declared execution/runtime requirement of the native core, not a specialist capability dependency. The long-term direction may internalize even more of that runtime, but specialist capability ownership is the immediate boundary.
+
+## Research versus dependency
+
+A system can be extremely valuable to AXM without becoming part of AXM.
+
+Examples such as Hunyuan, TRELLIS, Meshy, MetaHuman, Character Creator, Blender, Houdini, KineFX, Simplygon and similar systems may be studied for:
+
+- pipeline decomposition
+- intermediate representations
+- geometry/material/rigging strategies
+- quality gates
+- failure modes
+- repair loops
+- interface design
+- performance patterns
+- provenance and packaging ideas
+
+The result of that study should be **AXM-owned mechanisms and state contracts** wherever the Forge claims standalone capability.
+
+A research reference becoming unavailable, commercially restricted, jurisdiction-limited, network-only, or otherwise unusable must not invalidate the Forge. At most it removes that reference/bridge from the research or comparison lane.
 
 ## Precedent inside AXM
 
@@ -55,12 +90,21 @@ Therefore it must not be selected for final skinned-character LODs until those p
 For every pipeline capability, prefer this order:
 
 1. **AXM-native deterministic/process implementation** when we can make it reliable and inspectable.
-2. **AXM-native learned/generative implementation** when learned inference genuinely adds capability.
-3. **Open replaceable library adapter** when rebuilding the mechanism would waste effort without increasing agency.
-4. **External DCC/engine bridge** when it provides capability we have not yet reproduced or when it serves as a reference comparator.
-5. **Proprietary service** only as an optional, explicit bridge and never as hidden canonical state.
+2. **AXM-native learned/generative implementation** when learned inference genuinely adds capability and the model/runtime is owned or distributable within the standalone boundary.
+3. **AXM-owned implementation inspired by open/public research** when a mature external mechanism teaches us how to build the capability ourselves.
+4. **Optional open-library adapter** only as a replaceable acceleration/import/export path, never as the sole implementation behind a native capability claim.
+5. **External DCC/engine/model/service bridge** only for comparison, validation, migration, experimentation or temporarily unavailable capability, and always labeled optional/non-native.
 
-Native does not mean "rewrite every mature algorithm from scratch." A local open library can still be part of the machine if its license, source, inputs, outputs, and replacement boundary are explicit.
+Native does not mean ignoring existing knowledge. It means the knowledge is converted into AXM-owned capability rather than leaving the machine dependent on somebody else's runtime.
+
+## Dependency test
+
+For any stage, ask:
+
+> If this external thing vanished tomorrow, would Game Asset Forge still possess the capability it claims?
+
+- **Yes**: the external thing is a valid optional bridge/reference.
+- **No**: that stage is not yet standalone. Mark it external/blocked/experimental, or internalize the mechanism before claiming it as native.
 
 ## Next internalization targets
 
@@ -68,7 +112,7 @@ Highest-value deterministic/native work next:
 
 1. mesh welding and duplicate cleanup
 2. robust normal/tangent generation with hard-edge policy
-3. UV chart state and atlas adapter, then an AXM fallback unwrap
+3. native UV chart state and fallback unwrap
 4. material-slot and seam preservation through mesh transforms
 5. stronger simplification that preserves attributes
 6. convex/compound collision generation
@@ -77,4 +121,4 @@ Highest-value deterministic/native work next:
 9. morph/blendshape preservation
 10. engine-independent scene/asset package compiler
 
-The target is not "never use Blender." The target is that unplugging Blender should reduce optional capability rather than remove the Forge's brain.
+The target is not "never study or connect Blender." The target is that unplugging Blender, Hunyuan, or any other external specialist must not remove the Forge's brain or invalidate a standalone capability claim.
