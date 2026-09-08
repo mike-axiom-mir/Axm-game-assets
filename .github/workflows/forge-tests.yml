@@ -64,6 +64,8 @@ jobs:
         run: python native_attachment_hand_socket_test.py
       - name: HM08 two-hand rifle contact pose test
         run: python native_hm08_rifle_contact_pose_test.py
+      - name: HM08 shared-rig rifle contact pose test
+        run: python native_hm08_rifle_contact_pose_v2_test.py
       - name: HM08 rifle contact package test
         run: python native_hm08_rifle_contact_package_test.py
       - name: Native hm08 facial landmark test
