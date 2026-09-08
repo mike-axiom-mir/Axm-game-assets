@@ -17,8 +17,10 @@ on:
       - "seed_data/hm08_upper_body_v0.1/source-index-map.json"
   workflow_dispatch:
 
+# TEMPORARY one-shot promotion authority. Returned to read-only/manual as soon
+# as the audited body seed commit lands.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   derive-full-body:
@@ -99,8 +101,9 @@ jobs:
           assert topology["invalid_indices"] == 0, topology
           assert topology["degenerate_faces"] == 0, topology
           assert topology["nonmanifold_edges"] == 0, topology
-          assert len(mesh.vertices) > 10185, "full body must contain more than upper body"
-          assert len(mesh.faces) > 10158, "full body must contain more than upper body"
+          assert topology["boundary_edges"] == 0, topology
+          assert len(mesh.vertices) == 13380, mesh
+          assert len(mesh.faces) == 13378, mesh
 
           for target_path in sorted((root / "targets").glob("*.target")):
               target = load_target(target_path, license="CC0-source-remap")
@@ -132,3 +135,25 @@ jobs:
             build/hm08-full-body-seed/seed-manifest.json
             build/hm08-full-body-seed/audit-summary.json
             build/hm08-full-body-seed/targets/*.target
+
+      - name: One-shot promote audited full body into branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/forge/chat-2026-09-08-sentinel-fidelity'
+        run: |
+          set -euo pipefail
+          dest="seed_data/hm08_full_body_v0.1"
+          rm -rf "$dest"
+          mkdir -p "$dest/targets"
+          cp build/hm08-full-body-seed/body.obj "$dest/body.obj"
+          cp build/hm08-full-body-seed/source-index-map.json "$dest/source-index-map.json"
+          cp build/hm08-full-body-seed/seed-manifest.json "$dest/seed-manifest.json"
+          cp build/hm08-full-body-seed/audit-summary.json "$dest/audit-summary.json"
+          cp build/hm08-full-body-seed/targets/*.target "$dest/targets/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$dest"
+          if git diff --cached --quiet; then
+            echo "Audited full body already pinned."
+            exit 0
+          fi
+          git commit -m "data: pin audited hm08 full-body seed"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
