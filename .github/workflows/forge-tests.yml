@@ -42,6 +42,10 @@ jobs:
         run: python native_hm08_upper_body_seed_test.py
       - name: Continuous Sentinel upper-body package test
         run: python native_hm08_upper_body_current_test.py
+      - name: Pinned hm08 full-body seed test
+        run: python native_hm08_full_body_seed_test.py
+      - name: Complete Sentinel human-body package test
+        run: python native_hm08_full_body_current_test.py
       - name: Native hm08 facial landmark test
         run: python native_hm08_landmarks_test.py
       - name: Native hm08 secondary facial forms test
