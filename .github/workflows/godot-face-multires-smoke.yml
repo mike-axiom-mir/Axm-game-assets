@@ -1,0 +1,153 @@
+name: godot-face-multires-smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  godot-face-multires:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build UV-preserving multires face fixture
+        run: |
+          rm -rf engine/godot_face/generated
+          python - <<'PY'
+          from native_hm08_face_multires import build_face_multires_package
+          package = build_face_multires_package(
+              "engine/godot_face/generated",
+              texture_size=128,
+              smoothing_strength=0.10,
+          )
+          assert all(package["acceptance"].values()), package["acceptance"]
+          subdiv = package["subdivision"]
+          assert subdiv["source_triangles"] == 8336
+          assert subdiv["result_triangles"] == 33344
+          assert subdiv["source_boundary_unchanged"] is True
+          assert 0.0 < subdiv["original_vertex_displacement"]["max_mm"] < 3.0
+          print("FORGE FACE MULTIRES FIXTURE PASS", subdiv, package["delivery"])
+          PY
+          cp \
+            engine/godot_face/generated/sentinel_hm08_face_eyes_multires_v0_1.gltf \
+            engine/godot_face/generated/sentinel_hm08_face_candidate_v0_1.gltf
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" --output .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Parse multires face and eyes in Godot
+        run: |
+          rm -f engine/godot_face/godot-face-eyes-import-receipt.json
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --headless \
+            --path engine/godot_face \
+            --script smoke_eyes.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_face/godot-face-eyes-import-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert receipt["surfaces"] == 5
+          assert receipt["material_surfaces"] == 5
+          assert len(receipt["declared_external_images"]) == 15
+          print("GODOT FACE MULTIRES IMPORT PASS", receipt)
+          PY
+
+      - name: Render identical exposure-gated multires views
+        run: |
+          rm -f engine/godot_face/godot-face-views-receipt.json engine/godot_face/godot-face-front.png engine/godot_face/godot-face-three_quarter.png engine/godot_face/godot-face-profile.png
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --display-driver x11 \
+            --rendering-method gl_compatibility \
+            --path engine/godot_face \
+            --script render_views.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_face/godot-face-views-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert [v["name"] for v in receipt["views"]] == ["front", "three_quarter", "profile"]
+          for view in receipt["views"]:
+              m = view["metrics"]
+              assert m["foreground_coverage"] >= view["minimum_foreground_coverage"]
+              assert m["near_white_foreground_fraction"] <= view["maximum_near_white_foreground_fraction"]
+          print("GODOT FACE MULTIRES VIEWS PASS", [(v["name"],v["metrics"]["foreground_luma_mean"]) for v in receipt["views"]])
+          PY
+
+      - name: Bind multires views to deterministic capture packets
+        env:
+          GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          from native_visual_evidence import build_capture_packet, validate_capture_packet, write_capture_packet
+          root = Path("engine/godot_face")
+          receipt = json.loads((root / "godot-face-views-receipt.json").read_text())
+          package_path = root / "generated" / "face-multires-package.json"
+          package = json.loads(package_path.read_text())
+          assert package["ab_variable"] == "uv_preserving_subdivision_plus_light_smoothing_only"
+          source_digest = "sha256:" + hashlib.sha256(package_path.read_bytes()).hexdigest()
+          bundle = {
+              "schema":"axm.game-assets.godot-face-multires-viewset.v0.1",
+              "authority":"deterministic_capture_evidence_only",
+              "asset_digest":package["delivery"]["gltf_sha256"],
+              "control":"godot-face-physical-skin-evidence; same physical skin bytes/eyes/cameras/lighting",
+              "ab_variable":package["ab_variable"],
+              "subdivision":package["subdivision"],
+              "views":[],
+          }
+          for view in receipt["views"]:
+              name = view["name"]
+              png_path = root / f"godot-face-{name}.png"
+              png = png_path.read_bytes()
+              m = view["metrics"]
+              packet = build_capture_packet(
+                  png,
+                  asset_digest=package["delivery"]["gltf_sha256"],
+                  engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},
+                  camera=view["camera"],
+                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"head_multires_physical_skin_source_grounded_eyes","lighting":receipt["lighting"]},
+                  metrics={"foreground_coverage":m["foreground_coverage"],"foreground_luma_mean":m["foreground_luma_mean"],"near_white_foreground_fraction":m["near_white_foreground_fraction"],"luma_min":m["luma_min"],"luma_max":m["luma_max"],"luma_mean":m["luma_mean"],"luma_range":m["luma_range"]},
+                  source_receipts=[source_digest],
+              )
+              assert validate_capture_packet(packet, png)["status"] == "pass"
+              write_capture_packet(root / f"visual-capture-face-multires-{name}.json", packet)
+              bundle["views"].append({"name":name,"capture_digest":packet["capture_digest"],"image_sha256":packet["image"]["sha256"]})
+          (root / "visual-capture-face-multires-viewset.json").write_text(json.dumps(bundle, indent=2, sort_keys=True) + "\n")
+          print("FACE MULTIRES VIEWSET CAPTURE PASS", bundle)
+          PY
+
+      - name: Preserve multires A/B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-face-multires-evidence
+          if-no-files-found: warn
+          path: |
+            engine/godot_face/godot-face-eyes-import-receipt.json
+            engine/godot_face/godot-face-views-receipt.json
+            engine/godot_face/godot-face-front.png
+            engine/godot_face/godot-face-three_quarter.png
+            engine/godot_face/godot-face-profile.png
+            engine/godot_face/visual-capture-face-multires-*.json
+            engine/godot_face/generated/face-multires-package.json
+            engine/godot_face/generated/sentinel_hm08_face_eyes_multires_v0_1.gltf
