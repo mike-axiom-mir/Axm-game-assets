@@ -1,49 +1,73 @@
 # Native-First Asset Manufacturing
 
-Game Asset Forge should internalize reproducible asset operations where practical instead of making Blender, Houdini, Unreal, Unity, a learned model, hosted service, or another external application part of the machine's identity.
+Game Asset Forge should internalize reproducible asset operations where that increases agency, inspectability, continuity or quality. It should **not** turn "standalone" into an ideological ban on useful, legally compatible libraries or data.
 
-External systems remain useful research references, bridges, accelerators, comparators, and escape hatches. They are not canonical source state and they are not allowed to become required runtime backends for capabilities the Forge calls native or standalone.
+External systems can be research references, embedded compatible components, optional bridges, accelerators, comparators and escape hatches. They must not silently become canonical AXM state or be misrepresented as AXM-native work.
 
 ## Standalone invariant
 
-The Forge must remain independently operable as an AXM machine.
+The Forge remains a standalone AXM specialist when:
 
-For any capability claimed as native/standalone:
+1. its canonical asset/genome/source-state contracts live here;
+2. another AXM repository is not required to understand or reconstruct that state;
+3. every external component has an explicit source/license/role boundary;
+4. restricted or unclear artifacts are not bundled merely because they were useful research references;
+5. optional DCC/model/service bridges can disappear without corrupting canonical state;
+6. a capability that depends on a compatible library says so truthfully rather than falsely claiming to be dependency-free.
 
-1. The implementation and state contract live in this repository.
-2. Another AXM repository is not required at runtime.
-3. A third-party model, DCC, cloud service, hosted API, proprietary application, or external repository is not required at runtime.
-4. Removing an optional bridge may reduce convenience, speed, comparison coverage or experimental quality, but it must not make the native capability disappear.
-5. Research references may influence architecture and mechanism design without being shipped, embedded, called, wrapped or required.
-6. Restricted code, weights, assets or data are never silently absorbed. Only material whose license permits the intended use may be imported, and provenance must be retained.
+A mature open library is not automatically a loss of agency. If its license permits redistribution, its role is explicit, and AXM owns the surrounding contract/state/evidence, using it may be wiser than reimplementing the same low-level algorithm for no practical gain.
 
-The current Python host requirement is a declared execution/runtime requirement of the native core, not a specialist capability dependency. The long-term direction may internalize even more of that runtime, but specialist capability ownership is the immediate boundary.
+## Five external-material classes
 
-## Research versus dependency
+### A — AXM-native
+Original AXM implementation and AXM-owned state contract. External language/runtime/platform requirements are declared separately.
 
-A system can be extremely valuable to AXM without becoming part of AXM.
+### B — compatible embedded component/data
+Open-source or otherwise explicitly redistributable code/data/assets may be used when the **exact artifact** license permits the intended use and jurisdiction.
 
-Examples such as Hunyuan, TRELLIS, Meshy, MetaHuman, Character Creator, Blender, Houdini, KineFX, Simplygon and similar systems may be studied for:
+Requirements:
+- source and version pinned;
+- exact license verified;
+- required LICENSE/NOTICE/attribution retained;
+- provenance retained;
+- replacement/interface boundary named where practical.
 
-- pipeline decomposition
-- intermediate representations
-- geometry/material/rigging strategies
-- quality gates
-- failure modes
-- repair loops
-- interface design
-- performance patterns
-- provenance and packaging ideas
+CC0/public-domain-style seed data belongs here, not in "research only".
 
-The result of that study should be **AXM-owned mechanisms and state contracts** wherever the Forge claims standalone capability.
+### C — optional adapter/bridge
+Blender, Houdini, engines, learned models, local executables, hosted services and similar specialists may accelerate, validate, compare, import/export or fill an explicitly non-native stage.
 
-A research reference becoming unavailable, commercially restricted, jurisdiction-limited, network-only, or otherwise unusable must not invalidate the Forge. At most it removes that reference/bridge from the research or comparison lane.
+Their absence may reduce convenience, speed, quality or coverage, but it must not silently corrupt AXM canonical state.
+
+### D — research/influence only
+A system can teach AXM without being part of AXM.
+
+Study:
+- papers and public documentation;
+- pipeline decomposition;
+- intermediate representations;
+- geometry/material/rigging strategies;
+- quality gates and failure modes;
+- repair loops;
+- public interfaces and performance patterns.
+
+Then implement the useful mechanism in AXM where appropriate. Research access does **not** authorize copying restricted code, model weights, assets or outputs.
+
+### E — quarantined / unclear
+If the source, license, redistribution permission or jurisdiction is unresolved, preserve the reference and mark it HOLD/research-only. Do not delete knowledge and do not ship the artifact.
+
+## Hunyuan versus MakeHuman example
+
+These are deliberately different cases.
+
+- **Hunyuan3D 2.1** is useful as a research/mechanism reference for our EU lane, but its restricted license means it must not become the required backend, bundled model or absorbed artifact unless separate permission makes that lawful.
+- **Verified MakeHuman/MPFB CC0 mesh/target data** may be reused as seed material because the asset/data license is the relevant permission. That does not grant permission to import adjacent GPL/AGPL application logic. Preserve exact provenance and never claim AXM invented the original seed.
 
 ## Precedent inside AXM
 
-Universal Creation already follows this pattern for a useful visual subset: deterministic local code emits textures, gradients, PBR-style channel maps, SVG/OBJ fixtures, decals, palettes, kits, manifests, and hashes without hidden services. Game Asset Forge extends the same pattern into a much deeper game-asset manufacturing stack.
+Universal Creation already follows the useful part of this pattern: deterministic local code emits many visual/software primitives while still allowing deliberate donor/import paths when they are understood and admitted into its own structure.
 
-Do not copy Universal Creation's implementation blindly. Rebuild specialist versions here so this machine remains standalone and can evolve under stricter close-inspection requirements.
+Do not copy Universal Creation's implementation blindly. Rebuild specialist versions here where that produces better game-asset capability; reuse compatible mature mechanisms where reimplementation would add little value.
 
 ## Native geometry kernel v0.1
 
@@ -85,26 +109,35 @@ The current LOD fallback does **not** preserve:
 
 Therefore it must not be selected for final skinned-character LODs until those preservation gates exist. It is already useful for rigid props, collision proxies, early blockout, diagnostics, fallback generation, and testing the Forge without a DCC installation.
 
-## Native-first rule
+## Native-first preference order
 
-For every pipeline capability, prefer this order:
+For every pipeline capability, prefer:
 
-1. **AXM-native deterministic/process implementation** when we can make it reliable and inspectable.
-2. **AXM-native learned/generative implementation** when learned inference genuinely adds capability and the model/runtime is owned or distributable within the standalone boundary.
-3. **AXM-owned implementation inspired by open/public research** when a mature external mechanism teaches us how to build the capability ourselves.
-4. **Optional open-library adapter** only as a replaceable acceleration/import/export path, never as the sole implementation behind a native capability claim.
-5. **External DCC/engine/model/service bridge** only for comparison, validation, migration, experimentation or temporarily unavailable capability, and always labeled optional/non-native.
+1. **AXM-native deterministic/process implementation** when reliable and inspectable.
+2. **AXM-native learned/generative implementation** when inference genuinely adds capability and the model/runtime rights fit the target distribution.
+3. **Compatible open/local library or data component** when rebuilding a mature mechanism adds little agency or value.
+4. **Optional external DCC/engine/model bridge** for acceleration, comparison, validation, migration or capability not yet internalized.
+5. **Proprietary/restricted service** only as an explicit optional bridge where its terms permit the intended use; never hidden canonical state.
+6. **Research-only reference** when direct artifact use is not permitted or not desirable.
 
-Native does not mean ignoring existing knowledge. It means the knowledge is converted into AXM-owned capability rather than leaving the machine dependent on somebody else's runtime.
+Native does not mean ignoring existing knowledge. Standalone does not mean zero dependencies. The aim is that AXM understands and owns its state/capability boundary instead of becoming an opaque wrapper around somebody else's product.
 
-## Dependency test
+## Dependency truth test
 
-For any stage, ask:
+For any external thing, ask two questions:
 
-> If this external thing vanished tomorrow, would Game Asset Forge still possess the capability it claims?
+> If this vanished tomorrow, what exactly would AXM lose?
 
-- **Yes**: the external thing is a valid optional bridge/reference.
-- **No**: that stage is not yet standalone. Mark it external/blocked/experimental, or internalize the mechanism before claiming it as native.
+> Is that loss stated truthfully and is canonical AXM state still reconstructable?
+
+A compatible library may legitimately provide a low-level mechanism. A proprietary cloud generator secretly holding the only editable source state may not legitimately be described as AXM-native.
+
+## Provenance files
+
+- `THIRD_PARTY.json` — actual imported/used code, assets, data, runtimes and external components.
+- `RESEARCH_REFERENCES.json` — systems studied for influence/reference without artifact absorption.
+
+Promotion from research to use requires a new exact source/license review; public availability or GitHub hosting is never the permission grant by itself.
 
 ## Next internalization targets
 
@@ -121,4 +154,4 @@ Highest-value deterministic/native work next:
 9. morph/blendshape preservation
 10. engine-independent scene/asset package compiler
 
-The target is not "never study or connect Blender." The target is that unplugging Blender, Hunyuan, or any other external specialist must not remove the Forge's brain or invalidate a standalone capability claim.
+The target is not "never use Blender" or "never depend on a library." The target is **no hidden ownership transfer**: AXM keeps portable canonical state, truthful capability claims, source/license provenance and an explicit replacement boundary.
