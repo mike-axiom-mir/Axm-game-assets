@@ -1,0 +1,53 @@
+{
+  "schema": "axm.asset-edit-surface.v0.1",
+  "surface_id": "sentinel-weapon-editor-v0.1",
+  "asset_family": "weapon",
+  "description": "Game-edit surface over the Sentinel rifle family.",
+  "parameters": [
+    {
+      "id": "barrel.length_class",
+      "path": "weapon.barrel.length_class",
+      "type": "enum",
+      "values": ["compact", "standard", "long"],
+      "default": "standard",
+      "editable_by": ["player", "ai", "tool"]
+    },
+    {
+      "id": "stock.type",
+      "path": "weapon.stock.type",
+      "type": "enum",
+      "values": ["compact", "standard", "heavy"],
+      "default": "standard",
+      "editable_by": ["player", "ai", "tool"]
+    },
+    {
+      "id": "sight.type",
+      "path": "weapon.sight.type",
+      "type": "enum",
+      "values": ["iron", "reflex", "optic"],
+      "default": "reflex",
+      "editable_by": ["player", "ai", "tool"]
+    },
+    {
+      "id": "wear.amount",
+      "path": "weapon.materials.wear_amount",
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "step": 0.01,
+      "default": 0.25,
+      "editable_by": ["player", "ai", "tool"]
+    },
+    {
+      "id": "environment.winter_wrap",
+      "path": "weapon.environment.winter_wrap",
+      "type": "boolean",
+      "default": false,
+      "editable_by": ["player", "ai", "tool"]
+    }
+  ],
+  "truth": {
+    "canonical_state_mutation": false,
+    "notes": ["The edit surface maps game/editor choices onto Forge-owned weapon variant state."]
+  }
+}

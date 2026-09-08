@@ -1,0 +1,136 @@
+{
+  "acceptance": {
+    "real_hm08_source_used": true,
+    "source_index_map_complete": true,
+    "source_uvs_preserved": true,
+    "targets_retained": true,
+    "vertical_slab_method_used": true
+  },
+  "basemesh_id": "axm-hm08-head-v0.2",
+  "coordinate_space": {
+    "engine_conversion_applied": false,
+    "mpfb_dimension_axis_rule": "Blender X=raw X, Blender Y=-raw Z, Blender Z=raw Y",
+    "name": "raw_makehuman_hm08_obj",
+    "target_delta_rule": "direct_copy_from_raw_makehuman_target"
+  },
+  "extraction": {
+    "body_range": [
+      0,
+      13379
+    ],
+    "candidate_faces": 4168,
+    "compact_actual_bounds": {
+      "x": [
+        -0.8793,
+        0.8793
+      ],
+      "y": [
+        6.1615,
+        8.4913
+      ],
+      "z": [
+        -0.3916,
+        1.6807
+      ]
+    },
+    "compact_faces": 4168,
+    "compact_uvs": 4386,
+    "compact_vertices": 4197,
+    "eligible_body_vertices": 4197,
+    "metadata_reference_bounds": {
+      "coordinate_space": "raw_makehuman_hm08_obj",
+      "mpfb_extrema_source_indices": {
+        "xmax": 11998,
+        "xmin": 5399,
+        "ymax": 5320,
+        "ymin": 962,
+        "zmax": 881,
+        "zmin": 791
+      },
+      "note": "Only raw-Y vertical bounds are used for v0.2 face selection. X/Z are retained as reference scale landmarks, not crop planes.",
+      "x": [
+        -0.74,
+        0.74
+      ],
+      "y": [
+        6.1615,
+        8.4913
+      ],
+      "z": [
+        -0.391,
+        1.5311
+      ]
+    },
+    "selection_method": "metadata_vertical_slab_then_largest_connected_body_surface",
+    "source_faces": 18486,
+    "source_vertex_max": 13379,
+    "source_vertex_min": 0,
+    "source_vertices": 19158,
+    "vertical_slab_y": [
+      6.1615,
+      8.4913
+    ]
+  },
+  "outputs": {
+    "head_obj": {
+      "file": "head.obj",
+      "sha256": "sha256:20673937ac17a6e36795b67e7df5b5ae7df29078772c62d23eff7392375f2eff"
+    },
+    "source_index_map": {
+      "file": "source-index-map.json",
+      "sha256": "sha256:bad1b0c35e071ff88ca50ab00c36cc7b45d1917091607b21d51f5919e0664649"
+    },
+    "targets": [
+      {
+        "name": "nose-width1-incr.target",
+        "output_sha256": "sha256:b5cf313754bba7cfe7a54a31d9923c2e6f646daed59c626e44af64decd8285af",
+        "retained_rows": 60,
+        "source_git_blob_sha1": "db108799ff4614f32bb33f5e7ae4781a2a82349c",
+        "source_name": "nose-width1-incr.target",
+        "source_rows": 60,
+        "source_sha256": "sha256:d340bc76601f9061826849d2fc9146ba6fbf7ee0604799849a417c934f53bea0"
+      },
+      {
+        "name": "l-cheek-bones-incr.target",
+        "output_sha256": "sha256:0dbec6e7c48577f45619597eade51ea95c9c1652e9914882f52302bd30fec973",
+        "retained_rows": 63,
+        "source_git_blob_sha1": "b239a7d2b2e186ac39628d30fa085e407e44894e",
+        "source_name": "l-cheek-bones-incr.target",
+        "source_rows": 63,
+        "source_sha256": "sha256:244ffa39d2d2db94ff15130719346b4cae2236bf2a309c5682eac352da06be50"
+      },
+      {
+        "name": "r-cheek-bones-incr.target",
+        "output_sha256": "sha256:6c61a186771a8b390faa7421e5e45e6cd81393fe1fdccbce818cc4a7e69a84e1",
+        "retained_rows": 63,
+        "source_git_blob_sha1": "6bfa79028e0a5cae65deb782c733e75c65ae020a",
+        "source_name": "r-cheek-bones-incr.target",
+        "source_rows": 63,
+        "source_sha256": "sha256:a393f67acce21568ab832091daadab267685d464492647cb0c4e8cb5af58c4c9"
+      }
+    ]
+  },
+  "repair_lineage": {
+    "repair_reason": "Real silhouette inspection exposed extra scalp/side cut loops caused by treating scale-landmark X/Z extrema as hard crop planes.",
+    "supersedes_for_fidelity": "axm-hm08-head-v0.1",
+    "v0.1_status": "structurally_valid_but_visually_rejected_for_artificial_crop_boundaries"
+  },
+  "schema": "axm.game-assets.hm08-head-seed.v0.2",
+  "source": {
+    "license_record": "MakeHuman base mesh/targets: CC0 source data; no MakeHuman application code is imported.",
+    "makehuman_base_obj_git_blob_sha1": "d26635e9326e3cca30778fd7b9c00062b03cce09",
+    "makehuman_base_obj_sha256": "sha256:8e761e6624b8f54536409135d1636da63b32486a90d4897f84e121d144f6fb4c",
+    "makehuman_revision": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+    "mpfb_hm08_config_git_blob_sha1": "f94e2731356232ed1b6306128fd04d18da5d21ea",
+    "mpfb_hm08_config_sha256": "sha256:0ebab5f8ba35e56f3be49e3de241746552bce57fe8e079b72b00a362be246a29",
+    "mpfb_revision": "437dd513888a92399d1d3200d2e80859fae55abc"
+  },
+  "truth": {
+    "high_end_anatomy_claim": false,
+    "notes": [
+      "v0.2 is an evidence-driven extraction repair, not a claim that the neutral MakeHuman face itself meets the final Sentinel fidelity target.",
+      "Canonical coordinates and sparse target semantics remain raw MakeHuman hm08 state.",
+      "X/depth scale extrema are preserved in the manifest but no longer used as destructive crop planes."
+    ]
+  }
+}

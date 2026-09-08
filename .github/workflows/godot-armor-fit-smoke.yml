@@ -1,0 +1,146 @@
+name: godot-armor-fit-smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  godot-armor-fit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build fitted Sentinel A/B candidate
+        run: |
+          rm -rf engine/godot_face/generated
+          python native_armor_fit_evidence_test.py
+          python native_armor_conform_test.py
+          python native_hm08_full_body_fitted_test.py
+          python - <<'PY'
+          from native_hm08_full_body_fitted import build_fitted_full_body_package
+          package = build_fitted_full_body_package("engine/godot_face/generated", texture_size=128)
+          assert all(package["acceptance"].values()), package
+          fit = package["armor_fit"]
+          assert fit["fitted"]["fractions"]["obviously_floating"] < 0.02, fit
+          assert fit["fitted"]["fractions"]["likely_interpenetrating"] < 0.05, fit
+          assert fit["fitted"]["signed_normal_offset_m"]["median"] < 0.035, fit
+          print("FITTED SENTINEL BUILD PASS", fit, package["delivery"])
+          PY
+          cp \
+            engine/godot_face/generated/sentinel_hm08_full_body_fitted_v0_1.gltf \
+            engine/godot_face/generated/sentinel_hm08_face_candidate_v0_1.gltf
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" --output .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Parse fitted character in Godot
+        run: |
+          rm -f engine/godot_face/godot-face-eyes-import-receipt.json
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --headless \
+            --path engine/godot_face \
+            --script smoke_eyes.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt=json.loads(Path("engine/godot_face/godot-face-eyes-import-receipt.json").read_text())
+          assert receipt["status"]=="pass",receipt
+          assert receipt["surfaces"]==14 and receipt["material_surfaces"]==14,receipt
+          assert len(receipt["declared_external_images"])==42,receipt
+          print("FITTED SENTINEL GODOT IMPORT PASS",receipt)
+          PY
+
+      - name: Render fitted whole-body views
+        run: |
+          rm -f engine/godot_face/godot-full-body-views-receipt.json engine/godot_face/godot-full-body-front.png engine/godot_face/godot-full-body-three_quarter.png engine/godot_face/godot-full-body-profile.png
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --display-driver x11 \
+            --rendering-method gl_compatibility \
+            --path engine/godot_face \
+            --script render_full_body_views.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt=json.loads(Path("engine/godot_face/godot-full-body-views-receipt.json").read_text())
+          assert receipt["status"]=="pass",receipt
+          assert [v["name"] for v in receipt["views"]]==["front","three_quarter","profile"]
+          print("FITTED SENTINEL VIEWS PASS",[(v["name"],v["metrics"]["foreground_coverage"],v["metrics"]["near_white_foreground_fraction"]) for v in receipt["views"]])
+          PY
+
+      - name: Bind fitted A/B evidence
+        env:
+          GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          from native_visual_evidence import build_capture_packet,validate_capture_packet,write_capture_packet
+          root=Path("engine/godot_face")
+          receipt=json.loads((root/"godot-full-body-views-receipt.json").read_text())
+          wrapper_path=root/"generated"/"fitted-body-package.json"
+          wrapper=json.loads(wrapper_path.read_text())
+          source_digest="sha256:"+hashlib.sha256(wrapper_path.read_bytes()).hexdigest()
+          bundle={
+            "schema":"axm.game-assets.godot-armor-fit-ab.v0.1",
+            "authority":"deterministic_capture_evidence_only",
+            "asset_digest":wrapper["delivery"]["gltf_sha256"],
+            "changed_variable":wrapper["changed_variable"],
+            "armor_fit":wrapper["armor_fit"],
+            "views":[],
+            "truth":"Same equipped Sentinel and Godot lab; only derived armor fit changes. Screenshots remain observational evidence and do not automatically promote the transform."
+          }
+          for view in receipt["views"]:
+            name=view["name"]; png_path=root/f"godot-full-body-{name}.png"; png=png_path.read_bytes(); metrics=view["metrics"]
+            packet=build_capture_packet(
+              png,asset_digest=wrapper["delivery"]["gltf_sha256"],
+              engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},
+              camera=view["camera"],
+              render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"sentinel_armor_fit_ab_v0.1","lighting":receipt["lighting"],"foreground_gate":receipt["foreground_gate"]},
+              metrics={"foreground_coverage":metrics["foreground_coverage"],"foreground_luma_mean":metrics["foreground_luma_mean"],"near_white_foreground_fraction":metrics["near_white_foreground_fraction"],"luma_min":metrics["luma_min"],"luma_max":metrics["luma_max"],"luma_mean":metrics["luma_mean"],"luma_range":metrics["luma_range"]},
+              source_receipts=[source_digest],
+            )
+            assert validate_capture_packet(packet,png)["status"]=="pass"
+            write_capture_packet(root/f"visual-capture-armor-fit-{name}.json",packet)
+            bundle["views"].append({"name":name,"capture_digest":packet["capture_digest"],"image_sha256":packet["image"]["sha256"]})
+          (root/"visual-capture-armor-fit-viewset.json").write_text(json.dumps(bundle,indent=2,sort_keys=True)+"\n")
+          print("FITTED SENTINEL CAPTURE PASS",bundle)
+          PY
+
+      - name: Preserve fitted A/B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-armor-fit-evidence
+          if-no-files-found: error
+          path: |
+            engine/godot_face/godot-face-eyes-import-receipt.json
+            engine/godot_face/godot-full-body-views-receipt.json
+            engine/godot_face/godot-full-body-front.png
+            engine/godot_face/godot-full-body-three_quarter.png
+            engine/godot_face/godot-full-body-profile.png
+            engine/godot_face/visual-capture-armor-fit-*.json
+            engine/godot_face/generated/fitted-body-package.json
+            engine/godot_face/generated/full-body-package.json
+            engine/godot_face/generated/sentinel_hm08_full_body_fitted_v0_1.gltf
+            engine/godot_face/generated/sentinel_hm08_full_body_fitted_v0_1.bin
+            engine/godot_face/generated/textures/**

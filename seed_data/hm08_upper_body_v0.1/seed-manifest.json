@@ -1,0 +1,141 @@
+{
+  "acceptance": {
+    "continuous_vertical_surface_method": true,
+    "promoted_head_source_is_subset": true,
+    "real_hm08_source_used": true,
+    "source_index_map_complete": true,
+    "source_uvs_preserved": true,
+    "targets_retained": true
+  },
+  "basemesh_id": "axm-hm08-upper-body-v0.1",
+  "coordinate_space": {
+    "engine_conversion_applied": false,
+    "name": "raw_makehuman_hm08_obj",
+    "target_delta_rule": "direct_copy_from_raw_makehuman_target"
+  },
+  "extraction": {
+    "body_range": [
+      0,
+      13379
+    ],
+    "candidate_faces": 10158,
+    "compact_actual_bounds": {
+      "x": [
+        -4.9627,
+        4.9627
+      ],
+      "y": [
+        -0.3662,
+        8.4913
+      ],
+      "z": [
+        -1.0154,
+        3.2147
+      ]
+    },
+    "compact_faces": 10158,
+    "compact_uvs": 10936,
+    "compact_vertices": 10185,
+    "eligible_body_vertices": 10185,
+    "head_reference_bounds": {
+      "x": [
+        -0.74,
+        0.74
+      ],
+      "y": [
+        6.1615,
+        8.4913
+      ],
+      "z": [
+        -0.391,
+        1.5311
+      ]
+    },
+    "selection_method": "torso_to_head_vertical_slab_then_largest_connected_body_surface",
+    "source_faces": 18486,
+    "source_vertex_max": 13379,
+    "source_vertex_min": 0,
+    "source_vertices": 19158,
+    "torso_reference_bounds": {
+      "x": [
+        -1.3787,
+        1.3787
+      ],
+      "y": [
+        -0.3662,
+        5.3771
+      ],
+      "z": [
+        -0.3363,
+        1.494
+      ]
+    },
+    "vertical_slab_y": [
+      -0.3662,
+      8.4913
+    ]
+  },
+  "outputs": {
+    "source_index_map": {
+      "file": "source-index-map.json",
+      "sha256": "sha256:0e65d5c568d14afe198f6acd2b5295e02a5e92c865ed7ee7cede07e7a408e901"
+    },
+    "targets": [
+      {
+        "name": "nose-width1-incr.target",
+        "output_sha256": "sha256:e9be845de302526fdb532578588e7d2a5ff56d2226430a3701cf3221b36384c6",
+        "retained_rows": 60,
+        "source_git_blob_sha1": "db108799ff4614f32bb33f5e7ae4781a2a82349c",
+        "source_name": "nose-width1-incr.target",
+        "source_rows": 60,
+        "source_sha256": "sha256:d340bc76601f9061826849d2fc9146ba6fbf7ee0604799849a417c934f53bea0"
+      },
+      {
+        "name": "l-cheek-bones-incr.target",
+        "output_sha256": "sha256:ad1dd45c0bf48910499471a1aa6abc61d66123af8baebc8ec20830ca8bc0852d",
+        "retained_rows": 63,
+        "source_git_blob_sha1": "b239a7d2b2e186ac39628d30fa085e407e44894e",
+        "source_name": "l-cheek-bones-incr.target",
+        "source_rows": 63,
+        "source_sha256": "sha256:244ffa39d2d2db94ff15130719346b4cae2236bf2a309c5682eac352da06be50"
+      },
+      {
+        "name": "r-cheek-bones-incr.target",
+        "output_sha256": "sha256:5cc90b296b4a3110b2f583d408f3b2569f9af9fb87a6db980b2deccbe5c8daf3",
+        "retained_rows": 63,
+        "source_git_blob_sha1": "6bfa79028e0a5cae65deb782c733e75c65ae020a",
+        "source_name": "r-cheek-bones-incr.target",
+        "source_rows": 63,
+        "source_sha256": "sha256:a393f67acce21568ab832091daadab267685d464492647cb0c4e8cb5af58c4c9"
+      }
+    ],
+    "upper_body_obj": {
+      "file": "upper_body.obj",
+      "sha256": "sha256:1f1495a1683b8fefc08396f201fe5ea1ae8a585282d14206ef6271d03bbcebe9"
+    }
+  },
+  "relationship_to_head_seed": {
+    "head_source_subset": true,
+    "missing_head_source_vertices": [],
+    "purpose": "One continuous upper-body topology should contain the already-promoted repaired head source vertices rather than attaching a separate neck mesh.",
+    "required_head_source_vertices": 4197
+  },
+  "schema": "axm.game-assets.hm08-upper-body-seed.v0.1",
+  "source": {
+    "license_record": "MakeHuman hm08 base mesh/targets: CC0 source data; no MakeHuman application code is imported.",
+    "makehuman_base_obj_git_blob_sha1": "d26635e9326e3cca30778fd7b9c00062b03cce09",
+    "makehuman_base_obj_sha256": "sha256:8e761e6624b8f54536409135d1636da63b32486a90d4897f84e121d144f6fb4c",
+    "makehuman_revision": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+    "mpfb_hm08_config_git_blob_sha1": "f94e2731356232ed1b6306128fd04d18da5d21ea",
+    "mpfb_hm08_config_sha256": "sha256:0ebab5f8ba35e56f3be49e3de241746552bce57fe8e079b72b00a362be246a29",
+    "mpfb_revision": "437dd513888a92399d1d3200d2e80859fae55abc"
+  },
+  "truth": {
+    "notes": [
+      "This is a continuous CC0 human source substrate, not final Sentinel anatomy, musculature, rigging, or armor fit.",
+      "The lower torso and arm cuts are intentional extraction boundaries for this upper-body proving stage.",
+      "Facial identity targets remain sparse source layers and can be applied on this larger topology using the remapped files."
+    ],
+    "production_body_claim": false
+  }
+}

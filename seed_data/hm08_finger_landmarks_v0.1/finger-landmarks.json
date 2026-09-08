@@ -1,0 +1,1702 @@
+{
+  "acceptance": {
+    "all_source_indices_valid": true,
+    "exact_finger_bone_count": true,
+    "fifteen_bones_per_hand": true,
+    "five_digits_three_segments_each": true,
+    "joint_source_groups_nonempty": true,
+    "positive_finite_lengths": true,
+    "raw_coordinate_truth_preserved": true
+  },
+  "bones": [
+    {
+      "digit": 1,
+      "head_m": [
+        0.41950750000000003,
+        0.230585,
+        0.21343875
+      ],
+      "head_raw": [
+        4.195075,
+        2.30585,
+        2.1343875
+      ],
+      "head_ref": "finger1-1.L____head",
+      "head_source_indices": [
+        14006,
+        14007,
+        14008,
+        14009,
+        14010,
+        14011,
+        14012,
+        14013
+      ],
+      "length_m": 0.026392701228275212,
+      "length_raw": 0.2639270122827521,
+      "parent_source_bone": "wrist.L",
+      "segment": 1,
+      "side": "L",
+      "source_bone": "finger1-1.L",
+      "tail_m": [
+        0.4094825,
+        0.22556875,
+        0.2373325
+      ],
+      "tail_raw": [
+        4.094825,
+        2.2556875,
+        2.373325
+      ],
+      "tail_ref": "finger1-1.L____tail",
+      "tail_source_indices": [
+        13998,
+        13999,
+        14000,
+        14001,
+        14002,
+        14003,
+        14004,
+        14005
+      ]
+    },
+    {
+      "digit": 1,
+      "head_m": [
+        0.4094825,
+        0.22556875,
+        0.2373325
+      ],
+      "head_raw": [
+        4.094825,
+        2.2556875,
+        2.373325
+      ],
+      "head_ref": "finger1-2.L____head",
+      "head_source_indices": [
+        13998,
+        13999,
+        14000,
+        14001,
+        14002,
+        14003,
+        14004,
+        14005
+      ],
+      "length_m": 0.03592445743762179,
+      "length_raw": 0.35924457437621793,
+      "parent_source_bone": "finger1-1.L",
+      "segment": 2,
+      "side": "L",
+      "source_bone": "finger1-2.L",
+      "tail_m": [
+        0.39838375000000004,
+        0.21096500000000004,
+        0.26822125
+      ],
+      "tail_raw": [
+        3.9838375,
+        2.1096500000000002,
+        2.6822125
+      ],
+      "tail_ref": "finger1-2.L____tail",
+      "tail_source_indices": [
+        13990,
+        13991,
+        13992,
+        13993,
+        13994,
+        13995,
+        13996,
+        13997
+      ]
+    },
+    {
+      "digit": 1,
+      "head_m": [
+        0.39838375000000004,
+        0.21096500000000004,
+        0.26822125
+      ],
+      "head_raw": [
+        3.9838375,
+        2.1096500000000002,
+        2.6822125
+      ],
+      "head_ref": "finger1-3.L____head",
+      "head_source_indices": [
+        13990,
+        13991,
+        13992,
+        13993,
+        13994,
+        13995,
+        13996,
+        13997
+      ],
+      "length_m": 0.023253744926892986,
+      "length_raw": 0.23253744926892986,
+      "parent_source_bone": "finger1-2.L",
+      "segment": 3,
+      "side": "L",
+      "source_bone": "finger1-3.L",
+      "tail_m": [
+        0.3916775,
+        0.20001125000000003,
+        0.28760625
+      ],
+      "tail_raw": [
+        3.916775,
+        2.0001125,
+        2.8760625
+      ],
+      "tail_ref": "finger1-3.L____tail",
+      "tail_source_indices": [
+        13982,
+        13983,
+        13984,
+        13985,
+        13986,
+        13987,
+        13988,
+        13989
+      ]
+    },
+    {
+      "digit": 2,
+      "head_m": [
+        0.44955375000000003,
+        0.20302875,
+        0.26441625
+      ],
+      "head_raw": [
+        4.4955375,
+        2.0302875,
+        2.6441625
+      ],
+      "head_ref": "finger2-1.L____head",
+      "head_source_indices": [
+        13974,
+        13975,
+        13976,
+        13977,
+        13978,
+        13979,
+        13980,
+        13981
+      ],
+      "length_m": 0.0251998538252209,
+      "length_raw": 0.25199853825220897,
+      "parent_source_bone": "metacarpal1.L",
+      "segment": 1,
+      "side": "L",
+      "source_bone": "finger2-1.L",
+      "tail_m": [
+        0.45315250000000007,
+        0.18951375,
+        0.28537875
+      ],
+      "tail_raw": [
+        4.531525,
+        1.8951375,
+        2.8537875
+      ],
+      "tail_ref": "finger2-1.L____tail",
+      "tail_source_indices": [
+        13918,
+        13919,
+        13920,
+        13921,
+        13922,
+        13923,
+        13924,
+        13925
+      ]
+    },
+    {
+      "digit": 2,
+      "head_m": [
+        0.45315250000000007,
+        0.18951375,
+        0.28537875
+      ],
+      "head_raw": [
+        4.531525,
+        1.8951375,
+        2.8537875
+      ],
+      "head_ref": "finger2-2.L____head",
+      "head_source_indices": [
+        13918,
+        13919,
+        13920,
+        13921,
+        13922,
+        13923,
+        13924,
+        13925
+      ],
+      "length_m": 0.0226366232919687,
+      "length_raw": 0.226366232919687,
+      "parent_source_bone": "finger2-1.L",
+      "segment": 2,
+      "side": "L",
+      "source_bone": "finger2-2.L",
+      "tail_m": [
+        0.4533825,
+        0.17454000000000003,
+        0.30235375000000003
+      ],
+      "tail_raw": [
+        4.533825,
+        1.7454,
+        3.0235375
+      ],
+      "tail_ref": "finger2-2.L____tail",
+      "tail_source_indices": [
+        13910,
+        13911,
+        13912,
+        13913,
+        13914,
+        13915,
+        13916,
+        13917
+      ]
+    },
+    {
+      "digit": 2,
+      "head_m": [
+        0.4533825,
+        0.17454000000000003,
+        0.30235375000000003
+      ],
+      "head_raw": [
+        4.533825,
+        1.7454,
+        3.0235375
+      ],
+      "head_ref": "finger2-3.L____head",
+      "head_source_indices": [
+        13910,
+        13911,
+        13912,
+        13913,
+        13914,
+        13915,
+        13916,
+        13917
+      ],
+      "length_m": 0.023154940921161944,
+      "length_raw": 0.23154940921161943,
+      "parent_source_bone": "finger2-2.L",
+      "segment": 3,
+      "side": "L",
+      "source_bone": "finger2-3.L",
+      "tail_m": [
+        0.45296500000000006,
+        0.15890875000000002,
+        0.31943125000000006
+      ],
+      "tail_raw": [
+        4.52965,
+        1.5890875,
+        3.1943125
+      ],
+      "tail_ref": "finger2-3.L____tail",
+      "tail_source_indices": [
+        13854,
+        13855,
+        13856,
+        13857,
+        13858,
+        13859,
+        13860,
+        13861
+      ]
+    },
+    {
+      "digit": 3,
+      "head_m": [
+        0.46083,
+        0.188615,
+        0.24789750000000002
+      ],
+      "head_raw": [
+        4.6083,
+        1.88615,
+        2.478975
+      ],
+      "head_ref": "finger3-1.L____head",
+      "head_source_indices": [
+        13966,
+        13967,
+        13968,
+        13969,
+        13970,
+        13971,
+        13972,
+        13973
+      ],
+      "length_m": 0.03184349543568513,
+      "length_raw": 0.3184349543568513,
+      "parent_source_bone": "metacarpal2.L",
+      "segment": 1,
+      "side": "L",
+      "source_bone": "finger3-1.L",
+      "tail_m": [
+        0.4712450000000001,
+        0.16724000000000003,
+        0.26907875
+      ],
+      "tail_raw": [
+        4.7124500000000005,
+        1.6724,
+        2.6907875
+      ],
+      "tail_ref": "finger3-1.L____tail",
+      "tail_source_indices": [
+        13926,
+        13927,
+        13928,
+        13929,
+        13930,
+        13931,
+        13932,
+        13933
+      ]
+    },
+    {
+      "digit": 3,
+      "head_m": [
+        0.4712450000000001,
+        0.16724000000000003,
+        0.26907875
+      ],
+      "head_raw": [
+        4.7124500000000005,
+        1.6724,
+        2.6907875
+      ],
+      "head_ref": "finger3-2.L____head",
+      "head_source_indices": [
+        13926,
+        13927,
+        13928,
+        13929,
+        13930,
+        13931,
+        13932,
+        13933
+      ],
+      "length_m": 0.024974485636595187,
+      "length_raw": 0.24974485636595187,
+      "parent_source_bone": "finger3-1.L",
+      "segment": 2,
+      "side": "L",
+      "source_bone": "finger3-2.L",
+      "tail_m": [
+        0.47467375,
+        0.14881750000000002,
+        0.28558875
+      ],
+      "tail_raw": [
+        4.7467375,
+        1.488175,
+        2.8558874999999997
+      ],
+      "tail_ref": "finger3-2.L____tail",
+      "tail_source_indices": [
+        13902,
+        13903,
+        13904,
+        13905,
+        13906,
+        13907,
+        13908,
+        13909
+      ]
+    },
+    {
+      "digit": 3,
+      "head_m": [
+        0.47467375,
+        0.14881750000000002,
+        0.28558875
+      ],
+      "head_raw": [
+        4.7467375,
+        1.488175,
+        2.8558874999999997
+      ],
+      "head_ref": "finger3-3.L____head",
+      "head_source_indices": [
+        13902,
+        13903,
+        13904,
+        13905,
+        13906,
+        13907,
+        13908,
+        13909
+      ],
+      "length_m": 0.024696023971481743,
+      "length_raw": 0.24696023971481743,
+      "parent_source_bone": "finger3-2.L",
+      "segment": 3,
+      "side": "L",
+      "source_bone": "finger3-3.L",
+      "tail_m": [
+        0.47841375,
+        0.13027750000000002,
+        0.30146875
+      ],
+      "tail_raw": [
+        4.7841375,
+        1.302775,
+        3.0146875
+      ],
+      "tail_ref": "finger3-3.L____tail",
+      "tail_source_indices": [
+        13862,
+        13863,
+        13864,
+        13865,
+        13866,
+        13867,
+        13868,
+        13869
+      ]
+    },
+    {
+      "digit": 4,
+      "head_m": [
+        0.46963625000000003,
+        0.18249875000000002,
+        0.23094625000000002
+      ],
+      "head_raw": [
+        4.6963625,
+        1.8249875,
+        2.3094625
+      ],
+      "head_ref": "finger4-1.L____head",
+      "head_source_indices": [
+        13958,
+        13959,
+        13960,
+        13961,
+        13962,
+        13963,
+        13964,
+        13965
+      ],
+      "length_m": 0.028165826451348797,
+      "length_raw": 0.28165826451348797,
+      "parent_source_bone": "metacarpal3.L",
+      "segment": 1,
+      "side": "L",
+      "source_bone": "finger4-1.L",
+      "tail_m": [
+        0.48113500000000003,
+        0.16174,
+        0.2461175
+      ],
+      "tail_raw": [
+        4.81135,
+        1.6174,
+        2.461175
+      ],
+      "tail_ref": "finger4-1.L____tail",
+      "tail_source_indices": [
+        13934,
+        13935,
+        13936,
+        13937,
+        13938,
+        13939,
+        13940,
+        13941
+      ]
+    },
+    {
+      "digit": 4,
+      "head_m": [
+        0.48113500000000003,
+        0.16174,
+        0.2461175
+      ],
+      "head_raw": [
+        4.81135,
+        1.6174,
+        2.461175
+      ],
+      "head_ref": "finger4-2.L____head",
+      "head_source_indices": [
+        13934,
+        13935,
+        13936,
+        13937,
+        13938,
+        13939,
+        13940,
+        13941
+      ],
+      "length_m": 0.02369024499266522,
+      "length_raw": 0.2369024499266522,
+      "parent_source_bone": "finger4-1.L",
+      "segment": 2,
+      "side": "L",
+      "source_bone": "finger4-2.L",
+      "tail_m": [
+        0.48591,
+        0.14256875,
+        0.25919
+      ],
+      "tail_raw": [
+        4.8591,
+        1.4256875,
+        2.5919
+      ],
+      "tail_ref": "finger4-2.L____tail",
+      "tail_source_indices": [
+        13894,
+        13895,
+        13896,
+        13897,
+        13898,
+        13899,
+        13900,
+        13901
+      ]
+    },
+    {
+      "digit": 4,
+      "head_m": [
+        0.48591,
+        0.14256875,
+        0.25919
+      ],
+      "head_raw": [
+        4.8591,
+        1.4256875,
+        2.5919
+      ],
+      "head_ref": "finger4-3.L____head",
+      "head_source_indices": [
+        13894,
+        13895,
+        13896,
+        13897,
+        13898,
+        13899,
+        13900,
+        13901
+      ],
+      "length_m": 0.024475262319840443,
+      "length_raw": 0.2447526231984044,
+      "parent_source_bone": "finger4-2.L",
+      "segment": 3,
+      "side": "L",
+      "source_bone": "finger4-3.L",
+      "tail_m": [
+        0.49153625000000006,
+        0.12228,
+        0.27167
+      ],
+      "tail_raw": [
+        4.9153625000000005,
+        1.2227999999999999,
+        2.7167
+      ],
+      "tail_ref": "finger4-3.L____tail",
+      "tail_source_indices": [
+        13870,
+        13871,
+        13872,
+        13873,
+        13874,
+        13875,
+        13876,
+        13877
+      ]
+    },
+    {
+      "digit": 5,
+      "head_m": [
+        0.47454,
+        0.17637250000000002,
+        0.21238500000000002
+      ],
+      "head_raw": [
+        4.7454,
+        1.763725,
+        2.12385
+      ],
+      "head_ref": "finger5-1.L____head",
+      "head_source_indices": [
+        13950,
+        13951,
+        13952,
+        13953,
+        13954,
+        13955,
+        13956,
+        13957
+      ],
+      "length_m": 0.02151909773172424,
+      "length_raw": 0.2151909773172424,
+      "parent_source_bone": "metacarpal4.L",
+      "segment": 1,
+      "side": "L",
+      "source_bone": "finger5-1.L",
+      "tail_m": [
+        0.48070375,
+        0.15819875000000003,
+        0.22212125000000002
+      ],
+      "tail_raw": [
+        4.8070375,
+        1.5819875,
+        2.2212125
+      ],
+      "tail_ref": "finger5-1.L____tail",
+      "tail_source_indices": [
+        13942,
+        13943,
+        13944,
+        13945,
+        13946,
+        13947,
+        13948,
+        13949
+      ]
+    },
+    {
+      "digit": 5,
+      "head_m": [
+        0.48070375,
+        0.15819875000000003,
+        0.22212125000000002
+      ],
+      "head_raw": [
+        4.8070375,
+        1.5819875,
+        2.2212125
+      ],
+      "head_ref": "finger5-2.L____head",
+      "head_source_indices": [
+        13942,
+        13943,
+        13944,
+        13945,
+        13946,
+        13947,
+        13948,
+        13949
+      ],
+      "length_m": 0.014203462495990202,
+      "length_raw": 0.14203462495990202,
+      "parent_source_bone": "finger5-1.L",
+      "segment": 2,
+      "side": "L",
+      "source_bone": "finger5-2.L",
+      "tail_m": [
+        0.48299125,
+        0.145535,
+        0.2281325
+      ],
+      "tail_raw": [
+        4.8299125,
+        1.45535,
+        2.281325
+      ],
+      "tail_ref": "finger5-2.L____tail",
+      "tail_source_indices": [
+        13886,
+        13887,
+        13888,
+        13889,
+        13890,
+        13891,
+        13892,
+        13893
+      ]
+    },
+    {
+      "digit": 5,
+      "head_m": [
+        0.48299125,
+        0.145535,
+        0.2281325
+      ],
+      "head_raw": [
+        4.8299125,
+        1.45535,
+        2.281325
+      ],
+      "head_ref": "finger5-3.L____head",
+      "head_source_indices": [
+        13886,
+        13887,
+        13888,
+        13889,
+        13890,
+        13891,
+        13892,
+        13893
+      ],
+      "length_m": 0.018275233454391224,
+      "length_raw": 0.18275233454391224,
+      "parent_source_bone": "finger5-2.L",
+      "segment": 3,
+      "side": "L",
+      "source_bone": "finger5-3.L",
+      "tail_m": [
+        0.4856825,
+        0.12893,
+        0.235275
+      ],
+      "tail_raw": [
+        4.856825,
+        1.2893,
+        2.35275
+      ],
+      "tail_ref": "finger5-3.L____tail",
+      "tail_source_indices": [
+        13878,
+        13879,
+        13880,
+        13881,
+        13882,
+        13883,
+        13884,
+        13885
+      ]
+    },
+    {
+      "digit": 1,
+      "head_m": [
+        -0.41950750000000003,
+        0.230585,
+        0.21343875
+      ],
+      "head_raw": [
+        -4.195075,
+        2.30585,
+        2.1343875
+      ],
+      "head_ref": "finger1-1.R____head",
+      "head_source_indices": [
+        14446,
+        14447,
+        14448,
+        14449,
+        14450,
+        14451,
+        14452,
+        14453
+      ],
+      "length_m": 0.026392701228275212,
+      "length_raw": 0.2639270122827521,
+      "parent_source_bone": "wrist.R",
+      "segment": 1,
+      "side": "R",
+      "source_bone": "finger1-1.R",
+      "tail_m": [
+        -0.4094825,
+        0.22556875,
+        0.2373325
+      ],
+      "tail_raw": [
+        -4.094825,
+        2.2556875,
+        2.373325
+      ],
+      "tail_ref": "finger1-1.R____tail",
+      "tail_source_indices": [
+        14438,
+        14439,
+        14440,
+        14441,
+        14442,
+        14443,
+        14444,
+        14445
+      ]
+    },
+    {
+      "digit": 1,
+      "head_m": [
+        -0.4094825,
+        0.22556875,
+        0.2373325
+      ],
+      "head_raw": [
+        -4.094825,
+        2.2556875,
+        2.373325
+      ],
+      "head_ref": "finger1-2.R____head",
+      "head_source_indices": [
+        14438,
+        14439,
+        14440,
+        14441,
+        14442,
+        14443,
+        14444,
+        14445
+      ],
+      "length_m": 0.03592445743762179,
+      "length_raw": 0.35924457437621793,
+      "parent_source_bone": "finger1-1.R",
+      "segment": 2,
+      "side": "R",
+      "source_bone": "finger1-2.R",
+      "tail_m": [
+        -0.39838375000000004,
+        0.21096500000000004,
+        0.26822125
+      ],
+      "tail_raw": [
+        -3.9838375,
+        2.1096500000000002,
+        2.6822125
+      ],
+      "tail_ref": "finger1-2.R____tail",
+      "tail_source_indices": [
+        14430,
+        14431,
+        14432,
+        14433,
+        14434,
+        14435,
+        14436,
+        14437
+      ]
+    },
+    {
+      "digit": 1,
+      "head_m": [
+        -0.39838375000000004,
+        0.21096500000000004,
+        0.26822125
+      ],
+      "head_raw": [
+        -3.9838375,
+        2.1096500000000002,
+        2.6822125
+      ],
+      "head_ref": "finger1-3.R____head",
+      "head_source_indices": [
+        14430,
+        14431,
+        14432,
+        14433,
+        14434,
+        14435,
+        14436,
+        14437
+      ],
+      "length_m": 0.023253744926892986,
+      "length_raw": 0.23253744926892986,
+      "parent_source_bone": "finger1-2.R",
+      "segment": 3,
+      "side": "R",
+      "source_bone": "finger1-3.R",
+      "tail_m": [
+        -0.3916775,
+        0.20001125000000003,
+        0.28760625
+      ],
+      "tail_raw": [
+        -3.916775,
+        2.0001125,
+        2.8760625
+      ],
+      "tail_ref": "finger1-3.R____tail",
+      "tail_source_indices": [
+        14422,
+        14423,
+        14424,
+        14425,
+        14426,
+        14427,
+        14428,
+        14429
+      ]
+    },
+    {
+      "digit": 2,
+      "head_m": [
+        -0.44955375000000003,
+        0.20302875,
+        0.26441625
+      ],
+      "head_raw": [
+        -4.4955375,
+        2.0302875,
+        2.6441625
+      ],
+      "head_ref": "finger2-1.R____head",
+      "head_source_indices": [
+        14414,
+        14415,
+        14416,
+        14417,
+        14418,
+        14419,
+        14420,
+        14421
+      ],
+      "length_m": 0.0251998538252209,
+      "length_raw": 0.25199853825220897,
+      "parent_source_bone": "metacarpal1.R",
+      "segment": 1,
+      "side": "R",
+      "source_bone": "finger2-1.R",
+      "tail_m": [
+        -0.45315250000000007,
+        0.18951375,
+        0.28537875
+      ],
+      "tail_raw": [
+        -4.531525,
+        1.8951375,
+        2.8537875
+      ],
+      "tail_ref": "finger2-1.R____tail",
+      "tail_source_indices": [
+        14358,
+        14359,
+        14360,
+        14361,
+        14362,
+        14363,
+        14364,
+        14365
+      ]
+    },
+    {
+      "digit": 2,
+      "head_m": [
+        -0.45315250000000007,
+        0.18951375,
+        0.28537875
+      ],
+      "head_raw": [
+        -4.531525,
+        1.8951375,
+        2.8537875
+      ],
+      "head_ref": "finger2-2.R____head",
+      "head_source_indices": [
+        14358,
+        14359,
+        14360,
+        14361,
+        14362,
+        14363,
+        14364,
+        14365
+      ],
+      "length_m": 0.0226366232919687,
+      "length_raw": 0.226366232919687,
+      "parent_source_bone": "finger2-1.R",
+      "segment": 2,
+      "side": "R",
+      "source_bone": "finger2-2.R",
+      "tail_m": [
+        -0.4533825,
+        0.17454000000000003,
+        0.30235375000000003
+      ],
+      "tail_raw": [
+        -4.533825,
+        1.7454,
+        3.0235375
+      ],
+      "tail_ref": "finger2-2.R____tail",
+      "tail_source_indices": [
+        14350,
+        14351,
+        14352,
+        14353,
+        14354,
+        14355,
+        14356,
+        14357
+      ]
+    },
+    {
+      "digit": 2,
+      "head_m": [
+        -0.4533825,
+        0.17454000000000003,
+        0.30235375000000003
+      ],
+      "head_raw": [
+        -4.533825,
+        1.7454,
+        3.0235375
+      ],
+      "head_ref": "finger2-3.R____head",
+      "head_source_indices": [
+        14350,
+        14351,
+        14352,
+        14353,
+        14354,
+        14355,
+        14356,
+        14357
+      ],
+      "length_m": 0.023154940921161944,
+      "length_raw": 0.23154940921161943,
+      "parent_source_bone": "finger2-2.R",
+      "segment": 3,
+      "side": "R",
+      "source_bone": "finger2-3.R",
+      "tail_m": [
+        -0.45296500000000006,
+        0.15890875000000002,
+        0.31943125000000006
+      ],
+      "tail_raw": [
+        -4.52965,
+        1.5890875,
+        3.1943125
+      ],
+      "tail_ref": "finger2-3.R____tail",
+      "tail_source_indices": [
+        14294,
+        14295,
+        14296,
+        14297,
+        14298,
+        14299,
+        14300,
+        14301
+      ]
+    },
+    {
+      "digit": 3,
+      "head_m": [
+        -0.46083,
+        0.188615,
+        0.24789750000000002
+      ],
+      "head_raw": [
+        -4.6083,
+        1.88615,
+        2.478975
+      ],
+      "head_ref": "finger3-1.R____head",
+      "head_source_indices": [
+        14406,
+        14407,
+        14408,
+        14409,
+        14410,
+        14411,
+        14412,
+        14413
+      ],
+      "length_m": 0.03184349543568513,
+      "length_raw": 0.3184349543568513,
+      "parent_source_bone": "metacarpal2.R",
+      "segment": 1,
+      "side": "R",
+      "source_bone": "finger3-1.R",
+      "tail_m": [
+        -0.4712450000000001,
+        0.16724000000000003,
+        0.26907875
+      ],
+      "tail_raw": [
+        -4.7124500000000005,
+        1.6724,
+        2.6907875
+      ],
+      "tail_ref": "finger3-1.R____tail",
+      "tail_source_indices": [
+        14366,
+        14367,
+        14368,
+        14369,
+        14370,
+        14371,
+        14372,
+        14373
+      ]
+    },
+    {
+      "digit": 3,
+      "head_m": [
+        -0.4712450000000001,
+        0.16724000000000003,
+        0.26907875
+      ],
+      "head_raw": [
+        -4.7124500000000005,
+        1.6724,
+        2.6907875
+      ],
+      "head_ref": "finger3-2.R____head",
+      "head_source_indices": [
+        14366,
+        14367,
+        14368,
+        14369,
+        14370,
+        14371,
+        14372,
+        14373
+      ],
+      "length_m": 0.024974485636595187,
+      "length_raw": 0.24974485636595187,
+      "parent_source_bone": "finger3-1.R",
+      "segment": 2,
+      "side": "R",
+      "source_bone": "finger3-2.R",
+      "tail_m": [
+        -0.47467375,
+        0.14881750000000002,
+        0.28558875
+      ],
+      "tail_raw": [
+        -4.7467375,
+        1.488175,
+        2.8558874999999997
+      ],
+      "tail_ref": "finger3-2.R____tail",
+      "tail_source_indices": [
+        14342,
+        14343,
+        14344,
+        14345,
+        14346,
+        14347,
+        14348,
+        14349
+      ]
+    },
+    {
+      "digit": 3,
+      "head_m": [
+        -0.47467375,
+        0.14881750000000002,
+        0.28558875
+      ],
+      "head_raw": [
+        -4.7467375,
+        1.488175,
+        2.8558874999999997
+      ],
+      "head_ref": "finger3-3.R____head",
+      "head_source_indices": [
+        14342,
+        14343,
+        14344,
+        14345,
+        14346,
+        14347,
+        14348,
+        14349
+      ],
+      "length_m": 0.024696023971481743,
+      "length_raw": 0.24696023971481743,
+      "parent_source_bone": "finger3-2.R",
+      "segment": 3,
+      "side": "R",
+      "source_bone": "finger3-3.R",
+      "tail_m": [
+        -0.47841375,
+        0.13027750000000002,
+        0.30146875
+      ],
+      "tail_raw": [
+        -4.7841375,
+        1.302775,
+        3.0146875
+      ],
+      "tail_ref": "finger3-3.R____tail",
+      "tail_source_indices": [
+        14302,
+        14303,
+        14304,
+        14305,
+        14306,
+        14307,
+        14308,
+        14309
+      ]
+    },
+    {
+      "digit": 4,
+      "head_m": [
+        -0.46963625000000003,
+        0.18249875000000002,
+        0.23094625000000002
+      ],
+      "head_raw": [
+        -4.6963625,
+        1.8249875,
+        2.3094625
+      ],
+      "head_ref": "finger4-1.R____head",
+      "head_source_indices": [
+        14398,
+        14399,
+        14400,
+        14401,
+        14402,
+        14403,
+        14404,
+        14405
+      ],
+      "length_m": 0.028165826451348797,
+      "length_raw": 0.28165826451348797,
+      "parent_source_bone": "metacarpal3.R",
+      "segment": 1,
+      "side": "R",
+      "source_bone": "finger4-1.R",
+      "tail_m": [
+        -0.48113500000000003,
+        0.16174,
+        0.2461175
+      ],
+      "tail_raw": [
+        -4.81135,
+        1.6174,
+        2.461175
+      ],
+      "tail_ref": "finger4-1.R____tail",
+      "tail_source_indices": [
+        14374,
+        14375,
+        14376,
+        14377,
+        14378,
+        14379,
+        14380,
+        14381
+      ]
+    },
+    {
+      "digit": 4,
+      "head_m": [
+        -0.48113500000000003,
+        0.16174,
+        0.2461175
+      ],
+      "head_raw": [
+        -4.81135,
+        1.6174,
+        2.461175
+      ],
+      "head_ref": "finger4-2.R____head",
+      "head_source_indices": [
+        14374,
+        14375,
+        14376,
+        14377,
+        14378,
+        14379,
+        14380,
+        14381
+      ],
+      "length_m": 0.02369024499266522,
+      "length_raw": 0.2369024499266522,
+      "parent_source_bone": "finger4-1.R",
+      "segment": 2,
+      "side": "R",
+      "source_bone": "finger4-2.R",
+      "tail_m": [
+        -0.48591,
+        0.14256875,
+        0.25919
+      ],
+      "tail_raw": [
+        -4.8591,
+        1.4256875,
+        2.5919
+      ],
+      "tail_ref": "finger4-2.R____tail",
+      "tail_source_indices": [
+        14334,
+        14335,
+        14336,
+        14337,
+        14338,
+        14339,
+        14340,
+        14341
+      ]
+    },
+    {
+      "digit": 4,
+      "head_m": [
+        -0.48591,
+        0.14256875,
+        0.25919
+      ],
+      "head_raw": [
+        -4.8591,
+        1.4256875,
+        2.5919
+      ],
+      "head_ref": "finger4-3.R____head",
+      "head_source_indices": [
+        14334,
+        14335,
+        14336,
+        14337,
+        14338,
+        14339,
+        14340,
+        14341
+      ],
+      "length_m": 0.024475262319840443,
+      "length_raw": 0.2447526231984044,
+      "parent_source_bone": "finger4-2.R",
+      "segment": 3,
+      "side": "R",
+      "source_bone": "finger4-3.R",
+      "tail_m": [
+        -0.49153625000000006,
+        0.12228,
+        0.27167
+      ],
+      "tail_raw": [
+        -4.9153625000000005,
+        1.2227999999999999,
+        2.7167
+      ],
+      "tail_ref": "finger4-3.R____tail",
+      "tail_source_indices": [
+        14310,
+        14311,
+        14312,
+        14313,
+        14314,
+        14315,
+        14316,
+        14317
+      ]
+    },
+    {
+      "digit": 5,
+      "head_m": [
+        -0.47454,
+        0.17637250000000002,
+        0.21238500000000002
+      ],
+      "head_raw": [
+        -4.7454,
+        1.763725,
+        2.12385
+      ],
+      "head_ref": "finger5-1.R____head",
+      "head_source_indices": [
+        14390,
+        14391,
+        14392,
+        14393,
+        14394,
+        14395,
+        14396,
+        14397
+      ],
+      "length_m": 0.02151909773172424,
+      "length_raw": 0.2151909773172424,
+      "parent_source_bone": "metacarpal4.R",
+      "segment": 1,
+      "side": "R",
+      "source_bone": "finger5-1.R",
+      "tail_m": [
+        -0.48070375,
+        0.15819875000000003,
+        0.22212125000000002
+      ],
+      "tail_raw": [
+        -4.8070375,
+        1.5819875,
+        2.2212125
+      ],
+      "tail_ref": "finger5-1.R____tail",
+      "tail_source_indices": [
+        14382,
+        14383,
+        14384,
+        14385,
+        14386,
+        14387,
+        14388,
+        14389
+      ]
+    },
+    {
+      "digit": 5,
+      "head_m": [
+        -0.48070375,
+        0.15819875000000003,
+        0.22212125000000002
+      ],
+      "head_raw": [
+        -4.8070375,
+        1.5819875,
+        2.2212125
+      ],
+      "head_ref": "finger5-2.R____head",
+      "head_source_indices": [
+        14382,
+        14383,
+        14384,
+        14385,
+        14386,
+        14387,
+        14388,
+        14389
+      ],
+      "length_m": 0.014203462495990202,
+      "length_raw": 0.14203462495990202,
+      "parent_source_bone": "finger5-1.R",
+      "segment": 2,
+      "side": "R",
+      "source_bone": "finger5-2.R",
+      "tail_m": [
+        -0.48299125,
+        0.145535,
+        0.2281325
+      ],
+      "tail_raw": [
+        -4.8299125,
+        1.45535,
+        2.281325
+      ],
+      "tail_ref": "finger5-2.R____tail",
+      "tail_source_indices": [
+        14326,
+        14327,
+        14328,
+        14329,
+        14330,
+        14331,
+        14332,
+        14333
+      ]
+    },
+    {
+      "digit": 5,
+      "head_m": [
+        -0.48299125,
+        0.145535,
+        0.2281325
+      ],
+      "head_raw": [
+        -4.8299125,
+        1.45535,
+        2.281325
+      ],
+      "head_ref": "finger5-3.R____head",
+      "head_source_indices": [
+        14326,
+        14327,
+        14328,
+        14329,
+        14330,
+        14331,
+        14332,
+        14333
+      ],
+      "length_m": 0.018275233454391224,
+      "length_raw": 0.18275233454391224,
+      "parent_source_bone": "finger5-2.R",
+      "segment": 3,
+      "side": "R",
+      "source_bone": "finger5-3.R",
+      "tail_m": [
+        -0.4856825,
+        0.12893,
+        0.235275
+      ],
+      "tail_raw": [
+        -4.856825,
+        1.2893,
+        2.35275
+      ],
+      "tail_ref": "finger5-3.R____tail",
+      "tail_source_indices": [
+        14318,
+        14319,
+        14320,
+        14321,
+        14322,
+        14323,
+        14324,
+        14325
+      ]
+    }
+  ],
+  "coordinate_space": {
+    "downstream_meter_scale": 0.1,
+    "engine_conversion_applied": false,
+    "name": "raw_makehuman_hm08_obj",
+    "source_unit": "decimeter"
+  },
+  "digit_segments": {
+    "L": {
+      "1": [
+        1,
+        2,
+        3
+      ],
+      "2": [
+        1,
+        2,
+        3
+      ],
+      "3": [
+        1,
+        2,
+        3
+      ],
+      "4": [
+        1,
+        2,
+        3
+      ],
+      "5": [
+        1,
+        2,
+        3
+      ]
+    },
+    "R": {
+      "1": [
+        1,
+        2,
+        3
+      ],
+      "2": [
+        1,
+        2,
+        3
+      ],
+      "3": [
+        1,
+        2,
+        3
+      ],
+      "4": [
+        1,
+        2,
+        3
+      ],
+      "5": [
+        1,
+        2,
+        3
+      ]
+    }
+  },
+  "finger_bone_count": 30,
+  "length_m_range": [
+    0.014203462495990202,
+    0.03592445743762179
+  ],
+  "schema": "axm.game-assets.hm08-finger-landmarks.v0.1",
+  "side_counts": {
+    "L": 15,
+    "R": 15
+  },
+  "source": {
+    "base_obj_git_blob_sha1": "d26635e9326e3cca30778fd7b9c00062b03cce09",
+    "base_obj_sha256": "sha256:8e761e6624b8f54536409135d1636da63b32486a90d4897f84e121d144f6fb4c",
+    "default_mhskel_git_blob_sha1": "b02cbecae00143856410d7561adf006d83bf9b3e",
+    "default_mhskel_sha256": "sha256:99f179bce0aa850b45d4191a1d0d234c5851f881c057439470ded3bddf729a24",
+    "license_path": "LICENSE.md",
+    "license_record": "MakeHuman bundled base mesh and default.mhskel rig data are used as CC0 source assets under the pinned project LICENSE; no MakeHuman application logic is imported or executed.",
+    "makehuman_revision": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
+  },
+  "source_index_range": [
+    13854,
+    14453
+  ],
+  "source_vertex_count": 19158,
+  "truth": {
+    "application_code_imported": false,
+    "notes": [
+      "This packet is source landmark data only. Forge still owns the eventual finger skeleton, skin weights, grip solver and engine delivery.",
+      "Each landmark is the centroid of the exact source vertex group named by the pinned default.mhskel asset.",
+      "Raw hm08 coordinates are retained so the packet can be reconciled against the same canonical full-body source before explicit meter conversion."
+    ],
+    "production_finger_rig_claim": false,
+    "production_finger_skinning_claim": false,
+    "source_grounded": true
+  },
+  "unique_joint_refs": [
+    "finger1-1.L____head",
+    "finger1-1.L____tail",
+    "finger1-1.R____head",
+    "finger1-1.R____tail",
+    "finger1-2.L____head",
+    "finger1-2.L____tail",
+    "finger1-2.R____head",
+    "finger1-2.R____tail",
+    "finger1-3.L____head",
+    "finger1-3.L____tail",
+    "finger1-3.R____head",
+    "finger1-3.R____tail",
+    "finger2-1.L____head",
+    "finger2-1.L____tail",
+    "finger2-1.R____head",
+    "finger2-1.R____tail",
+    "finger2-2.L____head",
+    "finger2-2.L____tail",
+    "finger2-2.R____head",
+    "finger2-2.R____tail",
+    "finger2-3.L____head",
+    "finger2-3.L____tail",
+    "finger2-3.R____head",
+    "finger2-3.R____tail",
+    "finger3-1.L____head",
+    "finger3-1.L____tail",
+    "finger3-1.R____head",
+    "finger3-1.R____tail",
+    "finger3-2.L____head",
+    "finger3-2.L____tail",
+    "finger3-2.R____head",
+    "finger3-2.R____tail",
+    "finger3-3.L____head",
+    "finger3-3.L____tail",
+    "finger3-3.R____head",
+    "finger3-3.R____tail",
+    "finger4-1.L____head",
+    "finger4-1.L____tail",
+    "finger4-1.R____head",
+    "finger4-1.R____tail",
+    "finger4-2.L____head",
+    "finger4-2.L____tail",
+    "finger4-2.R____head",
+    "finger4-2.R____tail",
+    "finger4-3.L____head",
+    "finger4-3.L____tail",
+    "finger4-3.R____head",
+    "finger4-3.R____tail",
+    "finger5-1.L____head",
+    "finger5-1.L____tail",
+    "finger5-1.R____head",
+    "finger5-1.R____tail",
+    "finger5-2.L____head",
+    "finger5-2.L____tail",
+    "finger5-2.R____head",
+    "finger5-2.R____tail",
+    "finger5-3.L____head",
+    "finger5-3.L____tail",
+    "finger5-3.R____head",
+    "finger5-3.R____tail"
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "acceptance": {
+    "real_hm08_source_used": true,
+    "source_index_map_complete": true,
+    "source_uvs_preserved": true,
+    "targets_retained": true
+  },
+  "basemesh_id": "axm-hm08-head-v0.1",
+  "coordinate_space": {
+    "engine_conversion_applied": false,
+    "mpfb_dimension_axis_rule": "Blender X=raw X, Blender Y=-raw Z, Blender Z=raw Y",
+    "name": "raw_makehuman_hm08_obj",
+    "target_delta_rule": "direct_copy_from_raw_makehuman_target"
+  },
+  "extraction": {
+    "body_range": [
+      0,
+      13379
+    ],
+    "candidate_faces": 3246,
+    "compact_faces": 3246,
+    "compact_uvs": 3608,
+    "compact_vertices": 3423,
+    "eligible_body_vertices": 3432,
+    "head_bounds": {
+      "coordinate_space": "raw_makehuman_hm08_obj",
+      "mpfb_extrema_source_indices": {
+        "xmax": 11998,
+        "xmin": 5399,
+        "ymax": 5320,
+        "ymin": 962,
+        "zmax": 881,
+        "zmin": 791
+      },
+      "mpfb_to_raw_axis_mapping": {
+        "raw_x": [
+          "xmin",
+          "xmax"
+        ],
+        "raw_y": [
+          "zmin",
+          "zmax"
+        ],
+        "raw_z": [
+          "ymin",
+          "ymax"
+        ]
+      },
+      "x": [
+        -0.74,
+        0.74
+      ],
+      "y": [
+        6.1615,
+        8.4913
+      ],
+      "z": [
+        -0.391,
+        1.5311
+      ]
+    },
+    "source_faces": 18486,
+    "source_vertex_max": 13379,
+    "source_vertex_min": 0,
+    "source_vertices": 19158
+  },
+  "outputs": {
+    "head_obj": {
+      "file": "head.obj",
+      "sha256": "sha256:a205fb33ef09e9bce019fcdd6bd22b60c56446db18e080025cd39488a0d409ca"
+    },
+    "source_index_map": {
+      "file": "source-index-map.json",
+      "sha256": "sha256:44650ba92b105748885e83616aafbce1662f0719bb9c97a95cf14383445e9db5"
+    },
+    "targets": [
+      {
+        "name": "nose-width1-incr.target",
+        "output_sha256": "sha256:68bc495fbbe3dd0ac8f81f616806c5409e0b21922aa50a72f43b8b918e01f6d2",
+        "retained_rows": 60,
+        "source_git_blob_sha1": "db108799ff4614f32bb33f5e7ae4781a2a82349c",
+        "source_name": "nose-width1-incr.target",
+        "source_rows": 60,
+        "source_sha256": "sha256:d340bc76601f9061826849d2fc9146ba6fbf7ee0604799849a417c934f53bea0"
+      },
+      {
+        "name": "l-cheek-bones-incr.target",
+        "output_sha256": "sha256:ec43803e23fb42589d02b07653e8dbbdeb2514ba8b03295eb6dd8c8bc9ff211a",
+        "retained_rows": 63,
+        "source_git_blob_sha1": "b239a7d2b2e186ac39628d30fa085e407e44894e",
+        "source_name": "l-cheek-bones-incr.target",
+        "source_rows": 63,
+        "source_sha256": "sha256:244ffa39d2d2db94ff15130719346b4cae2236bf2a309c5682eac352da06be50"
+      },
+      {
+        "name": "r-cheek-bones-incr.target",
+        "output_sha256": "sha256:17b110ba096d0bc28d5d0fbdd74cb53c8e14468db22b015bd926238d7a0937c9",
+        "retained_rows": 63,
+        "source_git_blob_sha1": "6bfa79028e0a5cae65deb782c733e75c65ae020a",
+        "source_name": "r-cheek-bones-incr.target",
+        "source_rows": 63,
+        "source_sha256": "sha256:a393f67acce21568ab832091daadab267685d464492647cb0c4e8cb5af58c4c9"
+      }
+    ]
+  },
+  "schema": "axm.game-assets.hm08-head-seed.v0.1",
+  "source": {
+    "license_record": "MakeHuman base mesh/targets: CC0 source data; this tool does not import MakeHuman application code.",
+    "makehuman_base_obj_git_blob_sha1": "d26635e9326e3cca30778fd7b9c00062b03cce09",
+    "makehuman_base_obj_sha256": "sha256:8e761e6624b8f54536409135d1636da63b32486a90d4897f84e121d144f6fb4c",
+    "makehuman_revision": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+    "mpfb_hm08_config_git_blob_sha1": "f94e2731356232ed1b6306128fd04d18da5d21ea",
+    "mpfb_hm08_config_sha256": "sha256:0ebab5f8ba35e56f3be49e3de241746552bce57fe8e079b72b00a362be246a29",
+    "mpfb_revision": "437dd513888a92399d1d3200d2e80859fae55abc"
+  },
+  "truth": {
+    "high_end_anatomy_claim": false,
+    "notes": [
+      "This seed replaces the procedural head-like sphere with real fixed human topology.",
+      "The head is derived mechanically from hm08 Head extrema metadata and the largest connected body-face component inside those bounds.",
+      "MPFB extrema labels are Blender-axis names and are explicitly mapped back to raw MakeHuman coordinates before selection.",
+      "The compact neck boundary is expected to be open; closed-manifold status is not required for a head extraction.",
+      "Retained source UVs and source vertex indices are preserved for later skin/eye/hair and target lineage work."
+    ]
+  }
+}

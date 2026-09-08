@@ -1,0 +1,17 @@
+{
+  "v0_1": {
+    "boundary_edges": 374,
+    "faces": 3246,
+    "vertices": 3423
+  },
+  "v0_2": {
+    "boundary_components": 2,
+    "boundary_edges": 58,
+    "faces": 4168,
+    "largest_boundary_components": [
+      46,
+      12
+    ],
+    "vertices": 4197
+  }
+}

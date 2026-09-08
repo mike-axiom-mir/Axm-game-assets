@@ -1,0 +1,90 @@
+name: hm08-finger-landmarks-promote
+
+on:
+  push:
+    paths:
+      - ".github/workflows/hm08-finger-landmarks-promote.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/forge/chat-2026-09-08-sentinel-fidelity'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Re-derive audited packet from exact pinned assets
+        env:
+          MH_REV: a8bc2d54ff0ac92e78ff71431b1023eda42bf482
+        run: |
+          set -euo pipefail
+          rm -rf build/hm08-finger-promote
+          mkdir -p build/hm08-finger-promote/source build/hm08-finger-promote/out
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/makehumancommunity/makehuman/${MH_REV}/makehuman/data/3dobjs/base.obj" \
+            -o build/hm08-finger-promote/source/base.obj
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/makehumancommunity/makehuman/${MH_REV}/makehuman/data/rigs/default.mhskel" \
+            -o build/hm08-finger-promote/source/default.mhskel
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/makehumancommunity/makehuman/${MH_REV}/LICENSE.md" \
+            -o build/hm08-finger-promote/source/LICENSE.md
+          test "$(git hash-object build/hm08-finger-promote/source/base.obj)" = "d26635e9326e3cca30778fd7b9c00062b03cce09"
+          test "$(git hash-object build/hm08-finger-promote/source/default.mhskel)" = "b02cbecad15310326d285b248ccf99ffed7abe09"
+          test "$(git hash-object build/hm08-finger-promote/source/LICENSE.md)" = "460cccad7926e7095584d74974b3de71e0c4a3ba"
+          grep -q "CC0" build/hm08-finger-promote/source/LICENSE.md
+          python tools/bootstrap_hm08_finger_landmarks_test.py
+          python tools/bootstrap_hm08_finger_landmarks.py \
+            --base-obj build/hm08-finger-promote/source/base.obj \
+            --rig-json build/hm08-finger-promote/source/default.mhskel \
+            --output build/hm08-finger-promote/out/finger-landmarks.json \
+            --makehuman-revision "$MH_REV" \
+            --base-blob-sha1 d26635e9326e3cca30778fd7b9c00062b03cce09 \
+            --rig-blob-sha1 b02cbecad15310326d285b248ccf99ffed7abe09
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path("build/hm08-finger-promote/out/finger-landmarks.json").read_text())
+          assert all(p["acceptance"].values()),p["acceptance"]
+          assert p["finger_bone_count"]==30
+          assert p["side_counts"]=={"L":15,"R":15}
+          assert p["source"]["base_obj_git_blob_sha1"]=="d26635e9326e3cca30778fd7b9c00062b03cce09"
+          assert p["source"]["default_mhskel_git_blob_sha1"]=="b02cbecad15310326d285b248ccf99ffed7abe09"
+          PY
+
+      - name: Pin packet and demote this workflow to read-only/manual
+        run: |
+          set -euo pipefail
+          dest="seed_data/hm08_finger_landmarks_v0.1"
+          mkdir -p "$dest"
+          cp build/hm08-finger-promote/out/finger-landmarks.json "$dest/finger-landmarks.json"
+          cat > .github/workflows/hm08-finger-landmarks-promote.yml <<'YAML'
+          name: hm08-finger-landmarks-promote
+
+          on:
+            workflow_dispatch:
+
+          permissions:
+            contents: read
+
+          jobs:
+            provenance:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                - name: Confirm promoted packet exists
+                  run: |
+                    test -f seed_data/hm08_finger_landmarks_v0.1/finger-landmarks.json
+                    echo "Pinned hm08 finger landmarks are already promoted; this workflow is intentionally read-only."
+          YAML
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$dest/finger-landmarks.json" .github/workflows/hm08-finger-landmarks-promote.yml
+          git commit -m "data: pin audited hm08 finger landmarks"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

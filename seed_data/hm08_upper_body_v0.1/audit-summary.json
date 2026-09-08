@@ -1,0 +1,10 @@
+{
+  "boundary_edges": 52,
+  "faces": 10158,
+  "head_source_vertices": 4197,
+  "vertical_slab_y": [
+    -0.3662,
+    8.4913
+  ],
+  "vertices": 10185
+}

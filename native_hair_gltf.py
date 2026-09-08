@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AXM dependency-free alpha-card hair glTF 2.0 compiler v0.1."""
+"""AXM dependency-free alpha-card hair glTF 2.0 compiler v0.2."""
 from __future__ import annotations
 
 import hashlib
@@ -68,7 +68,7 @@ def compile_hair_gltf(
     _align4(blob)
 
     document = {
-        "asset": {"version": "2.0", "generator": "AXM Game Asset Forge native_hair_gltf v0.1"},
+        "asset": {"version": "2.0", "generator": "AXM Game Asset Forge native_hair_gltf v0.2"},
         "scene": 0,
         "scenes": [{"nodes": [0]}],
         "nodes": [{"name": mesh.name, "mesh": 0}],
@@ -94,7 +94,7 @@ def compile_hair_gltf(
             "pbrMetallicRoughness": {
                 "baseColorTexture": {"index": 0},
                 "metallicRoughnessTexture": {"index": 1},
-                "metallicFactor": 1.0,
+                "metallicFactor": 0.0,
                 "roughnessFactor": 1.0,
             },
             "occlusionTexture": {"index": 1},
@@ -109,8 +109,9 @@ def compile_hair_gltf(
                 "compiled_vertices": len(positions),
                 "triangles": len(indices) // 3,
                 "alpha_card_hair": True,
+                "metallic_factor": 0.0,
                 "anisotropic_specular": "recommended when target renderer supports it",
-                "truth": "Structural alpha-card delivery. Card sorting, scalp coverage, anisotropy and motion remain visual/in-engine gates.",
+                "truth": "Structural non-metal alpha-card delivery. Card sorting, scalp coverage, anisotropy and motion remain visual/in-engine gates.",
             }
         },
     }
@@ -151,4 +152,5 @@ def write_hair_gltf(mesh: Mesh, uvmap: UVMap, output: str | Path, *, texture_dir
         "compiled_vertices": document["extras"]["axm"]["compiled_vertices"],
         "alpha_mode": document["materials"][0]["alphaMode"],
         "double_sided": document["materials"][0]["doubleSided"],
+        "metallic_factor": document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"],
     }

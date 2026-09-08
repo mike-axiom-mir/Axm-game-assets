@@ -1,0 +1,191 @@
+name: godot-face-current-smoke
+
+on:
+  push:
+    paths:
+      - "native_hm08_*.py"
+      - "native_hair*.py"
+      - "native_multi_gltf.py"
+      - "seed_data/hm08_head_v0.2/**"
+      - "engine/godot_face/**"
+      - ".github/workflows/godot-face-current-smoke.yml"
+  pull_request:
+    paths:
+      - "native_hm08_*.py"
+      - "native_hair*.py"
+      - "native_multi_gltf.py"
+      - "seed_data/hm08_head_v0.2/**"
+      - "engine/godot_face/**"
+      - ".github/workflows/godot-face-current-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  godot-face-current:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build current face candidate
+        run: |
+          rm -rf engine/godot_face/generated
+          python - <<'PY'
+          from native_hm08_brows_test import run as brow_test
+          from native_hm08_brow_material_test import run as brow_material_test
+          from native_hm08_lashes_test import run as lash_test
+          from native_hm08_lash_material_test import run as lash_material_test
+          from native_hair_roots_test import run as explicit_root_hair_test
+          from native_hm08_scalp_hair_test import run as scalp_hair_test
+          from native_hm08_scalp_underlay_test import run as scalp_underlay_test
+          from native_hair_gltf_test import run as hair_gltf_test
+          from native_hm08_face_current import build_current_face_package
+          brow_test()
+          brow_material_test()
+          lash_test()
+          lash_material_test()
+          explicit_root_hair_test()
+          scalp_hair_test()
+          scalp_underlay_test()
+          hair_gltf_test()
+          package = build_current_face_package("engine/godot_face/generated", texture_size=128)
+          assert all(package["acceptance"].values()), package["acceptance"]
+          assert package["candidate_role"] == "current_face_candidate"
+          assert package["schema"] == "axm.game-assets.hm08-face-current.v0.8"
+          assert package["truth"]["preferred_brow_route"] is True
+          assert package["truth"]["preferred_lash_route"] is True
+          assert package["truth"]["preferred_scalp_hair_claim"] is False
+          assert package["delivery"]["primitive_count"] == 9
+          assert package["delivery"]["material_count"] == 9
+          assert package["delivery"]["material_names"][-4] == "AXM_Sentinel_Brows_v0_3_Density"
+          assert package["delivery"]["material_names"][-3] == "AXM_Sentinel_Upper_Lashes_v0_2"
+          assert package["delivery"]["material_names"][-2] == "AXM_Sentinel_Short_Hair_RootMass_v0_1"
+          assert package["delivery"]["material_names"][-1] == "AXM_Sentinel_Short_Hair_v0_2_Laid"
+          assert package["short_scalp_hair"]["guide_count"] == 320
+          assert package["short_scalp_hair"]["unique_root_count"] == 320
+          assert package["scalp_underlay"]["selected_face_count"] > 100
+          print("CURRENT FACE BUILD PASS", package["short_scalp_hair"], package["scalp_underlay"], package["delivery"])
+          PY
+          cp \
+            engine/godot_face/generated/sentinel_hm08_face_current_v0_8.gltf \
+            engine/godot_face/generated/sentinel_hm08_face_candidate_v0_1.gltf
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" --output .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Parse current face in Godot
+        run: |
+          rm -f engine/godot_face/godot-face-eyes-import-receipt.json
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --headless \
+            --path engine/godot_face \
+            --script smoke_eyes.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_face/godot-face-eyes-import-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert receipt["surfaces"] == 9, receipt
+          assert receipt["material_surfaces"] == 9, receipt
+          assert len(receipt["declared_external_images"]) == 27, receipt
+          assert receipt["vertices"] > 0 and receipt["indices"] > 0
+          print("CURRENT FACE GODOT IMPORT PASS", receipt)
+          PY
+
+      - name: Render current front three-quarter profile views
+        run: |
+          rm -f engine/godot_face/godot-face-views-receipt.json engine/godot_face/godot-face-front.png engine/godot_face/godot-face-three_quarter.png engine/godot_face/godot-face-profile.png
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --display-driver x11 \
+            --rendering-method gl_compatibility \
+            --path engine/godot_face \
+            --script render_views.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_face/godot-face-views-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert [v["name"] for v in receipt["views"]] == ["front", "three_quarter", "profile"]
+          for view in receipt["views"]:
+              metrics = view["metrics"]
+              assert metrics["foreground_coverage"] >= view["minimum_foreground_coverage"]
+              assert metrics["near_white_foreground_fraction"] <= view["maximum_near_white_foreground_fraction"]
+          print("CURRENT FACE VIEWS PASS", [(v["name"],v["metrics"]["foreground_luma_mean"],v["metrics"]["near_white_foreground_fraction"]) for v in receipt["views"]])
+          PY
+
+      - name: Bind current face captures to evidence packets
+        env:
+          GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          from native_visual_evidence import build_capture_packet,validate_capture_packet,write_capture_packet
+          root=Path("engine/godot_face")
+          receipt=json.loads((root/"godot-face-views-receipt.json").read_text())
+          package_path=root/"generated"/"current-face-package.json"
+          package=json.loads(package_path.read_text())
+          source_digest="sha256:"+hashlib.sha256(package_path.read_bytes()).hexdigest()
+          bundle={
+              "schema":"axm.game-assets.godot-current-face-viewset.v0.8",
+              "authority":"deterministic_capture_evidence_only",
+              "asset_digest":package["delivery"]["gltf_sha256"],
+              "candidate_role":"current_face_candidate",
+              "layers":["hm08_v0.2_identity","physical_skin_v0.1","source_grounded_eyes","brows_v0.3_density_blend","upper_lashes_v0.2_forward","short_scalp_underlay_v0.1","short_scalp_hair_v0.2_laid"],
+              "views":[],
+          }
+          for view in receipt["views"]:
+              name=view["name"]
+              png_path=root/f"godot-face-{name}.png"
+              png=png_path.read_bytes();m=view["metrics"]
+              packet=build_capture_packet(
+                  png,
+                  asset_digest=package["delivery"]["gltf_sha256"],
+                  engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},
+                  camera=view["camera"],
+                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"current_face_candidate_v0.8","lighting":receipt["lighting"]},
+                  metrics={"foreground_coverage":m["foreground_coverage"],"foreground_luma_mean":m["foreground_luma_mean"],"near_white_foreground_fraction":m["near_white_foreground_fraction"],"luma_min":m["luma_min"],"luma_max":m["luma_max"],"luma_mean":m["luma_mean"],"luma_range":m["luma_range"]},
+                  source_receipts=[source_digest],
+              )
+              assert validate_capture_packet(packet,png)["status"]=="pass"
+              write_capture_packet(root/f"visual-capture-current-face-{name}.json",packet)
+              bundle["views"].append({"name":name,"capture_digest":packet["capture_digest"],"image_sha256":packet["image"]["sha256"]})
+          (root/"visual-capture-current-face-viewset.json").write_text(json.dumps(bundle,indent=2,sort_keys=True)+"\n")
+          print("CURRENT FACE CAPTURE PASS",bundle)
+          PY
+
+      - name: Preserve current face evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-face-current-evidence
+          if-no-files-found: warn
+          path: |
+            engine/godot_face/godot-face-eyes-import-receipt.json
+            engine/godot_face/godot-face-views-receipt.json
+            engine/godot_face/godot-face-front.png
+            engine/godot_face/godot-face-three_quarter.png
+            engine/godot_face/godot-face-profile.png
+            engine/godot_face/visual-capture-current-face-*.json
+            engine/godot_face/generated/current-face-package.json
+            engine/godot_face/generated/sentinel_hm08_face_current_v0_8.gltf
+            engine/godot_face/generated/textures/brows/*
+            engine/godot_face/generated/textures/lashes/*
+            engine/godot_face/generated/textures/scalp_underlay/*
+            engine/godot_face/generated/textures/scalp_hair/*

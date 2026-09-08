@@ -1,0 +1,44 @@
+{
+  "schema": "axm.game-assets.fidelity-decisions.v0.1",
+  "run": "sentinel-fidelity-run2",
+  "captured": "2026-09-08",
+  "rule": "A technical pass or changed image hash is not a quality promotion. Promotion requires retained provenance plus real visual/engine evidence when the decision is visual.",
+  "decisions": [
+    {
+      "subject": "hm08_head_seed",
+      "rejected": "axm-hm08-head-v0.1",
+      "preferred": "axm-hm08-head-v0.2",
+      "reason": "v0.1 was structurally valid but real silhouette inspection exposed artificial scalp/side crop holes. v0.2 changed extraction to a metadata vertical slab plus largest connected body surface and reduced boundary edges from 374 to 58.",
+      "authority": "topology receipts + visual silhouette inspection"
+    },
+    {
+      "subject": "eye_placement",
+      "preferred": "source-grounded hm08 helper-eye centers/radius",
+      "reason": "Godot front/three-quarter/profile views showed the generated eyes seating correctly in the eyelids without hand-fit offsets.",
+      "authority": "real Godot A/B visual evidence",
+      "limits": ["iris still too game-bright", "cornea remains alpha-layer prototype", "tearline/lashes/wetness missing"]
+    },
+    {
+      "subject": "skin_semantic_v0.1",
+      "status": "experimental_not_promoted",
+      "reason": "Visual delta was too small and the first mouth landmark was later proven wrong because a crop boundary was misidentified as the mouth. Keep history for learning; do not use as preferred skin state.",
+      "authority": "Godot A/B + corrected landmark evidence"
+    },
+    {
+      "subject": "secondary_facial_forms_v0.1",
+      "status": "retained_source_state_not_default_promoted",
+      "reason": "Twelve reversible AXM-native targets passed topology/symmetry/displacement gates and Godot import, but their default combined visual effect was too subtle to call an improvement under the current close-view lab.",
+      "authority": "native displacement receipts + real Godot A/B",
+      "metrics": {"moved_vertices": 2405, "mean_moved_mm": 0.4486167826895332, "max_moved_mm": 1.509729727187966}
+    },
+    {
+      "subject": "skin_authoring",
+      "rejected_as_preferred": "generic UV-space procedural skin",
+      "preferred": "physical_v0.1",
+      "reason": "The generic UV-space skin produced atlas-scale blotches/pore response in close Godot views. physical_v0.1 evaluates authored variation in canonical 3D hm08 space before rasterizing to the preserved UV atlas, visibly removing the large blotches while retaining deterministic local PBR state.",
+      "authority": "real Godot front/three-quarter/profile A/B + preserved skin maps",
+      "limits": ["still too smooth/plastic", "no real subsurface engine model yet", "no peach fuzz", "no expression wrinkles"]
+    }
+  ],
+  "truth": "These are current Run 2 promotion decisions, not permanent canon. Later evidence may supersede them through an explicit new decision record."
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axm.local/schemas/asset-edit-packet-v0.1.schema.json",
+  "title": "AXM Asset Edit Packet v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "surface_id", "base_genome_digest", "actor", "operations"],
+  "properties": {
+    "schema": {"const": "axm.asset-edit-packet.v0.1"},
+    "surface_id": {"type": "string", "minLength": 1},
+    "base_genome_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "actor": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"enum": ["player", "ai", "tool"]},
+        "id": {"type": "string"}
+      }
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["op", "parameter", "value"],
+        "properties": {
+          "op": {"const": "set"},
+          "parameter": {"type": "string", "minLength": 1},
+          "value": {}
+        }
+      }
+    },
+    "metadata": {"type": "object"}
+  }
+}

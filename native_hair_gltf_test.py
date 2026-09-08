@@ -20,15 +20,17 @@ def run() -> None:
         assert result["validation"]["status"] == "pass"
         assert result["alpha_mode"] == "MASK"
         assert result["double_sided"] is True
+        assert result["metallic_factor"] == 0.0
         document = json.loads((root / result["gltf"]).read_text())
         material = document["materials"][0]
         assert material["alphaMode"] == "MASK"
         assert material["doubleSided"] is True
         assert material["pbrMetallicRoughness"]["baseColorTexture"]["index"] == 0
         assert material["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"] == 1
+        assert material["pbrMetallicRoughness"]["metallicFactor"] == 0.0
         assert "TANGENT" in document["meshes"][0]["primitives"][0]["attributes"]
         assert result["triangles"] == 32 * 4 * 2
-        print("NATIVE HAIR GLTF TEST PASS", result["triangles"], "triangles", result["compiled_vertices"], "compiled verts")
+        print("NATIVE HAIR GLTF TEST PASS", result["triangles"], "triangles", result["compiled_vertices"], "compiled verts", "metallic", result["metallic_factor"])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,163 @@
+name: godot-face-semantic-skin-smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  godot-face-semantic-skin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build semantic-skin human face and eyes fixture
+        run: |
+          rm -rf engine/godot_face/generated
+          python - <<'PY'
+          from native_hm08_face_eyes import build_face_eyes_package
+          package = build_face_eyes_package(
+              "engine/godot_face/generated",
+              texture_size=128,
+              skin_mode="semantic_v0.1",
+          )
+          assert all(package["acceptance"].values()), package["acceptance"]
+          assert package["skin_mode"] == "semantic_v0.1"
+          assert package["skin"]["schema"] == "axm.game-assets.hm08-semantic-skin.v0.1"
+          assert package["delivery"]["primitive_count"] == 5
+          assert package["delivery"]["material_names"][0] == "AXM_Sentinel_Skin_Semantic_v0_1"
+          print("FORGE FACE SEMANTIC SKIN FIXTURE PASS", package["delivery"])
+          PY
+          cp \
+            engine/godot_face/generated/sentinel_hm08_face_eyes_v0_2_semantic_skin.gltf \
+            engine/godot_face/generated/sentinel_hm08_face_candidate_v0_1.gltf
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" --output .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Parse semantic-skin face and eyes in Godot
+        run: |
+          rm -f engine/godot_face/godot-face-eyes-import-receipt.json
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --headless \
+            --path engine/godot_face \
+            --script smoke_eyes.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_face/godot-face-eyes-import-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert receipt["surfaces"] == 5
+          assert receipt["material_surfaces"] == 5
+          assert len(receipt["declared_external_images"]) == 15
+          print("GODOT FACE SEMANTIC SKIN IMPORT PASS", receipt)
+          PY
+
+      - name: Render identical exposure-gated face view set
+        run: |
+          rm -f engine/godot_face/godot-face-views-receipt.json engine/godot_face/godot-face-front.png engine/godot_face/godot-face-three_quarter.png engine/godot_face/godot-face-profile.png
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --display-driver x11 \
+            --rendering-method gl_compatibility \
+            --path engine/godot_face \
+            --script render_views.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_face/godot-face-views-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert [v["name"] for v in receipt["views"]] == ["front", "three_quarter", "profile"]
+          for view in receipt["views"]:
+              metrics = view["metrics"]
+              assert metrics["foreground_coverage"] >= view["minimum_foreground_coverage"]
+              assert metrics["near_white_foreground_fraction"] <= view["maximum_near_white_foreground_fraction"]
+          print("GODOT FACE SEMANTIC SKIN VIEWS PASS", [
+              (v["name"], v["metrics"]["foreground_luma_mean"], v["metrics"]["near_white_foreground_fraction"])
+              for v in receipt["views"]
+          ])
+          PY
+
+      - name: Bind semantic skin views to capture packets
+        env:
+          GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          from native_visual_evidence import build_capture_packet, validate_capture_packet, write_capture_packet
+          root = Path("engine/godot_face")
+          receipt = json.loads((root / "godot-face-views-receipt.json").read_text())
+          package_path = root / "generated" / "face-eyes-package.json"
+          package = json.loads(package_path.read_text())
+          assert package["skin_mode"] == "semantic_v0.1"
+          source_digest = "sha256:" + hashlib.sha256(package_path.read_bytes()).hexdigest()
+          bundle = {
+              "schema":"axm.game-assets.godot-face-semantic-skin-viewset.v0.1",
+              "authority":"deterministic_capture_evidence_only",
+              "asset_digest":package["delivery"]["gltf_sha256"],
+              "control":"godot-face-eyes-evidence generic skin; same head/eyes/cameras/lighting",
+              "ab_variable":"skin_authoring_only",
+              "skin_mode":"semantic_v0.1",
+              "views":[],
+          }
+          for view in receipt["views"]:
+              name = view["name"]
+              png_path = root / f"godot-face-{name}.png"
+              png = png_path.read_bytes()
+              m = view["metrics"]
+              packet = build_capture_packet(
+                  png,
+                  asset_digest=package["delivery"]["gltf_sha256"],
+                  engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},
+                  camera=view["camera"],
+                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"head_source_grounded_eyes_semantic_skin_v0.1","lighting":receipt["lighting"]},
+                  metrics={
+                      "foreground_coverage":m["foreground_coverage"],
+                      "foreground_luma_mean":m["foreground_luma_mean"],
+                      "near_white_foreground_fraction":m["near_white_foreground_fraction"],
+                      "luma_min":m["luma_min"],
+                      "luma_max":m["luma_max"],
+                      "luma_mean":m["luma_mean"],
+                      "luma_range":m["luma_range"],
+                  },
+                  source_receipts=[source_digest],
+              )
+              assert validate_capture_packet(packet, png)["status"] == "pass"
+              write_capture_packet(root / f"visual-capture-face-semantic-skin-{name}.json", packet)
+              bundle["views"].append({"name":name,"capture_digest":packet["capture_digest"],"image_sha256":packet["image"]["sha256"]})
+          (root / "visual-capture-face-semantic-skin-viewset.json").write_text(json.dumps(bundle, indent=2, sort_keys=True) + "\n")
+          print("FACE SEMANTIC SKIN VIEWSET CAPTURE PASS", bundle)
+          PY
+
+      - name: Preserve semantic skin A/B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-face-semantic-skin-evidence
+          if-no-files-found: warn
+          path: |
+            engine/godot_face/godot-face-eyes-import-receipt.json
+            engine/godot_face/godot-face-views-receipt.json
+            engine/godot_face/godot-face-front.png
+            engine/godot_face/godot-face-three_quarter.png
+            engine/godot_face/godot-face-profile.png
+            engine/godot_face/visual-capture-face-semantic-skin-*.json
+            engine/godot_face/generated/face-eyes-package.json
+            engine/godot_face/generated/sentinel_hm08_face_eyes_v0_2_semantic_skin.gltf
+            engine/godot_face/generated/textures/skin/region_debug.png

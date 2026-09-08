@@ -1,0 +1,94 @@
+{
+  "schema": "axm.asset-edit-surface.v0.1",
+  "surface_id": "sentinel-rpg-character-creator-v0.1",
+  "asset_family": "character",
+  "description": "Player-facing bounded character creator surface over the Sentinel Character Genome.",
+  "parameters": [
+    {
+      "id": "face.nose_width",
+      "path": "character.face.nose_width",
+      "type": "number",
+      "minimum": -1.0,
+      "maximum": 1.0,
+      "step": 0.01,
+      "default": 0.0,
+      "editable_by": ["player", "ai"],
+      "ui": {"group": "Face", "label": "Nose width"}
+    },
+    {
+      "id": "face.cheekbone_strength",
+      "path": "character.face.cheekbone_strength",
+      "type": "number",
+      "minimum": -1.0,
+      "maximum": 1.0,
+      "step": 0.01,
+      "default": 0.0,
+      "editable_by": ["player", "ai"],
+      "ui": {"group": "Face", "label": "Cheekbone strength"}
+    },
+    {
+      "id": "face.age_bias",
+      "path": "character.face.age_bias",
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "step": 0.01,
+      "default": 0.0,
+      "editable_by": ["player", "ai"],
+      "ui": {"group": "Face", "label": "Age"}
+    },
+    {
+      "id": "body.height_scale",
+      "path": "character.body.height_scale",
+      "type": "number",
+      "minimum": 0.92,
+      "maximum": 1.08,
+      "step": 0.005,
+      "default": 1.0,
+      "editable_by": ["player", "ai"],
+      "ui": {"group": "Body", "label": "Height"}
+    },
+    {
+      "id": "hair.style",
+      "path": "character.hair.style",
+      "type": "enum",
+      "values": ["bald", "buzz", "short_laid"],
+      "default": "short_laid",
+      "editable_by": ["player", "ai"],
+      "ui": {"group": "Hair", "label": "Hair style"}
+    },
+    {
+      "id": "hair.color_family",
+      "path": "character.hair.color_family",
+      "type": "enum",
+      "values": ["black", "dark_brown", "brown", "auburn", "blond", "grey"],
+      "default": "dark_brown",
+      "editable_by": ["player", "ai"],
+      "ui": {"group": "Hair", "label": "Hair color"}
+    },
+    {
+      "id": "history.left_cheek_scar",
+      "path": "character.history.left_cheek_scar",
+      "type": "boolean",
+      "default": false,
+      "editable_by": ["player", "ai"],
+      "ui": {"group": "History", "label": "Left cheek scar"}
+    },
+    {
+      "id": "gear.outer_torso",
+      "path": "character.gear.outer_torso",
+      "type": "enum",
+      "values": ["none", "scout", "sentinel_standard", "winter_heavy"],
+      "default": "sentinel_standard",
+      "editable_by": ["player", "ai"],
+      "ui": {"group": "Gear", "label": "Outer torso"}
+    }
+  ],
+  "truth": {
+    "canonical_state_mutation": false,
+    "notes": [
+      "This is a game-facing surface, not the complete Character Genome.",
+      "Parameters may map to richer Forge transforms than the UI exposes."
+    ]
+  }
+}

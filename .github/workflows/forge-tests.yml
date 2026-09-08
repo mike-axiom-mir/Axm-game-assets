@@ -14,6 +14,12 @@ jobs:
           python-version: "3.13"
       - name: Self test
         run: python forge.py self-test
+      - name: Native asset edit engine test
+        run: python native_asset_edit_test.py
+      - name: Asset edit example surfaces test
+        run: python native_asset_edit_examples_test.py
+      - name: HM08 player edit bridge test
+        run: python native_hm08_player_edit_test.py
       - name: Native geometry test
         run: python native_geometry_test.py
       - name: Native orientation test
@@ -26,8 +32,60 @@ jobs:
         run: python native_hardsurface_test.py
       - name: Native surface test
         run: python native_surface_test.py
+      - name: Native UV-preserving surface subdivision test
+        run: python native_surface_uv_test.py
       - name: Native target test
         run: python native_targets_test.py
+      - name: Preferred hm08 v0.2 human head seed test
+        run: python native_hm08_head_v2_seed_test.py
+      - name: Pinned hm08 upper-body seed test
+        run: python native_hm08_upper_body_seed_test.py
+      - name: Continuous Sentinel upper-body package test
+        run: python native_hm08_upper_body_current_test.py
+      - name: Pinned hm08 full-body seed test
+        run: python native_hm08_full_body_seed_test.py
+      - name: Complete Sentinel human-body package test
+        run: python native_hm08_full_body_current_test.py
+      - name: Source-derived Sentinel undersuit test
+        run: python native_hm08_undersuit_test.py
+      - name: Body-grounded Sentinel rigid armor test
+        run: python native_hm08_sentinel_armor_test.py
+      - name: Armor-to-body fit evidence test
+        run: python native_armor_fit_evidence_test.py
+      - name: Reversible Sentinel armor conform test
+        run: python native_armor_conform_test.py
+      - name: Source-derived Sentinel extremity gear test
+        run: python native_hm08_extremity_gear_test.py
+      - name: Tactical boot rubber structure test
+        run: python native_hm08_boot_structure_test.py
+      - name: Full-body Sentinel humanoid rig test
+        run: python native_hm08_humanoid_rig_test.py
+      - name: Character-side hand socket attachment test
+        run: python native_attachment_hand_socket_test.py
+      - name: HM08 two-hand rifle contact pose test
+        run: python native_hm08_rifle_contact_pose_test.py
+      - name: HM08 shared-rig rifle contact pose test
+        run: python native_hm08_rifle_contact_pose_v2_test.py
+      - name: HM08 rifle contact package test
+        run: python native_hm08_rifle_contact_package_test.py
+      - name: Native hm08 facial landmark test
+        run: python native_hm08_landmarks_test.py
+      - name: Native hm08 secondary facial forms test
+        run: python native_hm08_secondary_forms_test.py
+      - name: Secondary facial-form A/B package test
+        run: python native_hm08_face_secondary_test.py
+      - name: Real-human Sentinel face proof test
+        run: python native_hm08_face_proof_test.py
+      - name: Source-grounded hm08 face and eyes test
+        run: python native_hm08_face_eyes_test.py
+      - name: Geometry-grounded hm08 semantic skin test
+        run: python native_hm08_skin_bake_test.py
+      - name: Physical-scale hm08 skin test
+        run: python native_hm08_skin_physical_test.py
+      - name: Semantic skin face and eyes package test
+        run: python native_hm08_face_eyes_semantic_test.py
+      - name: Native hm08 scalp underlay test
+        run: python native_hm08_scalp_underlay_test.py
       - name: Native target authoring test
         run: python native_target_authoring_test.py
       - name: Native parametric test

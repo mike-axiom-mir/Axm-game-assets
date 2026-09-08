@@ -1,0 +1,140 @@
+name: godot-face-smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  godot-face:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build clean head-only A/B control v0.2
+        run: |
+          rm -rf engine/godot_face/generated
+          python - <<'PY'
+          from native_hm08_face_control_v2 import build_face_control_v2
+          control = build_face_control_v2("engine/godot_face/generated", texture_size=128, seed=20801)
+          assert all(control["acceptance"].values()), control["acceptance"]
+          assert control["coordinate_conversion"]["scale"] == 0.1
+          assert control["delivery"]["primitive_count"] == 1
+          print("FORGE FACE CONTROL V2 PASS", control["delivery"])
+          PY
+          cp \
+            engine/godot_face/generated/sentinel_hm08_face_control_v0_2.gltf \
+            engine/godot_face/generated/sentinel_hm08_face_candidate_v0_1.gltf
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" --output .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Parse and instantiate clean human face control in Godot
+        run: |
+          rm -f engine/godot_face/godot-face-import-receipt.json
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --headless \
+            --path engine/godot_face \
+            --script smoke.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_face/godot-face-import-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert receipt["surfaces"] == 1 and receipt["material_surfaces"] == 1
+          assert len(receipt["declared_external_images"]) == 3
+          assert receipt["vertices"] > 0 and receipt["indices"] > 0
+          print("GODOT FACE CONTROL V2 IMPORT PASS", receipt)
+          PY
+
+      - name: Render identical front three-quarter and profile control views
+        run: |
+          rm -f engine/godot_face/godot-face-views-receipt.json engine/godot_face/godot-face-front.png engine/godot_face/godot-face-three_quarter.png engine/godot_face/godot-face-profile.png
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --display-driver x11 \
+            --rendering-method gl_compatibility \
+            --path engine/godot_face \
+            --script render_views.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_face/godot-face-views-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert [v["name"] for v in receipt["views"]] == ["front", "three_quarter", "profile"]
+          for view in receipt["views"]:
+              m = view["metrics"]
+              assert m["width"] == 640 and m["height"] == 640 and m["png_bytes"] > 1000
+              assert m["foreground_coverage"] >= view["minimum_foreground_coverage"] and m["luma_range"] >= 0.08
+          print("GODOT FACE CONTROL V2 VIEWS PASS", [(v["name"], v["metrics"]["foreground_coverage"]) for v in receipt["views"]])
+          PY
+
+      - name: Bind clean control views to deterministic capture packets
+        env:
+          GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          from native_visual_evidence import build_capture_packet, validate_capture_packet, write_capture_packet
+          root = Path("engine/godot_face")
+          receipt = json.loads((root / "godot-face-views-receipt.json").read_text())
+          proof_path = root / "generated" / "face-control-v2.json"
+          proof = json.loads(proof_path.read_text())
+          source_digest = "sha256:" + hashlib.sha256(proof_path.read_bytes()).hexdigest()
+          bundle = {
+              "schema":"axm.game-assets.godot-face-control-viewset.v0.2",
+              "authority":"deterministic_capture_evidence_only",
+              "asset_digest":proof["delivery"]["gltf_sha256"],
+              "seed_basemesh":proof["seed_basemesh"],
+              "ab_variable":"eyes_absent",
+              "views":[],
+          }
+          for view in receipt["views"]:
+              name = view["name"]; png_path = root / f"godot-face-{name}.png"; png = png_path.read_bytes(); m = view["metrics"]
+              packet = build_capture_packet(
+                  png,
+                  asset_digest=proof["delivery"]["gltf_sha256"],
+                  engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},
+                  camera=view["camera"],
+                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"clean_head_skin_control_v0.2_no_eyes"},
+                  metrics={"foreground_coverage":m["foreground_coverage"],"luma_min":m["luma_min"],"luma_max":m["luma_max"],"luma_mean":m["luma_mean"],"luma_range":m["luma_range"]},
+                  source_receipts=[source_digest],
+              )
+              assert validate_capture_packet(packet, png)["status"] == "pass"
+              write_capture_packet(root / f"visual-capture-face-control-v2-{name}.json", packet)
+              bundle["views"].append({"name":name,"capture_digest":packet["capture_digest"],"image_sha256":packet["image"]["sha256"]})
+          (root / "visual-capture-face-control-v2-viewset.json").write_text(json.dumps(bundle, indent=2, sort_keys=True) + "\n")
+          print("FACE CONTROL V2 VIEWSET PASS", bundle)
+          PY
+
+      - name: Preserve clean human-face control evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-face-evidence
+          if-no-files-found: warn
+          path: |
+            engine/godot_face/godot-face-import-receipt.json
+            engine/godot_face/godot-face-views-receipt.json
+            engine/godot_face/godot-face-front.png
+            engine/godot_face/godot-face-three_quarter.png
+            engine/godot_face/godot-face-profile.png
+            engine/godot_face/visual-capture-face-control-v2-*.json
+            engine/godot_face/generated/face-control-v2.json
+            engine/godot_face/generated/sentinel_hm08_face_control_v0_2.gltf
