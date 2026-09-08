@@ -1,0 +1,51 @@
+{
+  "schema": "axm.game-assets.hm08-eye-landmarks.v0.1",
+  "basemesh_id": "axm-hm08-head-v0.2",
+  "coordinate_space": "raw_makehuman_hm08_obj",
+  "source": {
+    "makehuman_revision": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+    "makehuman_base_obj_git_blob_sha1": "d26635e9326e3cca30778fd7b9c00062b03cce09",
+    "mpfb_revision": "437dd513888a92399d1d3200d2e80859fae55abc",
+    "helper_groups": {
+      "left": [14598, 14669],
+      "right": [14670, 14741]
+    },
+    "mpfb_eye_extrema_indices": {
+      "xmin": 14618,
+      "xmax": 14645,
+      "ymin": 14650,
+      "ymax": 14658,
+      "zmin": 14636,
+      "zmax": 14663
+    },
+    "unit_reference": "MakeHuman internal units are decimeters; downstream meter conversion is 0.1 m per raw unit."
+  },
+  "raw_helper_bounds_left": {
+    "x": [0.1696, 0.4459],
+    "y": [7.1460, 7.4223],
+    "z": [1.0987, 1.3920]
+  },
+  "eyes": {
+    "left": {
+      "center_raw": [0.30775, 7.28415, 1.24535],
+      "center_m": [0.030775, 0.728415, 0.124535]
+    },
+    "right": {
+      "center_raw": [-0.30775, 7.28415, 1.24535],
+      "center_m": [-0.030775, 0.728415, 0.124535]
+    }
+  },
+  "helper_half_extent_raw": [0.13815, 0.13815, 0.14665],
+  "prototype_eye_radius_raw": 0.13815,
+  "prototype_eye_radius_m": 0.013815,
+  "forward_axis": "+Z",
+  "truth": {
+    "source_grounded": true,
+    "final_eye_fit_claim": false,
+    "notes": [
+      "Centers and extents are derived from the pinned hm08 helper-eye geometry and MPFB helper ranges/extrema.",
+      "The spherical Forge eye uses the helper horizontal/vertical half-extent as its first radius; eyelid contact remains a real engine fit gate.",
+      "The helper depth extent is slightly larger than the chosen spherical radius and is preserved as evidence rather than silently averaged away."
+    ]
+  }
+}
