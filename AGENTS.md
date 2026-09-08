@@ -71,3 +71,19 @@ Quality is often the accumulated result of many small correct details, not one l
 - Do not fragment working systems merely for ideology. Add granularity where it creates useful control, reuse, diagnosis, repair, or quality.
 
 **Working rule:** thousands of small good details and capabilities in the right places can improve a result more than one simple big upgrade.
+
+## Canonical state and adaptive realization principle
+
+Treat the Game Asset Genome as **what the asset is**, and delivery/render variants as **how a particular machine can afford to express it**.
+
+- Canonical asset state, identity, semantics, rig/animation meaning, material intent, provenance, and source detail stay authoritative.
+- Preserve expression intent explicitly so a lower-cost realization can keep silhouette, material character, motion weight, readability, damage/wear meaning, and other important details even when geometry or shader cost drops.
+- Prefer one asset body with multiple bounded realization contracts over separately authored mobile/lite/desktop/ultra assets when the same canonical state can generate them.
+- Choose realization from canonical state + expression intent + measured machine/engine capabilities + user policy; this may happen at build time, load time, or dynamically where safe.
+- A weak device should receive cheaper expression, **not weaker asset truth**. Example degradations may include lower mesh density, baked lighting, smaller textures, simpler cloth/hair/VFX, reduced simulation passes, or alternate shaders.
+- Non-degradable invariants include asset identity, gameplay collision/hit intent where applicable, attachment/bone semantics, material meaning, authored/provenance truth, and any state used by rules or fairness.
+- Never let an LOD, proxy, baked output, engine import, or low-end render overwrite richer canonical source state. Delivery assets are projections, not authority.
+- Richer realizations may reveal more detail already represented by canonical state/intent; they must not invent canonical facts merely to look impressive.
+- Build detail alternatives as bounded composable capabilities so the same asset can scale up/down without becoming a different asset.
+
+**Working rule:** degrade expression, never truth; upgrade expression, never invent truth. One asset body, many valid realizations.
