@@ -16,15 +16,17 @@ from native_eye import make_eye, validate_eye
 from native_eye_material import IrisSpec, iris_fields, sclera_fields
 from native_geometry import Mesh, combine, scale, translate
 from native_hm08_face_proof import DEFAULT_WEIGHTS
+from native_hm08_skin_bake import write_hm08_semantic_skin
 from native_multi_gltf import MaterialPrimitive, write_multi_gltf
 from native_pbr import png_bytes
 from native_skin_material import SkinMaterialSpec, write_skin_material
 from native_targets import load_target, mix_targets
 from native_uv import UVMap, box_project, read_obj_uv, spherical_project, validate_uv
 
-SCHEMA = "axm.game-assets.hm08-face-eyes.v0.1"
+SCHEMA = "axm.game-assets.hm08-face-eyes.v0.2"
 SEED_ROOT = Path("seed_data/hm08_head_v0.2")
 RAW_TO_M = 0.1
+SKIN_MODES = {"generic", "semantic_v0.1"}
 
 
 def _sha(data: bytes) -> str:
@@ -98,7 +100,10 @@ def build_face_eyes_package(
     texture_size: int = 128,
     skin_seed: int = 20801,
     eye_seed: int = 31991,
+    skin_mode: str = "generic",
 ) -> dict[str, object]:
+    if skin_mode not in SKIN_MODES:
+        raise ValueError(f"unknown skin_mode {skin_mode!r}; expected one of {sorted(SKIN_MODES)}")
     root = Path(output)
     root.mkdir(parents=True, exist_ok=True)
     seed_manifest = json.loads((SEED_ROOT / "seed-manifest.json").read_text(encoding="utf-8"))
@@ -140,7 +145,21 @@ def build_face_eyes_package(
         subsurface_weight_hint=0.56,
         specular_ior_hint=1.40,
     )
-    skin = write_skin_material(root / "textures" / "skin", size=texture_size, seed=skin_seed, spec=skin_spec)
+    if skin_mode == "semantic_v0.1":
+        skin = write_hm08_semantic_skin(
+            root / "textures" / "skin",
+            mesh=raw_variant,
+            uvmap=head_uv,
+            size=texture_size,
+            seed=skin_seed,
+            spec=skin_spec,
+        )
+        asset_name = "sentinel_hm08_face_eyes_v0_2_semantic_skin"
+        skin_material_name = "AXM_Sentinel_Skin_Semantic_v0_1"
+    else:
+        skin = write_skin_material(root / "textures" / "skin", size=texture_size, seed=skin_seed, spec=skin_spec)
+        asset_name = "sentinel_hm08_face_eyes_v0_1"
+        skin_material_name = "AXM_Sentinel_Skin_Prototype"
 
     eye_root = root / "textures" / "eyes"
     eye_root.mkdir(parents=True, exist_ok=True)
@@ -163,7 +182,7 @@ def build_face_eyes_package(
         MaterialPrimitive(
             head_m,
             head_uv,
-            "AXM_Sentinel_Skin_Prototype",
+            skin_material_name,
             "textures/skin/base_color.png",
             "textures/skin/normal.png",
             "textures/skin/orm.png",
@@ -206,7 +225,7 @@ def build_face_eyes_package(
             alpha_mode="BLEND",
         ),
     ]
-    delivery = write_multi_gltf(primitives, root, name="sentinel_hm08_face_eyes_v0_1")
+    delivery = write_multi_gltf(primitives, root, name=asset_name)
 
     acceptance = {
         "repaired_seed_used": seed_manifest["basemesh_id"] == "axm-hm08-head-v0.2",
@@ -214,6 +233,7 @@ def build_face_eyes_package(
         "explicit_decimeter_to_meter_conversion": RAW_TO_M == 0.1,
         "head_uv_preserved": head_uv_report["status"] == "pass",
         "both_eye_geometries_valid": left_report["status"] == "pass" and right_report["status"] == "pass",
+        "skin_mode_declared": skin_mode in SKIN_MODES,
         "five_semantic_primitives": delivery["primitive_count"] == 5,
         "five_semantic_materials": delivery["material_count"] == 5,
         "gltf_structural_valid": delivery["validation"]["status"] == "pass",
@@ -221,10 +241,11 @@ def build_face_eyes_package(
     }
     manifest: dict[str, object] = {
         "schema": SCHEMA,
-        "asset": "sentinel_hm08_face_eyes_v0_1",
+        "asset": asset_name,
         "seed_basemesh": seed_manifest["basemesh_id"],
         "coordinate_conversion": {"source_unit":"decimeter","delivery_unit":"meter","scale":RAW_TO_M},
         "target_mix": target_state,
+        "skin_mode": skin_mode,
         "eye_landmarks": landmarks,
         "eye_geometry": {"left":left_report,"right":right_report},
         "skin": skin,
@@ -233,10 +254,12 @@ def build_face_eyes_package(
         "acceptance": acceptance,
         "truth": {
             "high_end_eye_claim": False,
+            "high_end_skin_claim": False,
             "corneal_refraction_claim": False,
             "notes": [
                 "Eye centers/radius are source-grounded from pinned hm08 helper-eye geometry rather than fitted by visual guess.",
                 "Cornea uses standard alpha blending as a first clear-layer engine test; it does not yet model physical refraction.",
+                "The semantic skin option is geometry-grounded authored CG material state, not a human scan or aesthetic ranking.",
                 "Tearline/meniscus, lashes, eyelid wetness and expression-dependent eyelid contact remain later fidelity gates."
             ]
         },
@@ -254,6 +277,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("output", nargs="?", default="build/hm08-face-eyes")
     parser.add_argument("--texture-size", type=int, default=128)
+    parser.add_argument("--skin-mode", choices=sorted(SKIN_MODES), default="generic")
     args = parser.parse_args()
-    result = build_face_eyes_package(args.output, texture_size=args.texture_size)
-    print(json.dumps({"acceptance":result["acceptance"],"delivery":result["delivery"]}, indent=2))
+    result = build_face_eyes_package(args.output, texture_size=args.texture_size, skin_mode=args.skin_mode)
+    print(json.dumps({"acceptance":result["acceptance"],"delivery":result["delivery"],"skin_mode":result["skin_mode"]}, indent=2))
