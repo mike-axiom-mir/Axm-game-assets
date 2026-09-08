@@ -56,6 +56,8 @@ jobs:
         run: python native_armor_conform_test.py
       - name: Source-derived Sentinel extremity gear test
         run: python native_hm08_extremity_gear_test.py
+      - name: Tactical boot rubber structure test
+        run: python native_hm08_boot_structure_test.py
       - name: Native hm08 facial landmark test
         run: python native_hm08_landmarks_test.py
       - name: Native hm08 secondary facial forms test
