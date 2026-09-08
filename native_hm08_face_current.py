@@ -5,10 +5,10 @@ Current preferred substrate:
 - repaired hm08 v0.2 topology + identity target mix
 - physical-scale v0.1 skin
 - source-grounded layered eyes
-- promoted brow v0.3 geometry + dedicated density material
+- brow v0.3 geometry + dedicated density material
+- upper-lash v0.2 geometry/material after Godot repair
 
-v0.5 evaluates upper-lash v0.2. v0.1 was structurally valid but real Godot
-evidence showed the roots too high, growth too vertical and alpha too faint.
+v0.6 adds short scalp hair as the only new visual layer.
 """
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from native_hair_material import HairMaterialSpec, write_hair_material
 from native_hm08_brow_material import BrowMaterialSpec, write_brow_material
 from native_hm08_brows import generate_hm08_brows
 from native_hm08_face_eyes import RAW_TO_M, SEED_ROOT, _combine_with_uv, _translated_eye_layers, build_face_eyes_package
@@ -23,14 +24,15 @@ from native_hm08_face_proof import DEFAULT_WEIGHTS
 from native_hm08_landmarks import derive_hm08_face_landmarks, landmark_packet
 from native_hm08_lash_material import LashMaterialSpec, write_lash_material
 from native_hm08_lashes import generate_hm08_upper_lashes
+from native_hm08_scalp_hair import generate_hm08_short_scalp_hair
 from native_multi_gltf import MaterialPrimitive, write_multi_gltf
 from native_pbr import png_bytes
 from native_targets import load_target, mix_targets
 from native_geometry import scale
 from native_uv import read_obj_uv, validate_uv
 
-SCHEMA = "axm.game-assets.hm08-face-current.v0.5"
-ASSET_NAME = "sentinel_hm08_face_current_v0_5"
+SCHEMA = "axm.game-assets.hm08-face-current.v0.6"
+ASSET_NAME = "sentinel_hm08_face_current_v0_6"
 
 
 def _sha(data: bytes) -> str:
@@ -52,6 +54,7 @@ def build_current_face_package(
     eye_seed: int = 31991,
     brow_seed: int = 52081,
     lash_seed: int = 62081,
+    scalp_hair_seed: int = 72081,
 ) -> dict[str, object]:
     root = Path(output)
     root.mkdir(parents=True, exist_ok=True)
@@ -92,133 +95,82 @@ def build_current_face_package(
         for layer in ("sclera", "iris", "pupil", "cornea")
     }
 
-    brows = generate_hm08_brows(
-        head_m,
-        landmarks_raw=landmarks,
-        eye_metadata=eye_metadata,
-        seed=brow_seed,
-    )
+    brows = generate_hm08_brows(head_m, landmarks_raw=landmarks, eye_metadata=eye_metadata, seed=brow_seed)
     brow_root = root / "textures" / "brows"
-    brow_spec = BrowMaterialSpec(
-        root_rgb=(29, 21, 18),
-        tip_rgb=(43, 31, 25),
-        density=0.58,
-        roughness=0.58,
-        filament_contrast=0.18,
+    brow_material = write_brow_material(
+        brow_root,
+        size=texture_size,
+        seed=brow_seed,
+        spec=BrowMaterialSpec(root_rgb=(29,21,18), tip_rgb=(43,31,25), density=0.58, roughness=0.58, filament_contrast=0.18),
     )
-    brow_material = write_brow_material(brow_root, size=texture_size, seed=brow_seed, spec=brow_spec)
     brow_flat_normal_sha = _write_flat_normal(brow_root / "normal.png", texture_size)
 
-    lashes = generate_hm08_upper_lashes(
-        head_m,
-        landmarks_raw=landmarks,
-        eye_metadata=eye_metadata,
-        seed=lash_seed,
-    )
+    lashes = generate_hm08_upper_lashes(head_m, landmarks_raw=landmarks, eye_metadata=eye_metadata, seed=lash_seed)
     lash_root = root / "textures" / "lashes"
-    lash_spec = LashMaterialSpec(
-        root_rgb=(8, 6, 5),
-        tip_rgb=(18, 12, 10),
-        density=0.95,
-        roughness=0.52,
+    lash_material = write_lash_material(
+        lash_root,
+        size=texture_size,
+        seed=lash_seed,
+        spec=LashMaterialSpec(root_rgb=(8,6,5), tip_rgb=(18,12,10), density=0.95, roughness=0.52),
     )
-    lash_material = write_lash_material(lash_root, size=texture_size, seed=lash_seed, spec=lash_spec)
     lash_flat_normal_sha = _write_flat_normal(lash_root / "normal.png", texture_size)
 
+    rooted_hair, scalp_cards, scalp_uv, scalp_hair = generate_hm08_short_scalp_hair(
+        head_m,
+        eye_metadata=eye_metadata,
+        seed=scalp_hair_seed,
+    )
+    scalp_root = root / "textures" / "scalp_hair"
+    scalp_material = write_hair_material(
+        scalp_root,
+        size=texture_size,
+        seed=scalp_hair_seed,
+        spec=HairMaterialSpec(
+            root_rgb=(24, 16, 12),
+            tip_rgb=(50, 35, 25),
+            strand_count=18,
+            roughness=0.46,
+            alpha_cutoff_hint=0.28,
+        ),
+    )
+    scalp_flat_normal_sha = _write_flat_normal(scalp_root / "normal.png", texture_size)
+
     primitives = [
-        MaterialPrimitive(
-            head_m, head_uv,
-            "AXM_Sentinel_Skin_Physical_v0_1",
-            "textures/skin/base_color.png",
-            "textures/skin/normal.png",
-            "textures/skin/orm.png",
-            metallic_factor=0.0,
-        ),
-        MaterialPrimitive(
-            eye_layers["sclera"][0], eye_layers["sclera"][1],
-            "AXM_Eye_Sclera",
-            "textures/eyes/sclera_base_color.png",
-            "textures/eyes/sclera_normal.png",
-            "textures/eyes/sclera_orm.png",
-            metallic_factor=0.0,
-        ),
-        MaterialPrimitive(
-            eye_layers["iris"][0], eye_layers["iris"][1],
-            "AXM_Eye_Iris",
-            "textures/eyes/iris_base_color.png",
-            "textures/eyes/iris_normal.png",
-            "textures/eyes/iris_orm.png",
-            metallic_factor=0.0,
-        ),
-        MaterialPrimitive(
-            eye_layers["pupil"][0], eye_layers["pupil"][1],
-            "AXM_Eye_Pupil",
-            "textures/eyes/pupil_base_color.png",
-            "textures/eyes/pupil_normal.png",
-            "textures/eyes/pupil_orm.png",
-            metallic_factor=0.0,
-            roughness_factor=0.24,
-        ),
-        MaterialPrimitive(
-            eye_layers["cornea"][0], eye_layers["cornea"][1],
-            "AXM_Eye_Cornea_Prototype",
-            "textures/eyes/cornea_base_color.png",
-            "textures/eyes/cornea_normal.png",
-            "textures/eyes/cornea_orm.png",
-            metallic_factor=0.0,
-            roughness_factor=0.015,
-            base_color_factor=(1.0, 1.0, 1.0, 0.12),
-            alpha_mode="BLEND",
-        ),
-        MaterialPrimitive(
-            brows.cards, brows.uvmap,
-            "AXM_Sentinel_Brows_v0_3_Density",
-            "textures/brows/base_color_alpha.png",
-            "textures/brows/normal.png",
-            "textures/brows/orm.png",
-            metallic_factor=0.0,
-            roughness_factor=1.0,
-            double_sided=True,
-            alpha_mode="BLEND",
-        ),
-        MaterialPrimitive(
-            lashes.cards, lashes.uvmap,
-            "AXM_Sentinel_Upper_Lashes_v0_2",
-            "textures/lashes/base_color_alpha.png",
-            "textures/lashes/normal.png",
-            "textures/lashes/orm.png",
-            metallic_factor=0.0,
-            roughness_factor=1.0,
-            double_sided=True,
-            alpha_mode="BLEND",
-        ),
+        MaterialPrimitive(head_m, head_uv, "AXM_Sentinel_Skin_Physical_v0_1", "textures/skin/base_color.png", "textures/skin/normal.png", "textures/skin/orm.png", metallic_factor=0.0),
+        MaterialPrimitive(eye_layers["sclera"][0], eye_layers["sclera"][1], "AXM_Eye_Sclera", "textures/eyes/sclera_base_color.png", "textures/eyes/sclera_normal.png", "textures/eyes/sclera_orm.png", metallic_factor=0.0),
+        MaterialPrimitive(eye_layers["iris"][0], eye_layers["iris"][1], "AXM_Eye_Iris", "textures/eyes/iris_base_color.png", "textures/eyes/iris_normal.png", "textures/eyes/iris_orm.png", metallic_factor=0.0),
+        MaterialPrimitive(eye_layers["pupil"][0], eye_layers["pupil"][1], "AXM_Eye_Pupil", "textures/eyes/pupil_base_color.png", "textures/eyes/pupil_normal.png", "textures/eyes/pupil_orm.png", metallic_factor=0.0, roughness_factor=0.24),
+        MaterialPrimitive(eye_layers["cornea"][0], eye_layers["cornea"][1], "AXM_Eye_Cornea_Prototype", "textures/eyes/cornea_base_color.png", "textures/eyes/cornea_normal.png", "textures/eyes/cornea_orm.png", metallic_factor=0.0, roughness_factor=0.015, base_color_factor=(1.0,1.0,1.0,0.12), alpha_mode="BLEND"),
+        MaterialPrimitive(brows.cards, brows.uvmap, "AXM_Sentinel_Brows_v0_3_Density", "textures/brows/base_color_alpha.png", "textures/brows/normal.png", "textures/brows/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True, alpha_mode="BLEND"),
+        MaterialPrimitive(lashes.cards, lashes.uvmap, "AXM_Sentinel_Upper_Lashes_v0_2", "textures/lashes/base_color_alpha.png", "textures/lashes/normal.png", "textures/lashes/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True, alpha_mode="BLEND"),
+        MaterialPrimitive(scalp_cards, scalp_uv, "AXM_Sentinel_Short_Hair_v0_1", "textures/scalp_hair/base_color_alpha.png", "textures/scalp_hair/normal.png", "textures/scalp_hair/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True, alpha_mode="MASK", alpha_cutoff=0.28),
     ]
     delivery = write_multi_gltf(primitives, root, name=ASSET_NAME)
 
     document = json.loads((root / delivery["gltf"]).read_text(encoding="utf-8"))
-    brow_gltf_material = document["materials"][-2]
-    lash_gltf_material = document["materials"][-1]
+    brow_gltf_material = document["materials"][-3]
+    lash_gltf_material = document["materials"][-2]
+    scalp_gltf_material = document["materials"][-1]
     skin_hashes = {name: control["skin"]["maps"][name]["sha256"] for name in ("base_color", "normal", "orm")}
-    brow_coverage = brow_material["coverage_evidence"]
-    lash_coverage = lash_material["coverage_evidence"]
 
     acceptance = {
         "preferred_physical_skin_control_green": control["skin_mode"] == "physical_v0.1" and all(control["acceptance"].values()),
         "repaired_identity_used": len(identity.vertices) == 4197 and len(identity_state["applied"]) == len(DEFAULT_WEIGHTS),
         "head_uv_preserved": head_uv_report["status"] == "pass",
         "source_grounded_eye_layers_valid": left_eye_report["status"] == "pass" and right_eye_report["status"] == "pass",
-        "preferred_brow_geometry_valid": brows.evidence["truth"]["preferred_geometry_route"] is True and brows.evidence["hair_validation"]["status"] == "pass",
-        "preferred_brow_density_valid": brow_coverage["mean_alpha"] > 0.20 and brow_coverage["fraction_alpha_ge_0_10"] > 0.70,
-        "lash_v0_2_guides_valid": lashes.evidence["schema"] == "axm.game-assets.hm08-upper-lashes.v0.2" and lashes.evidence["hair_validation"]["status"] == "pass",
-        "lash_uv_valid": lashes.evidence["uv_validation"]["status"] == "pass",
-        "lash_surface_roots_close": lashes.evidence["max_root_surface_distance_m"] <= 0.00025,
-        "lash_eye_fit_bounded": 0.75 < lashes.evidence["min_root_eye_radius_ratio"] and lashes.evidence["max_root_eye_radius_ratio"] < 1.9,
-        "lash_material_v0_2_coverage": lash_material["schema"] == "axm.game-assets.lash-ribbon-material.v0.2" and lash_coverage["mean_alpha"] > 0.30 and lash_coverage["fraction_alpha_ge_0_10"] > 0.70,
-        "seven_semantic_primitives": delivery["primitive_count"] == 7,
-        "seven_semantic_materials": delivery["material_count"] == 7,
+        "preferred_brow_route_valid": brows.evidence["truth"]["preferred_geometry_route"] is True and brow_material["coverage_evidence"]["mean_alpha"] > 0.20,
+        "preferred_lash_v0_2_valid": lashes.evidence["schema"] == "axm.game-assets.hm08-upper-lashes.v0.2" and lashes.evidence["hair_validation"]["status"] == "pass" and lash_material["schema"] == "axm.game-assets.lash-ribbon-material.v0.2",
+        "scalp_root_pool_sufficient": scalp_hair["root_selection"]["candidate_count"] >= 256,
+        "scalp_roots_unique": scalp_hair["unique_root_count"] == 256,
+        "scalp_crown_and_back_present": scalp_hair["selected_crown_roots"] >= 40 and scalp_hair["selected_back_side_roots"] >= 40,
+        "scalp_spans_both_sides": scalp_hair["root_x_range_m"][0] < 0.0 < scalp_hair["root_x_range_m"][1],
+        "scalp_depth_coverage": scalp_hair["root_z_span_m"] > 0.06,
+        "scalp_guides_valid": scalp_hair["hair_validation"]["status"] == "pass" and scalp_hair["uv_validation"]["status"] == "pass",
+        "eight_semantic_primitives": delivery["primitive_count"] == 8,
+        "eight_semantic_materials": delivery["material_count"] == 8,
         "brow_nonmetal_blend": brow_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and brow_gltf_material.get("alphaMode") == "BLEND",
         "lash_nonmetal_blend": lash_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and lash_gltf_material.get("alphaMode") == "BLEND",
-        "lash_double_sided": lash_gltf_material.get("doubleSided") is True,
+        "scalp_hair_nonmetal_mask": scalp_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and scalp_gltf_material.get("alphaMode") == "MASK" and abs(float(scalp_gltf_material.get("alphaCutoff", 0.0)) - 0.28) < 1e-9,
         "gltf_structural_valid": delivery["validation"]["status"] == "pass",
     }
     manifest: dict[str, object] = {
@@ -231,6 +183,7 @@ def build_current_face_package(
             "skin_map_hashes": skin_hashes,
             "eyes": "source_grounded_hm08_helper_geometry",
             "brows": "hm08-brows.v0.3 + brow-density-material.v0.1",
+            "upper_lashes": "hm08-upper-lashes.v0.2 + lash-ribbon-material.v0.2",
         },
         "identity_target_mix": identity_state,
         "landmarks": landmark_packet(landmarks),
@@ -240,17 +193,22 @@ def build_current_face_package(
         "upper_lashes": lashes.evidence,
         "lash_material": lash_material,
         "lash_flat_normal_sha256": lash_flat_normal_sha,
+        "short_scalp_hair": scalp_hair,
+        "scalp_hair_root_indices": rooted_hair.root_indices,
+        "scalp_hair_material": scalp_material,
+        "scalp_hair_flat_normal_sha256": scalp_flat_normal_sha,
         "delivery": delivery,
         "acceptance": acceptance,
         "truth": {
             "preferred_brow_route": True,
-            "preferred_lash_claim": False,
+            "preferred_lash_route": True,
+            "preferred_scalp_hair_claim": False,
             "high_end_character_claim": False,
             "notes": [
-                "Brow route remains fixed from readable v0.3 Godot evidence.",
-                "Upper-lash v0.2 explicitly repairs the v0.1 high/vertical/faint read by lowering roots, biasing fibers forward and darkening the single-filament material.",
-                "v0.2 is still experimental until the new Godot close views are judged.",
-                "Lower lashes, tearline/meniscus, scalp hair and neck/torso remain later fidelity gates."
+                "Brow v0.3 and upper-lash v0.2 are held fixed from their Godot evidence while short scalp hair is the only new visual layer.",
+                "Scalp hair v0.1 uses 256 unique canonical hm08 roots selected from a crown plus behind-eye back/side region; alpha MASK avoids large-card transparency sorting.",
+                "Hairline shape, temple transitions, card coverage and final groom quality still require real Godot close-view judgment.",
+                "Neck/torso integration remains the next structural layer after a usable hair route."
             ],
         },
     }
@@ -269,4 +227,4 @@ if __name__ == "__main__":
     parser.add_argument("--texture-size", type=int, default=128)
     args = parser.parse_args()
     result = build_current_face_package(args.output, texture_size=args.texture_size)
-    print(json.dumps({"acceptance": result["acceptance"], "brows": result["brows"], "upper_lashes": result["upper_lashes"], "delivery": result["delivery"]}, indent=2))
+    print(json.dumps({"acceptance": result["acceptance"], "short_scalp_hair": result["short_scalp_hair"], "delivery": result["delivery"]}, indent=2))
