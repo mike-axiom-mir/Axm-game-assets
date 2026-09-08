@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """Two-hand Sentinel rifle pose on the real full-body humanoid rig.
 
-This bridge replaces the temporary arm-only rig as contact authority while
-preserving that earlier proof as evidence. The 23-joint body-derived skeleton is
-augmented with two zero-weight palm contact markers. Shoulder/elbow/wrist bones
-remain the deformation pivots; palm markers are attachment evidence only.
+The 23-joint body-derived skeleton remains the sole deformation authority.
+Anatomical wrist/hand joints are never moved into the palm just to satisfy a
+weapon grip. Instead, measured palm centroids become explicit character-side
+hand sockets local to those joints, paired with the rifle's real grip sockets.
+
+This joins full-body deformation and two-hand attachment into one motion truth
+without adding contact-only bones. Production skinning, fingers, twist bones,
+wearable deformation and runtime IK remain later gates.
 """
 from __future__ import annotations
 
 from dataclasses import replace
-from math import sqrt
 
-from native_attachment import TwoHandAttachment, contact_evidence
+from native_attachment import Socket, TwoHandSocketAttachment, socket_contact_evidence
 from native_geometry import Mesh, bounds
 from native_hm08_humanoid_rig import (
     build_preferred_hm08_humanoid_rig,
@@ -31,10 +34,10 @@ from native_hm08_rifle_contact_pose import (
     _sub,
     _world_weapon_pose,
 )
-from native_skin import Joint, Skeleton, global_joint_matrices, skin_vertices, transform_point, validate_skeleton
+from native_skin import Skeleton, global_joint_matrices, skin_vertices, transform_point, validate_skeleton
 from native_weapon import sentinel_rifle, validate_weapon
 
-SCHEMA = "axm.game-assets.hm08-full-rifle-pose.v0.1"
+SCHEMA = "axm.game-assets.hm08-full-rifle-pose.v0.2"
 
 
 def _add(a, b):
@@ -56,38 +59,26 @@ def _hand_indices(body: Mesh, *, side: str) -> tuple[int, ...]:
     return tuple(rows)
 
 
-def _augment_grip_markers(
-    bind: Skeleton,
-    name_to_index: dict[str, int],
+def _character_hand_sockets(
     body: Mesh,
     landmarks: dict[str, tuple[float, float, float]],
-) -> tuple[Skeleton, dict[str, int], dict[str, tuple[float, float, float]], dict[str, tuple[int, ...]]]:
-    joints = list(bind.joints)
-    indices = dict(name_to_index)
-    palms = {}
-    hand_sets = {}
+) -> tuple[dict[str, Socket], dict[str, tuple[float, float, float]], dict[str, tuple[int, ...]]]:
+    sockets: dict[str, Socket] = {}
+    palms: dict[str, tuple[float, float, float]] = {}
+    hand_sets: dict[str, tuple[int, ...]] = {}
     for side in ("right", "left"):
         hand_sets[side] = _hand_indices(body, side=side)
         palm = _centroid(body, hand_sets[side])
-        palms[side] = palm
         wrist = landmarks[f"{side}_hand"]
-        hand_index = indices[f"{side}_hand"]
-        marker_index = len(joints)
-        joints.append(Joint(
-            f"{side}_palm_contact",
-            parent=hand_index,
-            translation=_sub(palm, wrist),
-        ))
-        indices[f"{side}_palm_contact"] = marker_index
-    augmented = Skeleton(joints)
-    report = validate_skeleton(augmented)
-    if report["status"] != "pass":
-        raise ValueError(f"augmented full-body contact skeleton invalid: {report}")
-    return augmented, indices, palms, hand_sets
+        palms[side] = palm
+        sockets[side] = Socket(
+            f"{side}_palm_grip",
+            position=_sub(palm, wrist),
+        )
+    return sockets, palms, hand_sets
 
 
 def _contact_chains(
-    body: Mesh,
     landmarks: dict[str, tuple[float, float, float]],
     palms: dict[str, tuple[float, float, float]],
     hand_sets: dict[str, tuple[int, ...]],
@@ -110,10 +101,10 @@ def _contact_chains(
 
 
 def _solve_full_arm(
-    joints: list[Joint],
+    joints,
     indices: dict[str, int],
     landmarks: dict[str, tuple[float, float, float]],
-    palms: dict[str, tuple[float, float, float]],
+    hand_socket: Socket,
     chains: dict[str, ArmChain],
     weapon_pose: dict[str, object],
     rifle,
@@ -127,12 +118,21 @@ def _solve_full_arm(
     palm_target = weapon_pose[target_key]
     weapon_rotation = weapon_pose["rotation"]
     assert isinstance(palm_target, tuple) and isinstance(weapon_rotation, tuple)
-    desired_hand_world_rotation = _quat_mul(weapon_rotation, rifle.sockets[socket_key].rotation)
+
+    # Desired character hand-socket world rotation equals the target weapon
+    # socket world rotation. Character hand sockets currently use identity local
+    # rotation, but the explicit multiplication keeps the relation inspectable.
+    desired_hand_socket_world_rotation = _quat_mul(
+        weapon_rotation,
+        rifle.sockets[socket_key].rotation,
+    )
+    desired_hand_joint_world_rotation = _quat_mul(
+        desired_hand_socket_world_rotation,
+        _quat_conjugate(hand_socket.rotation),
+    )
 
     wrist_bind = landmarks[f"{side}_hand"]
-    palm_bind = palms[side]
-    palm_offset_local = _sub(palm_bind, wrist_bind)
-    rotated_palm_offset = _quat_rotate(desired_hand_world_rotation, palm_offset_local)
+    rotated_palm_offset = _quat_rotate(desired_hand_joint_world_rotation, hand_socket.position)
     wrist_target = _sub(palm_target, rotated_palm_offset)
 
     shoulder = landmarks[f"{side}_upper_arm"]
@@ -152,7 +152,7 @@ def _solve_full_arm(
     posed_forearm_local = _quat_rotate(_quat_conjugate(shoulder_rotation), posed_forearm_world)
     elbow_rotation = _quat_from_to(bind_forearm, posed_forearm_local)
     parent_global = _quat_mul(shoulder_rotation, elbow_rotation)
-    hand_rotation = _quat_mul(_quat_conjugate(parent_global), desired_hand_world_rotation)
+    hand_rotation = _quat_mul(_quat_conjugate(parent_global), desired_hand_joint_world_rotation)
 
     upper_index = indices[f"{side}_upper_arm"]
     forearm_index = indices[f"{side}_forearm"]
@@ -167,7 +167,11 @@ def _solve_full_arm(
         "solved_elbow": list(elbow),
         "upper_bind_length_m": upper_length,
         "forearm_bind_length_m": forearm_length,
-        "palm_offset_from_wrist_m": list(palm_offset_local),
+        "character_hand_socket": {
+            "name": hand_socket.name,
+            "position": list(hand_socket.position),
+            "rotation": list(hand_socket.rotation),
+        },
         "shoulder_rotation": list(shoulder_rotation),
         "elbow_rotation": list(elbow_rotation),
         "hand_rotation": list(hand_rotation),
@@ -177,9 +181,9 @@ def _solve_full_arm(
 def build_hm08_full_rifle_pose() -> tuple[Mesh, dict[str, object]]:
     body, bind, weights, _diagnostic, rig_evidence = build_preferred_hm08_humanoid_rig()
     landmarks = derive_hm08_rig_landmarks(body)
-    base_indices = dict(rig_evidence["joint_indices"])
-    augmented_bind, indices, palms, hand_sets = _augment_grip_markers(bind, base_indices, body, landmarks)
-    chains = _contact_chains(body, landmarks, palms, hand_sets)
+    indices = dict(rig_evidence["joint_indices"])
+    hand_sockets, palms, hand_sets = _character_hand_sockets(body, landmarks)
+    chains = _contact_chains(landmarks, palms, hand_sets)
 
     rifle = sentinel_rifle()
     weapon_report = validate_weapon(rifle)
@@ -187,14 +191,14 @@ def build_hm08_full_rifle_pose() -> tuple[Mesh, dict[str, object]]:
         raise ValueError(f"rifle invalid before full-rig contact: {weapon_report}")
     weapon_pose = _world_weapon_pose(body, chains, rifle)
 
-    joints = list(augmented_bind.joints)
+    joints = list(bind.joints)
     pose_rows = {
         "right": _solve_full_arm(
-            joints, indices, landmarks, palms, chains, weapon_pose, rifle,
+            joints, indices, landmarks, hand_sockets["right"], chains, weapon_pose, rifle,
             side="right", sign=1.0, target_key="primary_target", socket_key="primary_grip",
         ),
         "left": _solve_full_arm(
-            joints, indices, landmarks, palms, chains, weapon_pose, rifle,
+            joints, indices, landmarks, hand_sockets["left"], chains, weapon_pose, rifle,
             side="left", sign=-1.0, target_key="support_target", socket_key="support_grip",
         ),
     }
@@ -203,44 +207,62 @@ def build_hm08_full_rifle_pose() -> tuple[Mesh, dict[str, object]]:
     if posed_report["status"] != "pass":
         raise ValueError(f"full-rig rifle pose invalid: {posed_report}")
 
-    attachment = TwoHandAttachment(
-        primary_joint=indices["right_palm_contact"],
-        support_joint=indices["left_palm_contact"],
-        primary_socket=rifle.sockets["primary_grip"],
-        support_socket=rifle.sockets["support_grip"],
+    attachment = TwoHandSocketAttachment(
+        primary_joint=indices["right_hand"],
+        support_joint=indices["left_hand"],
+        primary_hand_socket=hand_sockets["right"],
+        support_hand_socket=hand_sockets["left"],
+        primary_weapon_socket=rifle.sockets["primary_grip"],
+        support_weapon_socket=rifle.sockets["support_grip"],
     )
-    contact = contact_evidence(posed, attachment)
-    posed_vertices = skin_vertices(body, weights, augmented_bind, posed)
-    posed_mesh = Mesh("sentinel_hm08_full_rig_rifle_pose_v0_1", posed_vertices, list(body.faces))
-    globals_ = global_joint_matrices(posed)
+    contact = socket_contact_evidence(posed, attachment)
+    posed_vertices = skin_vertices(body, weights, bind, posed)
+    posed_mesh = Mesh("sentinel_hm08_full_rig_rifle_pose_v0_2", posed_vertices, list(body.faces))
 
+    hand_contact_world = {
+        "right": tuple(float(value) for value in contact["primary_hand_contact_world_position"]),
+        "left": tuple(float(value) for value in contact["support_hand_contact_world_position"]),
+    }
     hand_geometry = {}
     for side in ("right", "left"):
-        marker = transform_point(globals_[indices[f"{side}_palm_contact"]], (0.0, 0.0, 0.0))
         centroid = _centroid(posed_mesh, hand_sets[side])
         hand_geometry[side] = {
-            "contact_marker": list(marker),
+            "character_socket_world": list(hand_contact_world[side]),
             "posed_hand_centroid": list(centroid),
-            "centroid_to_marker_error_m": _distance(centroid, marker),
+            "centroid_to_socket_error_m": _distance(centroid, hand_contact_world[side]),
             "hand_vertices": len(hand_sets[side]),
         }
 
-    deform = deformation_evidence(body, weights, augmented_bind, posed)
+    contact_weapon_world = contact["weapon_world"]
+    derived_weapon_translation = (
+        float(contact_weapon_world[0][3]),
+        float(contact_weapon_world[1][3]),
+        float(contact_weapon_world[2][3]),
+    )
+    intended_weapon_translation = tuple(float(value) for value in weapon_pose["translation"])
+    weapon_pose_error_m = _distance(derived_weapon_translation, intended_weapon_translation)
+
+    deform = deformation_evidence(body, weights, bind, posed)
     packet = {
         "schema": SCHEMA,
-        "pose_id": "full_rig_cross_chest_low_ready_v0.1",
+        "pose_id": "full_rig_cross_chest_low_ready_v0.2",
         "base_rig_schema": rig_evidence["schema"],
-        "base_joint_count": len(bind.joints),
-        "augmented_joint_count": len(augmented_bind.joints),
-        "contact_markers": {
-            "right": indices["right_palm_contact"],
-            "left": indices["left_palm_contact"],
-            "weight_influences": 0,
+        "joint_count": len(bind.joints),
+        "character_hand_sockets": {
+            side: {
+                "joint": indices[f"{side}_hand"],
+                "name": hand_sockets[side].name,
+                "position": list(hand_sockets[side].position),
+                "rotation": list(hand_sockets[side].rotation),
+            }
+            for side in ("right", "left")
         },
         "weapon": {
             "asset": rifle.name,
             "scale": list(weapon_pose["scale"]),
-            "translation": list(weapon_pose["translation"]),
+            "intended_translation": list(intended_weapon_translation),
+            "derived_translation": list(derived_weapon_translation),
+            "translation_error_m": weapon_pose_error_m,
             "rotation": list(weapon_pose["rotation"]),
             "primary_socket": list(rifle.sockets["primary_grip"].position),
             "support_socket": list(rifle.sockets["support_grip"].position),
@@ -252,15 +274,17 @@ def build_hm08_full_rifle_pose() -> tuple[Mesh, dict[str, object]]:
         "truth": {
             "single_full_body_motion_truth": True,
             "arm_only_rig_required": False,
+            "contact_only_bones_added": False,
+            "character_side_hand_sockets_used": True,
             "canonical_body_mutated": False,
             "rifle_scaled_to_fake_contact": False,
             "production_rig_claim": False,
             "production_skinning_claim": False,
             "automatic_runtime_ik_claim": False,
             "notes": [
-                "The full 23-joint body-derived rig remains the deformation authority; two zero-weight palm markers are appended only for exact attachment evidence.",
-                "Shoulder/elbow/wrist pivots remain anatomical deformation pivots. Palm contact is represented as a child marker rather than moving the wrist joint into the grip.",
-                "Exact marker/socket contact does not guarantee final hand mesh wrap; posed hand centroid error is recorded separately and remains a skin/hand-quality repair signal.",
+                "The 23-joint body-derived rig remains unchanged and owns deformation. Palm contact is represented by explicit local character-side sockets on the anatomical hand/wrist joints.",
+                "Primary hand socket defines weapon placement; support hand socket is independently measured using the generic attachment v0.2 evidence path.",
+                "Exact socket contact does not guarantee final hand mesh wrap. Posed hand centroid-to-socket error is recorded separately as a skinning/hand-quality repair signal.",
             ],
         },
     }
