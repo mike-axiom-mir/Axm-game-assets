@@ -16,8 +16,12 @@ def run() -> None:
     assert first["schema"] == "axm.game-assets.hm08-undersuit.v0.1"
     assert first["source_body_vertices"] == 13380
     assert first["source_body_faces"] == 13378
-    assert first["selected_face_count"] > 4000, first
-    assert first["selected_vertex_count"] > 4000, first
+    assert first["selected_face_count"] > 3000, first
+    assert first["selected_vertex_count"] > 3000, first
+    assert first["surface_coverage_fraction"] >= first["minimum_surface_coverage"], first
+    assert first["surface_coverage_fraction"] > 0.70, first
+    assert first["surface_coverage_fraction"] < 0.90, first
+    assert first["selected_source_surface_area_m2"] < first["source_surface_area_m2"]
     assert abs(first["offset_m"] - 0.0022) < 1e-12
     assert first["bounds_m"]["y"][1] <= first["cuts"]["collar_y_m"] + 0.01
     assert first["bounds_m"]["y"][0] >= first["cuts"]["ankle_y_m"] - 0.01
@@ -43,6 +47,7 @@ def run() -> None:
     print("HM08 UNDERSUIT TEST PASS", {
         "vertices": len(first_mesh.vertices),
         "faces": len(first_mesh.faces),
+        "surface_coverage_fraction": first["surface_coverage_fraction"],
         "boundary_edges": first["topology"]["boundary_edges"],
         "offset_mm": first["offset_m"] * 1000.0,
         "bounds_m": first["bounds_m"],
