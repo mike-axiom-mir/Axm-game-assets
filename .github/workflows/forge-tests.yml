@@ -32,6 +32,8 @@ jobs:
         run: python native_hm08_head_v2_seed_test.py
       - name: Real-human Sentinel face proof test
         run: python native_hm08_face_proof_test.py
+      - name: Source-grounded hm08 face and eyes test
+        run: python native_hm08_face_eyes_test.py
       - name: Native target authoring test
         run: python native_target_authoring_test.py
       - name: Native parametric test
