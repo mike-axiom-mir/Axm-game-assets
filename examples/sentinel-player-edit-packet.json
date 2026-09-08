@@ -1,0 +1,19 @@
+{
+  "schema": "axm.asset-edit-packet.v0.1",
+  "surface_id": "sentinel-rpg-character-creator-v0.1",
+  "base_genome_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "actor": {"kind": "player", "id": "local-player"},
+  "operations": [
+    {"op": "set", "parameter": "face.nose_width", "value": 0.42},
+    {"op": "set", "parameter": "face.cheekbone_strength", "value": 0.28},
+    {"op": "set", "parameter": "face.age_bias", "value": 0.18},
+    {"op": "set", "parameter": "hair.style", "value": "short_laid"},
+    {"op": "set", "parameter": "hair.color_family", "value": "dark_brown"},
+    {"op": "set", "parameter": "history.left_cheek_scar", "value": true},
+    {"op": "set", "parameter": "gear.outer_torso", "value": "scout"}
+  ],
+  "metadata": {
+    "purpose": "RPG player character creator example",
+    "quality_target": "hero"
+  }
+}
