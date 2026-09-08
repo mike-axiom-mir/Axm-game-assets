@@ -2,20 +2,20 @@
 """Body-derived humanoid rig + four-weight skin for the pinned hm08 Sentinel body.
 
 This is the first real full-body rig state for the Sentinel proving asset. Joint
-pivots are inferred from deterministic surface-region medians on the canonical
-human body rather than copied from a DCC rig. Skin weights are generated from
-bounded same-side anatomical joint neighborhoods and normalized to four slots.
+pivots are inferred from deterministic surface regions on the canonical human
+body rather than copied from a DCC rig. Torso pivots use front/back slice
+midpoints so the rotation centers lie inside the body volume. Skin weights use
+continuous anatomical gates and are normalized to four slots.
 
 The result is an AXM-owned rig substrate. It is not yet a production autorigger:
-corrective shapes, finger chains, twist bones, deformation-aware armor binding,
-and animation-quality judgments remain separate gates.
+corrective shapes, finger chains, twist bones, deformation-aware wearable
+binding, and animation-quality judgments remain separate gates.
 """
 from __future__ import annotations
 
 import json
 from dataclasses import replace
 from math import cos, radians, sin, sqrt
-from pathlib import Path
 from statistics import median
 
 from native_geometry import Mesh, bounds
@@ -27,6 +27,13 @@ SCHEMA = "axm.game-assets.hm08-humanoid-rig.v0.1"
 
 def _distance(a, b) -> float:
     return sqrt(sum((a[i] - b[i]) ** 2 for i in range(3)))
+
+
+def _smoothstep(edge0: float, edge1: float, value: float) -> float:
+    if edge1 <= edge0:
+        return 0.0
+    t = max(0.0, min(1.0, (value - edge0) / (edge1 - edge0)))
+    return t * t * (3.0 - 2.0 * t)
 
 
 def _median_point(points: list[tuple[float, float, float]], *, label: str) -> tuple[float, float, float]:
@@ -52,7 +59,10 @@ def _centerline_z(body: Mesh, y: float, *, y_radius: float, x_radius: float) -> 
     rows = [point[2] for point in body.vertices if abs(point[0]) <= x_radius and abs(point[1] - y) <= y_radius]
     if len(rows) < 8:
         raise ValueError(f"centerline sample too small at y={y:.6f}: {len(rows)}")
-    return float(median(rows))
+    # Mesh vertices live on the skin surface. The median can therefore land on
+    # whichever side has denser topology. Front/back midpoint is the bounded
+    # volumetric interpretation required for a rotation pivot.
+    return (min(rows) + max(rows)) * 0.5
 
 
 def derive_hm08_rig_landmarks(body: Mesh) -> dict[str, tuple[float, float, float]]:
@@ -66,8 +76,8 @@ def derive_hm08_rig_landmarks(body: Mesh) -> dict[str, tuple[float, float, float
     def yfrac(value: float) -> float:
         return lo[1] + height * value
 
-    # Positive X anatomical landmarks are measured from the actual body surface;
-    # negative X joints are mirrored only after those source measurements exist.
+    # Positive-X landmarks are measured from the actual current body. Negative-X
+    # joints are mirrored only after those measurements exist.
     shoulder_r = _region(
         body,
         x_min=half_width * 0.24, x_max=half_width * 0.56,
@@ -109,9 +119,9 @@ def derive_hm08_rig_landmarks(body: Mesh) -> dict[str, tuple[float, float, float
         y_min=yfrac(0.00), y_max=yfrac(0.055), label="right_foot",
     )
 
-    # Pivots should lie inside the limb volume, not on whichever surface side won
-    # the median. Retain measured X/Y while regularizing depth toward local body
-    # center for stable neutral rotations.
+    # Surface medians are regularized toward limb interior depth. X/Y remain
+    # measured from the canonical body so proportions/stance continue to drive
+    # the inferred rig rather than a fixed humanoid template.
     shoulder_r = (shoulder_r[0], shoulder_r[1], shoulder_r[2] * 0.55)
     elbow_r = (elbow_r[0], elbow_r[1], elbow_r[2] * 0.70)
     wrist_r = (wrist_r[0], wrist_r[1], wrist_r[2] * 0.92)
@@ -166,8 +176,6 @@ def derive_hm08_rig_landmarks(body: Mesh) -> dict[str, tuple[float, float, float
 
 
 def _joint_table(landmarks: dict[str, tuple[float, float, float]]):
-    # parent names are resolved after ordering. Global rest pivots are converted
-    # into local translations with identity rest rotations.
     return [
         ("root", None, (0.0, 0.0, 0.0)),
         ("pelvis", "root", landmarks["pelvis"]),
@@ -225,7 +233,7 @@ def build_hm08_humanoid_skeleton(body: Mesh) -> tuple[Skeleton, dict[str, object
             "finger_chain_claim": False,
             "twist_bone_claim": False,
             "notes": [
-                "Joint pivots are inferred from canonical body surface-region medians and centerline samples.",
+                "Limb pivots are inferred from canonical body surface-region medians; torso/head pivots use front/back slice midpoints inside the body volume.",
                 "Left/right limb pivots use a measured positive-X side followed by deterministic mirror symmetry.",
                 "The first rig intentionally omits fingers, twist bones and correctives; those remain later production deformation gates.",
             ],
@@ -234,59 +242,61 @@ def build_hm08_humanoid_skeleton(body: Mesh) -> tuple[Skeleton, dict[str, object
     return skeleton, evidence, name_to_index
 
 
-def _inv_distance_weights(point, candidates: list[tuple[int, tuple[float, float, float]]], *, softness: float = 0.035):
-    rows = []
-    for joint, pivot in candidates:
-        d = _distance(point, pivot)
-        rows.append((joint, 1.0 / ((d + softness) ** 2)))
-    rows.sort(key=lambda row: (-row[1], row[0]))
-    rows = rows[:4]
-    total = sum(value for _joint, value in rows)
-    if total <= 1e-12:
-        return [(0, 1.0)]
-    return [(joint, value / total) for joint, value in rows]
+def _inv_distance_weight(point, pivot, *, softness: float = 0.035) -> float:
+    return 1.0 / ((_distance(point, pivot) + softness) ** 2)
 
 
-def build_hm08_skin_weights(body: Mesh, skeleton: Skeleton, landmarks: dict[str, tuple[float, float, float]], name_to_index: dict[str, int]) -> tuple[SkinWeights, dict[str, object]]:
+def build_hm08_skin_weights(
+    body: Mesh,
+    skeleton: Skeleton,
+    landmarks: dict[str, tuple[float, float, float]],
+    name_to_index: dict[str, int],
+) -> tuple[SkinWeights, dict[str, object]]:
     lo, hi = bounds(body)
     width = hi[0] - lo[0]
     height = hi[1] - lo[1]
-    arm_x = width * 0.16
-    leg_x = width * 0.055
     arm_y = lo[1] + height * 0.53
     leg_y = lo[1] + height * 0.52
 
     torso_names = ["pelvis", "spine_lower", "spine_mid", "chest", "neck", "head"]
     rows_joints = []
     rows_weights = []
-    region_counts = {"torso_head": 0, "left_arm": 0, "right_arm": 0, "left_leg": 0, "right_leg": 0}
+    gate_counts = {"arm_extended": 0, "leg_extended": 0, "center_only": 0}
 
     for point in body.vertices:
         x, y, _z = point
-        if y >= landmarks["neck"][1] + height * 0.015:
-            candidates = [(name_to_index["head"], landmarks["head"]), (name_to_index["neck"], landmarks["neck"])]
-            region_counts["torso_head"] += 1
-        elif abs(x) >= arm_x and y >= arm_y:
-            side = "right" if x >= 0.0 else "left"
-            names = [f"{side}_clavicle", f"{side}_upper_arm", f"{side}_forearm", f"{side}_hand"]
-            candidates = [(name_to_index[name], landmarks[name]) for name in names]
-            region_counts[f"{side}_arm"] += 1
-        elif abs(x) >= leg_x and y <= leg_y:
-            side = "right" if x >= 0.0 else "left"
-            names = ["pelvis", f"{side}_thigh", f"{side}_shin", f"{side}_foot", f"{side}_toe"]
-            candidates = [(name_to_index[name], landmarks[name]) for name in names]
-            region_counts[f"{side}_leg"] += 1
-        else:
-            candidates = [(name_to_index[name], landmarks[name]) for name in torso_names]
-            # Add nearby clavicles around the shoulder bridge to avoid a hard torso/arm seam.
-            if y >= landmarks["chest"][1] - height * 0.035:
-                candidates.extend([
-                    (name_to_index["left_clavicle"], landmarks["left_clavicle"]),
-                    (name_to_index["right_clavicle"], landmarks["right_clavicle"]),
-                ])
-            region_counts["torso_head"] += 1
+        weighted_candidates: list[tuple[int, float]] = []
+        for name in torso_names:
+            weighted_candidates.append((name_to_index[name], _inv_distance_weight(point, landmarks[name])))
 
-        pairs = _inv_distance_weights(point, candidates)
+        arm_gate = _smoothstep(width * 0.07, width * 0.20, abs(x)) * _smoothstep(
+            arm_y - height * 0.08, arm_y + height * 0.04, y
+        )
+        if arm_gate > 0.0:
+            side = "right" if x >= 0.0 else "left"
+            for name in (f"{side}_clavicle", f"{side}_upper_arm", f"{side}_forearm", f"{side}_hand"):
+                weighted_candidates.append((name_to_index[name], arm_gate * _inv_distance_weight(point, landmarks[name])))
+            gate_counts["arm_extended"] += 1
+
+        leg_gate = _smoothstep(width * 0.015, width * 0.10, abs(x)) * (
+            1.0 - _smoothstep(leg_y - height * 0.02, leg_y + height * 0.08, y)
+        )
+        if leg_gate > 0.0:
+            side = "right" if x >= 0.0 else "left"
+            for name in (f"{side}_thigh", f"{side}_shin", f"{side}_foot", f"{side}_toe"):
+                weighted_candidates.append((name_to_index[name], leg_gate * _inv_distance_weight(point, landmarks[name])))
+            gate_counts["leg_extended"] += 1
+
+        if arm_gate <= 0.0 and leg_gate <= 0.0:
+            gate_counts["center_only"] += 1
+
+        weighted_candidates.sort(key=lambda row: (-row[1], row[0]))
+        pairs = weighted_candidates[:4]
+        total = sum(value for _joint, value in pairs)
+        if total <= 1e-12:
+            pairs = [(name_to_index["pelvis"], 1.0)]
+            total = 1.0
+        pairs = [(joint, value / total) for joint, value in pairs]
         while len(pairs) < 4:
             pairs.append((0, 0.0))
         rows_joints.append(tuple(joint for joint, _value in pairs[:4]))
@@ -303,14 +313,14 @@ def build_hm08_skin_weights(body: Mesh, skeleton: Skeleton, landmarks: dict[str,
         "joint_count": len(skeleton.joints),
         "max_influences": max(active_counts),
         "mean_influences": sum(active_counts) / len(active_counts),
-        "region_counts": region_counts,
+        "continuous_gate_counts": gate_counts,
         "validation": report,
         "truth": {
             "deterministic": True,
             "production_skinning_claim": False,
             "corrective_shapes_claim": False,
             "notes": [
-                "Weights are deterministic four-slot inverse-distance blends over same-side anatomical joint neighborhoods.",
+                "Torso/head influence always remains available. Arm and leg neighborhoods fade in continuously by lateral position and body height instead of switching at a hard mesh seam.",
                 "The weighting method is a first native skinning substrate and must graduate through real deformation views before production use.",
             ],
         },
@@ -329,8 +339,6 @@ def axis_angle_quaternion(axis: tuple[float, float, float], degrees: float):
 
 def diagnostic_pose(bind: Skeleton, name_to_index: dict[str, int]) -> Skeleton:
     joints = list(bind.joints)
-    # Moderate motion, intentionally not a final animation. It exists to prove
-    # that the real body and weight state can cross multiple articulation gates.
     edits = {
         "left_upper_arm": ((0.0, 0.0, 1.0), -16.0),
         "right_upper_arm": ((0.0, 0.0, 1.0), 16.0),
@@ -367,8 +375,10 @@ def deformation_evidence(mesh: Mesh, weights: SkinWeights, bind: Skeleton, posed
         if source > 1e-8:
             edge_ratios.append(target / source)
     edge_ratios.sort()
+
     def pct(fraction: float):
         return edge_ratios[min(len(edge_ratios) - 1, round((len(edge_ratios) - 1) * fraction))]
+
     return {
         "bind_reconstruction_max_error_m": bind_error,
         "posed_max_displacement_m": max(displacements),
@@ -380,6 +390,8 @@ def deformation_evidence(mesh: Mesh, weights: SkinWeights, bind: Skeleton, posed
             "p99": pct(0.99),
             "max": max(edge_ratios),
         },
+        "edges_over_2x": sum(value > 2.0 for value in edge_ratios),
+        "edges_under_half": sum(value < 0.5 for value in edge_ratios),
         "finite": all(all(abs(value) < 1e6 for value in point) for point in posed_vertices),
         "truth": {
             "diagnostic_pose_only": True,
@@ -394,8 +406,8 @@ def deformation_evidence(mesh: Mesh, weights: SkinWeights, bind: Skeleton, posed
 
 def build_preferred_hm08_humanoid_rig():
     body_m, _uv, target_state = _load_identity_body()
-    skeleton, skeleton_evidence, name_to_index = build_hm08_humanoid_skeleton(body_m)
     landmarks = derive_hm08_rig_landmarks(body_m)
+    skeleton, skeleton_evidence, name_to_index = build_hm08_humanoid_skeleton(body_m)
     weights, skin_evidence = build_hm08_skin_weights(body_m, skeleton, landmarks, name_to_index)
     posed = diagnostic_pose(skeleton, name_to_index)
     deformation = deformation_evidence(body_m, weights, skeleton, posed)
