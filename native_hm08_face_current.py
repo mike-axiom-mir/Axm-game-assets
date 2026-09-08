@@ -28,8 +28,8 @@ from native_targets import load_target, mix_targets
 from native_geometry import scale
 from native_uv import read_obj_uv, validate_uv
 
-SCHEMA = "axm.game-assets.hm08-face-current.v0.1"
-ASSET_NAME = "sentinel_hm08_face_current_v0_1"
+SCHEMA = "axm.game-assets.hm08-face-current.v0.2"
+ASSET_NAME = "sentinel_hm08_face_current_v0_2"
 
 
 def _sha(data: bytes) -> str:
@@ -92,19 +92,30 @@ def build_current_face_package(
         for layer in ("sclera", "iris", "pupil", "cornea")
     }
 
+    # Placement remains the proven continuous-surface brow v0.2 mechanism.
+    # These denser coverage parameters are *candidate* state only until the
+    # real Godot close views justify promoting them into the brow organ default.
+    brow_candidate = {
+        "guides_per_brow": 24,
+        "guide_length_m": 0.0050,
+        "root_width_m": 0.00180,
+        "tip_width_m": 0.00038,
+        "root_offset_m": 0.00055,
+    }
     brows = generate_hm08_brows(
         head_m,
         landmarks_raw=landmarks,
         eye_metadata=eye_metadata,
         seed=brow_seed,
+        **brow_candidate,
     )
     brow_root = root / "textures" / "brows"
     brow_spec = HairMaterialSpec(
-        root_rgb=(31, 23, 19),
-        tip_rgb=(46, 33, 26),
-        strand_count=14,
-        roughness=0.52,
-        alpha_cutoff_hint=0.30,
+        root_rgb=(29, 21, 18),
+        tip_rgb=(43, 31, 25),
+        strand_count=8,
+        roughness=0.56,
+        alpha_cutoff_hint=0.18,
     )
     brow_material = write_hair_material(brow_root, size=texture_size, seed=brow_seed, spec=brow_spec)
     brow_flat_normal_sha = _write_flat_normal(brow_root / "normal.png", texture_size)
@@ -156,15 +167,17 @@ def build_current_face_package(
         ),
         MaterialPrimitive(
             brows.cards, brows.uvmap,
-            "AXM_Sentinel_Brows_v0_1",
+            "AXM_Sentinel_Brows_v0_2",
             "textures/brows/base_color_alpha.png",
             "textures/brows/normal.png",
             "textures/brows/orm.png",
             metallic_factor=0.0,
             roughness_factor=1.0,
             double_sided=True,
-            alpha_mode="MASK",
-            alpha_cutoff=brow_spec.alpha_cutoff_hint,
+            # Hard MASK produced dotted on/off subpixel coverage in the first
+            # 640 px Godot proof. BLEND preserves partial strand coverage while
+            # the denser overlapping card groom is under visual evaluation.
+            alpha_mode="BLEND",
         ),
     ]
     delivery = write_multi_gltf(primitives, root, name=ASSET_NAME)
@@ -182,11 +195,12 @@ def build_current_face_package(
         "brow_guides_valid": brows.evidence["hair_validation"]["status"] == "pass",
         "brow_uv_valid": brows.evidence["uv_validation"]["status"] == "pass",
         "brow_surface_anchors_close": brows.evidence["max_root_surface_distance_m"] <= 0.00056,
-        "brow_anchor_diversity": brows.evidence["unique_anchor_count"] >= 24,
+        "brow_anchor_diversity": brows.evidence["unique_anchor_count"] >= 40,
+        "brow_dense_candidate": brows.evidence["guide_count"] == 48 and brows.evidence["guides_per_brow"] == 24,
         "six_semantic_primitives": delivery["primitive_count"] == 6,
         "six_semantic_materials": delivery["material_count"] == 6,
         "brow_nonmetal": brow_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0,
-        "brow_alpha_mask": brow_gltf_material.get("alphaMode") == "MASK" and abs(float(brow_gltf_material.get("alphaCutoff", 0.0)) - brow_spec.alpha_cutoff_hint) < 1e-9,
+        "brow_alpha_blend": brow_gltf_material.get("alphaMode") == "BLEND" and "alphaCutoff" not in brow_gltf_material,
         "brow_double_sided": brow_gltf_material.get("doubleSided") is True,
         "gltf_structural_valid": delivery["validation"]["status"] == "pass",
     }
@@ -202,6 +216,8 @@ def build_current_face_package(
         },
         "identity_target_mix": identity_state,
         "landmarks": landmark_packet(landmarks),
+        "brow_candidate_parameters": brow_candidate,
+        "brow_render_strategy": "dense_overlapping_cards_with_alpha_blend",
         "brows": brows.evidence,
         "brow_material": brow_material,
         "brow_flat_normal_sha256": brow_flat_normal_sha,
@@ -211,7 +227,8 @@ def build_current_face_package(
             "preferred_brow_claim": False,
             "high_end_character_claim": False,
             "notes": [
-                "Brows are the only new visual layer versus the preferred physical-skin+eye face control.",
+                "Brow v0.2 candidate preserves the proven continuous-surface placement mechanism and changes only coverage/groom density plus alpha handling.",
+                "The first 32-guide MASK render read as dotted guide marks; this denser BLEND candidate explicitly targets that measured minification failure.",
                 "Source-grounded placement and technical validity do not imply aesthetic promotion; real Godot close views decide that.",
                 "This candidate assembler is expected to evolve with lashes, scalp hair and later neck/torso while source organs remain separate."
             ],
