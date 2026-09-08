@@ -66,6 +66,10 @@ def build_face_secondary_package(
         DEFAULT_WEIGHTS,
         name="sentinel_identity_before_secondary",
     )
+    identity_weights = {
+        str(item["name"]): float(item["weight"])
+        for item in identity_state["applied"]
+    }
     eye_metadata = json.loads((SEED_ROOT / "eye-landmarks.json").read_text(encoding="utf-8"))
     landmarks = derive_hm08_face_landmarks(identity_variant, eye_metadata)
     secondary_raw, secondary_targets, secondary_state = apply_secondary_forms(
@@ -149,7 +153,7 @@ def build_face_secondary_package(
     }
     acceptance = {
         "control_package_green": all(control["acceptance"].values()),
-        "identity_target_mix_preserved": identity_state["weights"] == DEFAULT_WEIGHTS,
+        "identity_target_mix_preserved": identity_weights == DEFAULT_WEIGHTS,
         "secondary_target_count": len(secondary_targets) == 12,
         "secondary_targets_all_active": all(len(target.deltas) > 0 for target in secondary_targets.values()),
         "secondary_displacement_bounded": 0.0 < displacement["max_distance_mm"] < 4.0,
@@ -172,6 +176,7 @@ def build_face_secondary_package(
         "ab_variable": "secondary_facial_geometry_only",
         "coordinate_conversion": control["coordinate_conversion"],
         "identity_target_mix": identity_state,
+        "identity_weights": identity_weights,
         "landmarks": landmark_packet(landmarks),
         "secondary_forms": {
             "schema": "axm.game-assets.hm08-secondary-forms.v0.1",
