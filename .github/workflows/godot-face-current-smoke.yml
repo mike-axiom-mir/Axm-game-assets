@@ -51,7 +51,7 @@ jobs:
           package = build_current_face_package("engine/godot_face/generated", texture_size=128)
           assert all(package["acceptance"].values()), package["acceptance"]
           assert package["candidate_role"] == "current_face_candidate"
-          assert package["schema"] == "axm.game-assets.hm08-face-current.v0.6"
+          assert package["schema"] == "axm.game-assets.hm08-face-current.v0.7"
           assert package["truth"]["preferred_brow_route"] is True
           assert package["truth"]["preferred_lash_route"] is True
           assert package["truth"]["preferred_scalp_hair_claim"] is False
@@ -59,13 +59,13 @@ jobs:
           assert package["delivery"]["material_count"] == 8
           assert package["delivery"]["material_names"][-3] == "AXM_Sentinel_Brows_v0_3_Density"
           assert package["delivery"]["material_names"][-2] == "AXM_Sentinel_Upper_Lashes_v0_2"
-          assert package["delivery"]["material_names"][-1] == "AXM_Sentinel_Short_Hair_v0_1"
-          assert package["short_scalp_hair"]["guide_count"] == 256
-          assert package["short_scalp_hair"]["unique_root_count"] == 256
+          assert package["delivery"]["material_names"][-1] == "AXM_Sentinel_Short_Hair_v0_2_Laid"
+          assert package["short_scalp_hair"]["guide_count"] == 320
+          assert package["short_scalp_hair"]["unique_root_count"] == 320
           print("CURRENT FACE BUILD PASS", package["short_scalp_hair"], package["delivery"])
           PY
           cp \
-            engine/godot_face/generated/sentinel_hm08_face_current_v0_6.gltf \
+            engine/godot_face/generated/sentinel_hm08_face_current_v0_7.gltf \
             engine/godot_face/generated/sentinel_hm08_face_candidate_v0_1.gltf
 
       - name: Download pinned Godot 4.7.2
@@ -139,11 +139,11 @@ jobs:
           package=json.loads(package_path.read_text())
           source_digest="sha256:"+hashlib.sha256(package_path.read_bytes()).hexdigest()
           bundle={
-              "schema":"axm.game-assets.godot-current-face-viewset.v0.6",
+              "schema":"axm.game-assets.godot-current-face-viewset.v0.7",
               "authority":"deterministic_capture_evidence_only",
               "asset_digest":package["delivery"]["gltf_sha256"],
               "candidate_role":"current_face_candidate",
-              "layers":["hm08_v0.2_identity","physical_skin_v0.1","source_grounded_eyes","brows_v0.3_density_blend","upper_lashes_v0.2_forward","short_scalp_hair_v0.1"],
+              "layers":["hm08_v0.2_identity","physical_skin_v0.1","source_grounded_eyes","brows_v0.3_density_blend","upper_lashes_v0.2_forward","short_scalp_hair_v0.2_laid"],
               "views":[],
           }
           for view in receipt["views"]:
@@ -155,7 +155,7 @@ jobs:
                   asset_digest=package["delivery"]["gltf_sha256"],
                   engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},
                   camera=view["camera"],
-                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"current_face_candidate_v0.6","lighting":receipt["lighting"]},
+                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"current_face_candidate_v0.7","lighting":receipt["lighting"]},
                   metrics={"foreground_coverage":m["foreground_coverage"],"foreground_luma_mean":m["foreground_luma_mean"],"near_white_foreground_fraction":m["near_white_foreground_fraction"],"luma_min":m["luma_min"],"luma_max":m["luma_max"],"luma_mean":m["luma_mean"],"luma_range":m["luma_range"]},
                   source_receipts=[source_digest],
               )
@@ -180,7 +180,7 @@ jobs:
             engine/godot_face/godot-face-profile.png
             engine/godot_face/visual-capture-current-face-*.json
             engine/godot_face/generated/current-face-package.json
-            engine/godot_face/generated/sentinel_hm08_face_current_v0_6.gltf
+            engine/godot_face/generated/sentinel_hm08_face_current_v0_7.gltf
             engine/godot_face/generated/textures/brows/*
             engine/godot_face/generated/textures/lashes/*
             engine/godot_face/generated/textures/scalp_hair/*

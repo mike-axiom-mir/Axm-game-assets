@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Current preferred Sentinel human-face candidate assembly.
 
-Current preferred substrate:
+Preferred substrate held fixed:
 - repaired hm08 v0.2 topology + identity target mix
 - physical-scale v0.1 skin
 - source-grounded layered eyes
 - brow v0.3 geometry + dedicated density material
-- upper-lash v0.2 geometry/material after Godot repair
+- upper-lash v0.2 geometry/material
 
-v0.6 adds short scalp hair as the only new visual layer.
+v0.7 repairs the rejected scalp-hair v0.1 layer only: tighter cranial roots,
+laid directional flow, shorter cards and denser masked strand coverage.
 """
 from __future__ import annotations
 
@@ -31,8 +32,8 @@ from native_targets import load_target, mix_targets
 from native_geometry import scale
 from native_uv import read_obj_uv, validate_uv
 
-SCHEMA = "axm.game-assets.hm08-face-current.v0.6"
-ASSET_NAME = "sentinel_hm08_face_current_v0_6"
+SCHEMA = "axm.game-assets.hm08-face-current.v0.7"
+ASSET_NAME = "sentinel_hm08_face_current_v0_7"
 
 
 def _sha(data: bytes) -> str:
@@ -115,7 +116,7 @@ def build_current_face_package(
     )
     lash_flat_normal_sha = _write_flat_normal(lash_root / "normal.png", texture_size)
 
-    rooted_hair, scalp_cards, scalp_uv, scalp_hair = generate_hm08_short_scalp_hair(
+    scalp_root_indices, scalp_cards, scalp_uv, scalp_hair = generate_hm08_short_scalp_hair(
         head_m,
         eye_metadata=eye_metadata,
         seed=scalp_hair_seed,
@@ -126,11 +127,11 @@ def build_current_face_package(
         size=texture_size,
         seed=scalp_hair_seed,
         spec=HairMaterialSpec(
-            root_rgb=(24, 16, 12),
-            tip_rgb=(50, 35, 25),
-            strand_count=18,
-            roughness=0.46,
-            alpha_cutoff_hint=0.28,
+            root_rgb=(18, 12, 9),
+            tip_rgb=(42, 29, 20),
+            strand_count=40,
+            roughness=0.48,
+            alpha_cutoff_hint=0.12,
         ),
     )
     scalp_flat_normal_sha = _write_flat_normal(scalp_root / "normal.png", texture_size)
@@ -143,7 +144,7 @@ def build_current_face_package(
         MaterialPrimitive(eye_layers["cornea"][0], eye_layers["cornea"][1], "AXM_Eye_Cornea_Prototype", "textures/eyes/cornea_base_color.png", "textures/eyes/cornea_normal.png", "textures/eyes/cornea_orm.png", metallic_factor=0.0, roughness_factor=0.015, base_color_factor=(1.0,1.0,1.0,0.12), alpha_mode="BLEND"),
         MaterialPrimitive(brows.cards, brows.uvmap, "AXM_Sentinel_Brows_v0_3_Density", "textures/brows/base_color_alpha.png", "textures/brows/normal.png", "textures/brows/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True, alpha_mode="BLEND"),
         MaterialPrimitive(lashes.cards, lashes.uvmap, "AXM_Sentinel_Upper_Lashes_v0_2", "textures/lashes/base_color_alpha.png", "textures/lashes/normal.png", "textures/lashes/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True, alpha_mode="BLEND"),
-        MaterialPrimitive(scalp_cards, scalp_uv, "AXM_Sentinel_Short_Hair_v0_1", "textures/scalp_hair/base_color_alpha.png", "textures/scalp_hair/normal.png", "textures/scalp_hair/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True, alpha_mode="MASK", alpha_cutoff=0.28),
+        MaterialPrimitive(scalp_cards, scalp_uv, "AXM_Sentinel_Short_Hair_v0_2_Laid", "textures/scalp_hair/base_color_alpha.png", "textures/scalp_hair/normal.png", "textures/scalp_hair/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True, alpha_mode="MASK", alpha_cutoff=0.12),
     ]
     delivery = write_multi_gltf(primitives, root, name=ASSET_NAME)
 
@@ -160,17 +161,18 @@ def build_current_face_package(
         "source_grounded_eye_layers_valid": left_eye_report["status"] == "pass" and right_eye_report["status"] == "pass",
         "preferred_brow_route_valid": brows.evidence["truth"]["preferred_geometry_route"] is True and brow_material["coverage_evidence"]["mean_alpha"] > 0.20,
         "preferred_lash_v0_2_valid": lashes.evidence["schema"] == "axm.game-assets.hm08-upper-lashes.v0.2" and lashes.evidence["hair_validation"]["status"] == "pass" and lash_material["schema"] == "axm.game-assets.lash-ribbon-material.v0.2",
-        "scalp_root_pool_sufficient": scalp_hair["root_selection"]["candidate_count"] >= 256,
-        "scalp_roots_unique": scalp_hair["unique_root_count"] == 256,
-        "scalp_crown_and_back_present": scalp_hair["selected_crown_roots"] >= 40 and scalp_hair["selected_back_side_roots"] >= 40,
-        "scalp_spans_both_sides": scalp_hair["root_x_range_m"][0] < 0.0 < scalp_hair["root_x_range_m"][1],
-        "scalp_depth_coverage": scalp_hair["root_z_span_m"] > 0.06,
-        "scalp_guides_valid": scalp_hair["hair_validation"]["status"] == "pass" and scalp_hair["uv_validation"]["status"] == "pass",
+        "scalp_v0_2_root_pool_sufficient": scalp_hair["schema"] == "axm.game-assets.hm08-short-scalp-hair.v0.2" and scalp_hair["root_selection"]["candidate_count"] >= 320,
+        "scalp_v0_2_roots_unique": scalp_hair["unique_root_count"] == 320 and len(scalp_root_indices) == 320,
+        "scalp_v0_2_region_balance": scalp_hair["selected_region_counts"]["crown"] >= 70 and scalp_hair["selected_region_counts"]["side"] >= 50 and scalp_hair["selected_region_counts"]["back"] >= 25,
+        "scalp_v0_2_spans_both_sides": scalp_hair["root_x_range_m"][0] < 0.0 < scalp_hair["root_x_range_m"][1],
+        "scalp_v0_2_depth_coverage": scalp_hair["root_z_span_m"] > 0.10,
+        "scalp_v0_2_laid_outward": scalp_hair["min_first_outward_dot"] > 0.10,
+        "scalp_v0_2_guides_valid": scalp_hair["hair_validation"]["status"] == "pass" and scalp_hair["uv_validation"]["status"] == "pass",
         "eight_semantic_primitives": delivery["primitive_count"] == 8,
         "eight_semantic_materials": delivery["material_count"] == 8,
         "brow_nonmetal_blend": brow_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and brow_gltf_material.get("alphaMode") == "BLEND",
         "lash_nonmetal_blend": lash_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and lash_gltf_material.get("alphaMode") == "BLEND",
-        "scalp_hair_nonmetal_mask": scalp_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and scalp_gltf_material.get("alphaMode") == "MASK" and abs(float(scalp_gltf_material.get("alphaCutoff", 0.0)) - 0.28) < 1e-9,
+        "scalp_hair_nonmetal_mask": scalp_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and scalp_gltf_material.get("alphaMode") == "MASK" and abs(float(scalp_gltf_material.get("alphaCutoff", 0.0)) - 0.12) < 1e-9,
         "gltf_structural_valid": delivery["validation"]["status"] == "pass",
     }
     manifest: dict[str, object] = {
@@ -194,7 +196,7 @@ def build_current_face_package(
         "lash_material": lash_material,
         "lash_flat_normal_sha256": lash_flat_normal_sha,
         "short_scalp_hair": scalp_hair,
-        "scalp_hair_root_indices": rooted_hair.root_indices,
+        "scalp_hair_root_indices": scalp_root_indices,
         "scalp_hair_material": scalp_material,
         "scalp_hair_flat_normal_sha256": scalp_flat_normal_sha,
         "delivery": delivery,
@@ -205,9 +207,9 @@ def build_current_face_package(
             "preferred_scalp_hair_claim": False,
             "high_end_character_claim": False,
             "notes": [
-                "Brow v0.3 and upper-lash v0.2 are held fixed from their Godot evidence while short scalp hair is the only new visual layer.",
-                "Scalp hair v0.1 uses 256 unique canonical hm08 roots selected from a crown plus behind-eye back/side region; alpha MASK avoids large-card transparency sorting.",
-                "Hairline shape, temple transitions, card coverage and final groom quality still require real Godot close-view judgment.",
+                "Scalp v0.1 was rejected after real Godot evidence showed sparse scratches, temple/ear leakage and random card tails.",
+                "v0.2 keeps unique canonical roots but tightens the cranial cap, balances crown/side/back sampling, lays guides along scalp flow, shortens cards and densifies the masked strand texture.",
+                "Only a new real Godot close-view result can promote this scalp route.",
                 "Neck/torso integration remains the next structural layer after a usable hair route."
             ],
         },

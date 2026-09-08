@@ -67,6 +67,26 @@ def _ensure_outward(direction: Vec3, normal: Vec3, minimum_dot: float = 0.12) ->
     return _normalize(_add(_mul(tangent, 0.95), _mul(normal, 0.22)))
 
 
+def select_root_indices(
+    candidate_indices: Sequence[int],
+    *,
+    guide_count: int,
+    seed: int,
+    allow_root_reuse: bool = False,
+) -> list[int]:
+    """Deterministically select canonical roots from an unordered candidate set."""
+    if guide_count < 1:
+        raise ValueError("guide_count must be positive")
+    candidates = sorted({int(index) for index in candidate_indices})
+    if not candidates:
+        raise ValueError("explicit-root hair requires at least one candidate")
+    if guide_count > len(candidates) and not allow_root_reuse:
+        raise ValueError(f"requested {guide_count} guides from only {len(candidates)} unique roots")
+    rng = random.Random(seed)
+    rng.shuffle(candidates)
+    return [candidates[index % len(candidates)] for index in range(guide_count)]
+
+
 def generate_short_hair_from_roots(
     head: Mesh,
     candidate_indices: Sequence[int],
@@ -81,27 +101,31 @@ def generate_short_hair_from_roots(
     allow_root_reuse: bool = False,
     style: str = "short_cards_explicit_roots_v0.1",
 ) -> ExplicitRootHair:
-    if guide_count < 1 or segments < 2:
-        raise ValueError("hair needs guide_count>=1 and segments>=2")
+    if segments < 2:
+        raise ValueError("hair needs segments>=2")
     if length <= 0.0 or root_width <= 0.0 or tip_width < 0.0 or tip_width > root_width or root_offset < 0.0:
         raise ValueError("invalid hair dimensions")
 
     candidates = sorted({int(index) for index in candidate_indices})
-    if not candidates:
-        raise ValueError("explicit-root hair requires at least one candidate")
     bad = [index for index in candidates if index < 0 or index >= len(head.vertices)]
     if bad:
         raise ValueError(f"explicit hair root indices outside mesh: {bad[:8]}")
-    if guide_count > len(candidates) and not allow_root_reuse:
-        raise ValueError(f"requested {guide_count} guides from only {len(candidates)} unique roots")
+    selected = select_root_indices(
+        candidates,
+        guide_count=guide_count,
+        seed=seed,
+        allow_root_reuse=allow_root_reuse,
+    )
 
     rng = random.Random(seed)
-    rng.shuffle(candidates)
-    selected = [candidates[index % len(candidates)] for index in range(guide_count)]
+    # Consume the same candidate shuffle as select_root_indices so later random
+    # guide variation remains stable relative to v0.1 selection semantics.
+    shuffled = list(candidates)
+    rng.shuffle(shuffled)
     normals = vertex_normals(head)
     guides: list[HairGuide] = []
 
-    for root_number, vertex_index in enumerate(selected):
+    for vertex_index in selected:
         root = head.vertices[vertex_index]
         normal = _normalize(normals[vertex_index])
         root = _add(root, _mul(normal, root_offset))
