@@ -8,8 +8,8 @@ def run() -> None:
     with TemporaryDirectory() as td:
         package = build_current_full_body_package(td, texture_size=64)
     assert all(package["acceptance"].values()), package["acceptance"]
-    assert package["schema"] == "axm.game-assets.hm08-full-body-current.v0.3"
-    assert package["candidate_role"] == "sentinel_armored_body_candidate"
+    assert package["schema"] == "axm.game-assets.hm08-full-body-current.v0.4"
+    assert package["candidate_role"] == "sentinel_equipped_body_candidate"
     assert package["full_seed"]["source_vertices"] == 13380
     assert package["full_seed"]["source_faces"] == 13378
     head = package["head_identity_overlap"]
@@ -36,20 +36,34 @@ def run() -> None:
     assert armor["primary_topology"]["nonmanifold_edges"] == 0
     assert armor["accent_topology"]["nonmanifold_edges"] == 0
 
-    assert package["delivery"]["primitive_count"] == 12
-    assert package["delivery"]["material_count"] == 12
+    gear = package["extremity_gear"]
+    assert gear["schema"] == "axm.game-assets.hm08-extremity-gear.v0.1"
+    assert gear["truth"]["source_grounded"] is True
+    assert gear["truth"]["canonical_body_mutated"] is False
+    assert gear["glove_face_count"] > 3000
+    assert gear["boot_upper_face_count"] > 2000
+    assert gear["shell_uv_validation"]["status"] == "pass"
+    assert gear["shell_topology"]["nonmanifold_edges"] == 0
+    assert gear["sole_uv_validation"]["status"] == "pass"
+    assert gear["sole_topology"]["closed_two_manifold_candidate"] is True
+
+    assert package["delivery"]["primitive_count"] == 14
+    assert package["delivery"]["material_count"] == 14
     names = package["delivery"]["material_names"]
     assert names[0] == "AXM_Sentinel_FullBody_Skin_Continuity_v0_1"
     assert names[1] == "AXM_Sentinel_Graphite_Undersuit_v0_1"
-    assert names[2] == "AXM_Sentinel_Armor_Primary_v0_1"
-    assert names[3] == "AXM_Sentinel_Armor_Accent_v0_1"
+    assert names[2] == "AXM_Sentinel_Armor_Primary_v0_2"
+    assert names[3] == "AXM_Sentinel_Armor_Accent_v0_2"
+    assert names[4] == "AXM_Sentinel_Gloves_BootUppers_v0_1"
+    assert names[5] == "AXM_Sentinel_BootSoles_v0_1"
     assert package["truth"]["production_body_claim"] is False
     assert package["truth"]["production_undersuit_claim"] is False
     assert package["truth"]["production_armor_claim"] is False
+    assert package["truth"]["production_extremity_gear_claim"] is False
     assert package["truth"]["rigged_character_claim"] is False
     assert package["truth"]["high_end_character_claim"] is False
 
-    print("HM08 CURRENT ARMORED BODY PACKAGE PASS", {
+    print("HM08 CURRENT EQUIPPED BODY PACKAGE PASS", {
         "vertices": package["full_seed"]["source_vertices"],
         "faces": package["full_seed"]["source_faces"],
         "head_overlap": head["compared_vertices"],
@@ -57,7 +71,8 @@ def run() -> None:
         "undersuit_surface_coverage": undersuit["surface_coverage_fraction"],
         "armor_primary_components": armor["primary_component_count"],
         "armor_accent_components": armor["accent_component_count"],
-        "armor_design_revision": armor["design_revision"],
+        "glove_faces": gear["glove_face_count"],
+        "boot_upper_faces": gear["boot_upper_face_count"],
         "triangles": package["delivery"]["triangles"],
         "materials": package["delivery"]["material_count"],
     })
