@@ -8,8 +8,8 @@ Preferred substrate held fixed:
 - brow v0.3 geometry + dedicated density material
 - upper-lash v0.2 geometry/material
 
-v0.7 repairs the rejected scalp-hair v0.1 layer only: tighter cranial roots,
-laid directional flow, shorter cards and denser masked strand coverage.
+v0.8 keeps the repaired 320-root laid scalp-card groom and adds a source-UV
+hm08 scalp underlay as continuous short-hair root mass beneath the cards.
 """
 from __future__ import annotations
 
@@ -26,14 +26,15 @@ from native_hm08_landmarks import derive_hm08_face_landmarks, landmark_packet
 from native_hm08_lash_material import LashMaterialSpec, write_lash_material
 from native_hm08_lashes import generate_hm08_upper_lashes
 from native_hm08_scalp_hair import generate_hm08_short_scalp_hair
+from native_hm08_scalp_underlay import build_hm08_scalp_underlay, write_scalp_underlay_material
 from native_multi_gltf import MaterialPrimitive, write_multi_gltf
 from native_pbr import png_bytes
 from native_targets import load_target, mix_targets
 from native_geometry import scale
 from native_uv import read_obj_uv, validate_uv
 
-SCHEMA = "axm.game-assets.hm08-face-current.v0.7"
-ASSET_NAME = "sentinel_hm08_face_current_v0_7"
+SCHEMA = "axm.game-assets.hm08-face-current.v0.8"
+ASSET_NAME = "sentinel_hm08_face_current_v0_8"
 
 
 def _sha(data: bytes) -> str:
@@ -56,6 +57,7 @@ def build_current_face_package(
     brow_seed: int = 52081,
     lash_seed: int = 62081,
     scalp_hair_seed: int = 72081,
+    scalp_underlay_seed: int = 82081,
 ) -> dict[str, object]:
     root = Path(output)
     root.mkdir(parents=True, exist_ok=True)
@@ -136,6 +138,19 @@ def build_current_face_package(
     )
     scalp_flat_normal_sha = _write_flat_normal(scalp_root / "normal.png", texture_size)
 
+    scalp_underlay_mesh, scalp_underlay_uv, scalp_underlay = build_hm08_scalp_underlay(
+        head_m,
+        head_uv,
+        eye_metadata=eye_metadata,
+        offset_m=0.00035,
+    )
+    scalp_underlay_root = root / "textures" / "scalp_underlay"
+    scalp_underlay_material = write_scalp_underlay_material(
+        scalp_underlay_root,
+        size=texture_size,
+        seed=scalp_underlay_seed,
+    )
+
     primitives = [
         MaterialPrimitive(head_m, head_uv, "AXM_Sentinel_Skin_Physical_v0_1", "textures/skin/base_color.png", "textures/skin/normal.png", "textures/skin/orm.png", metallic_factor=0.0),
         MaterialPrimitive(eye_layers["sclera"][0], eye_layers["sclera"][1], "AXM_Eye_Sclera", "textures/eyes/sclera_base_color.png", "textures/eyes/sclera_normal.png", "textures/eyes/sclera_orm.png", metallic_factor=0.0),
@@ -144,13 +159,15 @@ def build_current_face_package(
         MaterialPrimitive(eye_layers["cornea"][0], eye_layers["cornea"][1], "AXM_Eye_Cornea_Prototype", "textures/eyes/cornea_base_color.png", "textures/eyes/cornea_normal.png", "textures/eyes/cornea_orm.png", metallic_factor=0.0, roughness_factor=0.015, base_color_factor=(1.0,1.0,1.0,0.12), alpha_mode="BLEND"),
         MaterialPrimitive(brows.cards, brows.uvmap, "AXM_Sentinel_Brows_v0_3_Density", "textures/brows/base_color_alpha.png", "textures/brows/normal.png", "textures/brows/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True, alpha_mode="BLEND"),
         MaterialPrimitive(lashes.cards, lashes.uvmap, "AXM_Sentinel_Upper_Lashes_v0_2", "textures/lashes/base_color_alpha.png", "textures/lashes/normal.png", "textures/lashes/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True, alpha_mode="BLEND"),
+        MaterialPrimitive(scalp_underlay_mesh, scalp_underlay_uv, "AXM_Sentinel_Short_Hair_RootMass_v0_1", "textures/scalp_underlay/base_color.png", "textures/scalp_underlay/normal.png", "textures/scalp_underlay/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True),
         MaterialPrimitive(scalp_cards, scalp_uv, "AXM_Sentinel_Short_Hair_v0_2_Laid", "textures/scalp_hair/base_color_alpha.png", "textures/scalp_hair/normal.png", "textures/scalp_hair/orm.png", metallic_factor=0.0, roughness_factor=1.0, double_sided=True, alpha_mode="MASK", alpha_cutoff=0.12),
     ]
     delivery = write_multi_gltf(primitives, root, name=ASSET_NAME)
 
     document = json.loads((root / delivery["gltf"]).read_text(encoding="utf-8"))
-    brow_gltf_material = document["materials"][-3]
-    lash_gltf_material = document["materials"][-2]
+    brow_gltf_material = document["materials"][-4]
+    lash_gltf_material = document["materials"][-3]
+    underlay_gltf_material = document["materials"][-2]
     scalp_gltf_material = document["materials"][-1]
     skin_hashes = {name: control["skin"]["maps"][name]["sha256"] for name in ("base_color", "normal", "orm")}
 
@@ -168,10 +185,13 @@ def build_current_face_package(
         "scalp_v0_2_depth_coverage": scalp_hair["root_z_span_m"] > 0.10,
         "scalp_v0_2_laid_outward": scalp_hair["min_first_outward_dot"] > 0.10,
         "scalp_v0_2_guides_valid": scalp_hair["hair_validation"]["status"] == "pass" and scalp_hair["uv_validation"]["status"] == "pass",
-        "eight_semantic_primitives": delivery["primitive_count"] == 8,
-        "eight_semantic_materials": delivery["material_count"] == 8,
+        "scalp_underlay_source_grounded": scalp_underlay["truth"]["source_grounded"] is True and scalp_underlay["truth"]["source_uv_preserved"] is True,
+        "scalp_underlay_geometry_valid": scalp_underlay["selected_face_count"] > 100 and scalp_underlay["uv_validation"]["status"] == "pass",
+        "nine_semantic_primitives": delivery["primitive_count"] == 9,
+        "nine_semantic_materials": delivery["material_count"] == 9,
         "brow_nonmetal_blend": brow_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and brow_gltf_material.get("alphaMode") == "BLEND",
         "lash_nonmetal_blend": lash_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and lash_gltf_material.get("alphaMode") == "BLEND",
+        "scalp_underlay_nonmetal_opaque": underlay_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and underlay_gltf_material.get("alphaMode", "OPAQUE") == "OPAQUE",
         "scalp_hair_nonmetal_mask": scalp_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0 and scalp_gltf_material.get("alphaMode") == "MASK" and abs(float(scalp_gltf_material.get("alphaCutoff", 0.0)) - 0.12) < 1e-9,
         "gltf_structural_valid": delivery["validation"]["status"] == "pass",
     }
@@ -186,6 +206,7 @@ def build_current_face_package(
             "eyes": "source_grounded_hm08_helper_geometry",
             "brows": "hm08-brows.v0.3 + brow-density-material.v0.1",
             "upper_lashes": "hm08-upper-lashes.v0.2 + lash-ribbon-material.v0.2",
+            "scalp_hair": "hm08-short-scalp-hair.v0.2 + hm08-scalp-underlay.v0.1",
         },
         "identity_target_mix": identity_state,
         "landmarks": landmark_packet(landmarks),
@@ -199,6 +220,8 @@ def build_current_face_package(
         "scalp_hair_root_indices": scalp_root_indices,
         "scalp_hair_material": scalp_material,
         "scalp_hair_flat_normal_sha256": scalp_flat_normal_sha,
+        "scalp_underlay": scalp_underlay,
+        "scalp_underlay_material": scalp_underlay_material,
         "delivery": delivery,
         "acceptance": acceptance,
         "truth": {
@@ -208,8 +231,9 @@ def build_current_face_package(
             "high_end_character_claim": False,
             "notes": [
                 "Scalp v0.1 was rejected after real Godot evidence showed sparse scratches, temple/ear leakage and random card tails.",
-                "v0.2 keeps unique canonical roots but tightens the cranial cap, balances crown/side/back sampling, lays guides along scalp flow, shortens cards and densifies the masked strand texture.",
-                "Only a new real Godot close-view result can promote this scalp route.",
+                "v0.2 repaired root placement and flow, but the real Godot v0.7 face still read as comb scratches over bare skin.",
+                "v0.8 adds a source-UV hm08 scalp underlay 0.35 mm above retained scalp faces to provide continuous short-hair root mass beneath the same laid cards.",
+                "Only the new real Godot close views can promote the underlay+cards route.",
                 "Neck/torso integration remains the next structural layer after a usable hair route."
             ],
         },
@@ -229,4 +253,4 @@ if __name__ == "__main__":
     parser.add_argument("--texture-size", type=int, default=128)
     args = parser.parse_args()
     result = build_current_face_package(args.output, texture_size=args.texture_size)
-    print(json.dumps({"acceptance": result["acceptance"], "short_scalp_hair": result["short_scalp_hair"], "delivery": result["delivery"]}, indent=2))
+    print(json.dumps({"acceptance": result["acceptance"], "short_scalp_hair": result["short_scalp_hair"], "scalp_underlay": result["scalp_underlay"], "delivery": result["delivery"]}, indent=2))
