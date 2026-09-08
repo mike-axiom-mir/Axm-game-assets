@@ -24,10 +24,13 @@ def run() -> None:
     assert undersuit["topology"]["nonmanifold_edges"] == 0
 
     armor = package["rigid_armor"]
-    assert armor["schema"] == "axm.game-assets.hm08-sentinel-rigid-armor.v0.1"
+    assert armor["schema"] == "axm.game-assets.hm08-sentinel-rigid-armor.v0.2"
+    assert armor["design_revision"] == "segmented_anatomical_v0.2"
     assert armor["truth"]["body_grounded"] is True
-    assert armor["primary_component_count"] >= 14
-    assert armor["accent_component_count"] >= 8
+    assert armor["primary_component_count"] >= 20
+    assert armor["accent_component_count"] >= 12
+    assert "chest_core" not in armor["primary_components"]
+    assert "left_pectoral" in armor["primary_components"] and "right_pectoral" in armor["primary_components"]
     assert armor["primary_uv_validation"]["status"] == "pass"
     assert armor["accent_uv_validation"]["status"] == "pass"
     assert armor["primary_topology"]["nonmanifold_edges"] == 0
@@ -54,6 +57,7 @@ def run() -> None:
         "undersuit_surface_coverage": undersuit["surface_coverage_fraction"],
         "armor_primary_components": armor["primary_component_count"],
         "armor_accent_components": armor["accent_component_count"],
+        "armor_design_revision": armor["design_revision"],
         "triangles": package["delivery"]["triangles"],
         "materials": package["delivery"]["material_count"],
     })
