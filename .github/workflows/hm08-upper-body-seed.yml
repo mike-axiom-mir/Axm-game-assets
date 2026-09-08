@@ -15,8 +15,11 @@ on:
       - "seed_data/hm08_head_v0.2/source-index-map.json"
   workflow_dispatch:
 
+# TEMPORARY one-shot write authority. The promotion step below is push-only and
+# branch-pinned; this workflow is returned to contents:read immediately after
+# the audited seed commit lands.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   derive-upper-body:
@@ -127,3 +130,25 @@ jobs:
             build/hm08-upper-body-seed/seed-manifest.json
             build/hm08-upper-body-seed/audit-summary.json
             build/hm08-upper-body-seed/targets/*.target
+
+      - name: One-shot promote audited seed into branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/forge/chat-2026-09-08-sentinel-fidelity'
+        run: |
+          set -euo pipefail
+          dest="seed_data/hm08_upper_body_v0.1"
+          rm -rf "$dest"
+          mkdir -p "$dest/targets"
+          cp build/hm08-upper-body-seed/upper_body.obj "$dest/upper_body.obj"
+          cp build/hm08-upper-body-seed/source-index-map.json "$dest/source-index-map.json"
+          cp build/hm08-upper-body-seed/seed-manifest.json "$dest/seed-manifest.json"
+          cp build/hm08-upper-body-seed/audit-summary.json "$dest/audit-summary.json"
+          cp build/hm08-upper-body-seed/targets/*.target "$dest/targets/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$dest"
+          if git diff --cached --quiet; then
+            echo "Audited upper-body seed already pinned."
+            exit 0
+          fi
+          git commit -m "data: pin audited hm08 upper-body seed"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
