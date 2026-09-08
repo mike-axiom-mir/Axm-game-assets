@@ -36,6 +36,8 @@ jobs:
         run: python native_hm08_face_eyes_test.py
       - name: Geometry-grounded hm08 semantic skin test
         run: python native_hm08_skin_bake_test.py
+      - name: Semantic skin face and eyes package test
+        run: python native_hm08_face_eyes_semantic_test.py
       - name: Native target authoring test
         run: python native_target_authoring_test.py
       - name: Native parametric test
