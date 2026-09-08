@@ -3,7 +3,7 @@
 
 v0.1 proved that 256 unique canonical roots can import/render, but its broad
 behind-eye mask leaked onto temples/ears and random guide flow produced sparse
-scratches and neck tails. v0.2 tightens the cranial root field, explicitly
+scratches and neck tails. v0.2 keeps a much tighter cranial field, explicitly
 balances crown/side/back roots, and lays short cards along deterministic scalp
 flow instead of random free-space spikes.
 """
@@ -73,17 +73,17 @@ def select_hm08_scalp_candidates(
     eye_z = sum(float(eye_metadata["eyes"][side]["center_m"][2]) for side in ("left", "right")) * 0.5
     half_width = max(abs(lo[0]), abs(hi[0]), 1e-9)
 
-    # v0.1 crown_y was eye_y+31 mm and back/side roots could extend to 82% of
-    # head half-width. The rendered streaks reached forehead/ears. v0.2 moves
-    # the front hairline upward and progressively narrows lower side/back roots.
-    crown_y = eye_y + 0.046
-    side_y = eye_y + 0.016
-    back_y = eye_y - 0.008
-    side_z_max = eye_z - 0.012
-    back_z_max = eye_z - 0.045
+    # The first v0.2 native gate proved the strictest mask had only 202 unique
+    # roots. Broaden only legitimate upper-temple/back zones while remaining
+    # substantially tighter than v0.1's ear/forehead-leaking mask.
+    crown_y = eye_y + 0.042
+    side_y = eye_y + 0.010
+    back_y = eye_y - 0.010
+    side_z_max = eye_z - 0.004
+    back_z_max = eye_z - 0.038
     crown_lateral_limit = half_width * 0.89
-    side_lateral_limit = half_width * 0.70
-    back_lateral_limit = half_width * 0.65
+    side_lateral_limit = half_width * 0.74
+    back_lateral_limit = half_width * 0.68
 
     crown: list[int] = []
     side: list[int] = []
@@ -156,7 +156,7 @@ def _balanced_roots(
 
 
 def _flow_class(point: Vec3, *, crown_y: float, side_y: float, back_z_max: float) -> str:
-    x, y, z = point
+    _x, y, z = point
     if y >= crown_y:
         return "crown_front" if z > 0.105 else "crown_back"
     if z <= back_z_max:
@@ -220,8 +220,6 @@ def generate_hm08_short_scalp_hair(
         position = root
         for segment in range(1, segments):
             t = segment / (segments - 1)
-            # Keep the guide laid over the head and gently increase down/back
-            # flow toward the tip without introducing free-space spikes.
             bend = _normalize((desired[0] * (1.0 - 0.08 * t), desired[1] - 0.10 * t, desired[2] - 0.04 * t))
             direction = _laid_direction(bend, normal, outward=0.13 if segment > 1 else 0.17)
             position = _add(position, _mul(direction, step))
@@ -265,10 +263,11 @@ def generate_hm08_short_scalp_hair(
             "source_grounded": True,
             "root_basis": "tightened canonical hm08 cranial cap + pinned eye plane",
             "v0_1_visual_repair": "tighten_temples_and_lay_guides_along_scalp_flow",
+            "native_gate_repair": "strict mask had 202 roots; modest legitimate-zone expansion keeps 320-root target without root reuse",
             "preferred_scalp_hair_claim": False,
             "notes": [
                 "v0.1 rendered as sparse masked scratches with temple/ear leakage and random tails; v0.2 narrows roots and replaces random free flow with crown/side/back scalp directions.",
-                "320 roots remain unique canonical hm08 vertices; no density is faked by root duplication.",
+                "The first v0.2 native gate intentionally failed at 202 roots rather than reusing anchors. This revision modestly broadens valid scalp zones while preserving the 320 unique-root target.",
                 "Hairline, coverage and final groom quality remain real Godot visual gates."
             ],
         },
