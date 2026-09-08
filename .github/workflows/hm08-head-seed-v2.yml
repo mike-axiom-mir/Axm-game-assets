@@ -1,16 +1,6 @@
 name: hm08-head-seed-v2
 
 on:
-  push:
-    paths:
-      - "tools/bootstrap_hm08_head_v2.py"
-      - "tools/bootstrap_hm08_head_v2_test.py"
-      - ".github/workflows/hm08-head-seed-v2.yml"
-  pull_request:
-    paths:
-      - "tools/bootstrap_hm08_head_v2.py"
-      - "tools/bootstrap_hm08_head_v2_test.py"
-      - ".github/workflows/hm08-head-seed-v2.yml"
   workflow_dispatch:
 
 permissions:
