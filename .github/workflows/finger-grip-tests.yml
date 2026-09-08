@@ -1,0 +1,37 @@
+name: finger-grip-tests
+
+on:
+  push:
+    paths:
+      - "native_hm08_finger_rig.py"
+      - "native_hm08_finger_rig_test.py"
+      - "native_hm08_rifle_contact_pose_v5.py"
+      - "native_hm08_rifle_contact_pose_v5_test.py"
+      - "seed_data/hm08_finger_landmarks_v0.1/**"
+      - ".github/workflows/finger-grip-tests.yml"
+  pull_request:
+    paths:
+      - "native_hm08_finger_rig.py"
+      - "native_hm08_finger_rig_test.py"
+      - "native_hm08_rifle_contact_pose_v5.py"
+      - "native_hm08_rifle_contact_pose_v5_test.py"
+      - "seed_data/hm08_finger_landmarks_v0.1/**"
+      - ".github/workflows/finger-grip-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  finger-grip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Source-grounded finger rig and skin
+        run: python native_hm08_finger_rig_test.py
+      - name: V5 rifle finger grip pose
+        run: python native_hm08_rifle_contact_pose_v5_test.py
