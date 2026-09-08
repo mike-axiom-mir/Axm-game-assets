@@ -1,0 +1,49 @@
+name: hm08-finger-grip-v2-tests
+
+on:
+  push:
+    paths:
+      - "seed_data/hm08_finger_landmarks_v0.1/**"
+      - "native_hm08_finger_rig.py"
+      - "native_hm08_finger_rig_test.py"
+      - "native_hm08_finger_grip_pose.py"
+      - "native_hm08_finger_grip_pose_v2.py"
+      - "native_hm08_finger_grip_pose_v2_test.py"
+      - "native_hm08_rifle_contact_pose_v4.py"
+      - "native_hm08_humanoid_rig.py"
+      - "native_hm08_humanoid_skin_v2.py"
+      - "native_attachment.py"
+      - "native_weapon_human_scale.py"
+      - ".github/workflows/hm08-finger-grip-v2-tests.yml"
+  pull_request:
+    paths:
+      - "seed_data/hm08_finger_landmarks_v0.1/**"
+      - "native_hm08_finger_rig.py"
+      - "native_hm08_finger_rig_test.py"
+      - "native_hm08_finger_grip_pose.py"
+      - "native_hm08_finger_grip_pose_v2.py"
+      - "native_hm08_finger_grip_pose_v2_test.py"
+      - "native_hm08_rifle_contact_pose_v4.py"
+      - "native_hm08_humanoid_rig.py"
+      - "native_hm08_humanoid_skin_v2.py"
+      - "native_attachment.py"
+      - "native_weapon_human_scale.py"
+      - ".github/workflows/hm08-finger-grip-v2-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  corrected-articulated-grip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Prove offline source-grounded finger substrate
+        run: python native_hm08_finger_rig_test.py
+      - name: Prove corrected articulated grip
+        run: python native_hm08_finger_grip_pose_v2_test.py
