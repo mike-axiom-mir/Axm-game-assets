@@ -17,16 +17,17 @@ from native_eye_material import IrisSpec, iris_fields, sclera_fields
 from native_geometry import Mesh, combine, scale, translate
 from native_hm08_face_proof import DEFAULT_WEIGHTS
 from native_hm08_skin_bake import write_hm08_semantic_skin
+from native_hm08_skin_physical import write_hm08_physical_skin
 from native_multi_gltf import MaterialPrimitive, write_multi_gltf
 from native_pbr import png_bytes
 from native_skin_material import SkinMaterialSpec, write_skin_material
 from native_targets import load_target, mix_targets
 from native_uv import UVMap, box_project, read_obj_uv, spherical_project, validate_uv
 
-SCHEMA = "axm.game-assets.hm08-face-eyes.v0.2"
+SCHEMA = "axm.game-assets.hm08-face-eyes.v0.3"
 SEED_ROOT = Path("seed_data/hm08_head_v0.2")
 RAW_TO_M = 0.1
-SKIN_MODES = {"generic", "semantic_v0.1"}
+SKIN_MODES = {"generic", "semantic_v0.1", "physical_v0.1"}
 
 
 def _sha(data: bytes) -> str:
@@ -156,6 +157,17 @@ def build_face_eyes_package(
         )
         asset_name = "sentinel_hm08_face_eyes_v0_2_semantic_skin"
         skin_material_name = "AXM_Sentinel_Skin_Semantic_v0_1"
+    elif skin_mode == "physical_v0.1":
+        skin = write_hm08_physical_skin(
+            root / "textures" / "skin",
+            mesh=raw_variant,
+            uvmap=head_uv,
+            size=texture_size,
+            seed=skin_seed,
+            spec=skin_spec,
+        )
+        asset_name = "sentinel_hm08_face_eyes_v0_3_physical_skin"
+        skin_material_name = "AXM_Sentinel_Skin_Physical_v0_1"
     else:
         skin = write_skin_material(root / "textures" / "skin", size=texture_size, seed=skin_seed, spec=skin_spec)
         asset_name = "sentinel_hm08_face_eyes_v0_1"
@@ -259,7 +271,8 @@ def build_face_eyes_package(
             "notes": [
                 "Eye centers/radius are source-grounded from pinned hm08 helper-eye geometry rather than fitted by visual guess.",
                 "Cornea uses standard alpha blending as a first clear-layer engine test; it does not yet model physical refraction.",
-                "The semantic skin option is geometry-grounded authored CG material state, not a human scan or aesthetic ranking.",
+                "Skin modes are retained as explicit experiments; promotion requires real engine A/B evidence rather than hash change alone.",
+                "The physical skin option evaluates authored microdetail in canonical 3D face space before UV rasterization to preserve surface scale.",
                 "Tearline/meniscus, lashes, eyelid wetness and expression-dependent eyelid contact remain later fidelity gates."
             ]
         },
