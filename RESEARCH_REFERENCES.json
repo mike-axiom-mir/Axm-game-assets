@@ -1,0 +1,33 @@
+{
+  "schema": "axm-research-references-v1",
+  "repository": "Axm-game-assets",
+  "policy": "Research/reference records may influence AXM architecture and independent implementation. They are not runtime dependencies and do not authorize importing code, model weights, assets or outputs. Promotion requires a separate exact license/source review.",
+  "entries": [
+    {
+      "id": "hunyuan3d-2.1",
+      "name": "Hunyuan3D 2.1",
+      "role": "architecture-and-mechanism-reference",
+      "artifact_use": "none",
+      "code_imported": false,
+      "weights_imported": false,
+      "outputs_imported": false,
+      "license_status": "restricted-for-EU-lane",
+      "promotion": "blocked-unless-separately-authorized",
+      "note": "Keep as research influence for the EU AXM lane; do not make it a required backend."
+    },
+    {
+      "id": "meshy",
+      "name": "Meshy",
+      "role": "pipeline-and-quality-reference",
+      "artifact_use": "none-required",
+      "promotion": "verify-before-any-integration"
+    },
+    {
+      "id": "metahuman-character-creator",
+      "name": "MetaHuman / Character Creator",
+      "role": "high-end-character-pipeline-reference",
+      "artifact_use": "none-required",
+      "promotion": "reference-only-unless-exact-terms-permit-a-bounded-optional-bridge"
+    }
+  ]
+}
