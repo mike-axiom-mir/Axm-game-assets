@@ -17,7 +17,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from native_hair_material import HairMaterialSpec, write_hair_material
+from native_hm08_brow_material import BrowMaterialSpec, write_brow_material
 from native_hm08_brows import generate_hm08_brows
 from native_hm08_face_eyes import RAW_TO_M, SEED_ROOT, _combine_with_uv, _translated_eye_layers, build_face_eyes_package
 from native_hm08_face_proof import DEFAULT_WEIGHTS
@@ -28,8 +28,8 @@ from native_targets import load_target, mix_targets
 from native_geometry import scale
 from native_uv import read_obj_uv, validate_uv
 
-SCHEMA = "axm.game-assets.hm08-face-current.v0.2"
-ASSET_NAME = "sentinel_hm08_face_current_v0_2"
+SCHEMA = "axm.game-assets.hm08-face-current.v0.3"
+ASSET_NAME = "sentinel_hm08_face_current_v0_3"
 
 
 def _sha(data: bytes) -> str:
@@ -54,8 +54,6 @@ def build_current_face_package(
     root = Path(output)
     root.mkdir(parents=True, exist_ok=True)
 
-    # Generate the currently preferred face/eye textures first. The current
-    # candidate then recompiles those exact files plus the brow layer.
     control = build_face_eyes_package(
         root,
         texture_size=texture_size,
@@ -92,9 +90,9 @@ def build_current_face_package(
         for layer in ("sclera", "iris", "pupil", "cornea")
     }
 
-    # Placement remains the proven continuous-surface brow v0.2 mechanism.
-    # These denser coverage parameters are *candidate* state only until the
-    # real Godot close views justify promoting them into the brow organ default.
+    # v0.2 proved that denser guide placement and BLEND are structurally valid,
+    # but the generic scalp-hair alpha map still rasterized as dots. Keep that
+    # exact geometry and change only the dedicated brow density field in v0.3.
     brow_candidate = {
         "guides_per_brow": 24,
         "guide_length_m": 0.0050,
@@ -110,14 +108,14 @@ def build_current_face_package(
         **brow_candidate,
     )
     brow_root = root / "textures" / "brows"
-    brow_spec = HairMaterialSpec(
+    brow_spec = BrowMaterialSpec(
         root_rgb=(29, 21, 18),
         tip_rgb=(43, 31, 25),
-        strand_count=8,
-        roughness=0.56,
-        alpha_cutoff_hint=0.18,
+        density=0.58,
+        roughness=0.58,
+        filament_contrast=0.18,
     )
-    brow_material = write_hair_material(brow_root, size=texture_size, seed=brow_seed, spec=brow_spec)
+    brow_material = write_brow_material(brow_root, size=texture_size, seed=brow_seed, spec=brow_spec)
     brow_flat_normal_sha = _write_flat_normal(brow_root / "normal.png", texture_size)
 
     primitives = [
@@ -167,25 +165,22 @@ def build_current_face_package(
         ),
         MaterialPrimitive(
             brows.cards, brows.uvmap,
-            "AXM_Sentinel_Brows_v0_2",
+            "AXM_Sentinel_Brows_v0_3_Density",
             "textures/brows/base_color_alpha.png",
             "textures/brows/normal.png",
             "textures/brows/orm.png",
             metallic_factor=0.0,
             roughness_factor=1.0,
             double_sided=True,
-            # Hard MASK produced dotted on/off subpixel coverage in the first
-            # 640 px Godot proof. BLEND preserves partial strand coverage while
-            # the denser overlapping card groom is under visual evaluation.
             alpha_mode="BLEND",
         ),
     ]
     delivery = write_multi_gltf(primitives, root, name=ASSET_NAME)
 
-    # Inspect glTF material truth rather than trusting our own requested spec.
     document = json.loads((root / delivery["gltf"]).read_text(encoding="utf-8"))
     brow_gltf_material = document["materials"][-1]
     skin_hashes = {name: control["skin"]["maps"][name]["sha256"] for name in ("base_color", "normal", "orm")}
+    coverage = brow_material["coverage_evidence"]
 
     acceptance = {
         "preferred_physical_skin_control_green": control["skin_mode"] == "physical_v0.1" and all(control["acceptance"].values()),
@@ -197,6 +192,7 @@ def build_current_face_package(
         "brow_surface_anchors_close": brows.evidence["max_root_surface_distance_m"] <= 0.00056,
         "brow_anchor_diversity": brows.evidence["unique_anchor_count"] >= 40,
         "brow_dense_candidate": brows.evidence["guide_count"] == 48 and brows.evidence["guides_per_brow"] == 24,
+        "brow_density_field_broad": coverage["mean_alpha"] > 0.20 and coverage["fraction_alpha_ge_0_10"] > 0.70 and coverage["fraction_alpha_ge_0_25"] > 0.45,
         "six_semantic_primitives": delivery["primitive_count"] == 6,
         "six_semantic_materials": delivery["material_count"] == 6,
         "brow_nonmetal": brow_gltf_material["pbrMetallicRoughness"]["metallicFactor"] == 0.0,
@@ -217,7 +213,7 @@ def build_current_face_package(
         "identity_target_mix": identity_state,
         "landmarks": landmark_packet(landmarks),
         "brow_candidate_parameters": brow_candidate,
-        "brow_render_strategy": "dense_overlapping_cards_with_alpha_blend",
+        "brow_render_strategy": "dense_overlapping_cards_with_soft_density_blend",
         "brows": brows.evidence,
         "brow_material": brow_material,
         "brow_flat_normal_sha256": brow_flat_normal_sha,
@@ -227,9 +223,9 @@ def build_current_face_package(
             "preferred_brow_claim": False,
             "high_end_character_claim": False,
             "notes": [
-                "Brow v0.2 candidate preserves the proven continuous-surface placement mechanism and changes only coverage/groom density plus alpha handling.",
-                "The first 32-guide MASK render read as dotted guide marks; this denser BLEND candidate explicitly targets that measured minification failure.",
-                "Source-grounded placement and technical validity do not imply aesthetic promotion; real Godot close views decide that.",
+                "Brow v0.3 preserves the source-grounded v0.2 geometry/placement and replaces only the sparse generic scalp-hair alpha field.",
+                "The dedicated density material keeps a broad soft alpha envelope with filament modulation so eyebrow cards can survive 640 px close-view minification.",
+                "Technical coverage gates do not imply aesthetic promotion; real Godot close views decide that.",
                 "This candidate assembler is expected to evolve with lashes, scalp hair and later neck/torso while source organs remain separate."
             ],
         },
