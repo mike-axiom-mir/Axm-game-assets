@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Static Godot-ready hm08 two-hand rifle contact proof package.
+"""Godot-ready two-hand rifle contact proof on the shared hm08 humanoid rig.
 
-This deliberately isolates arm/contact mechanics from rigid armor deformation.
-It compiles the posed canonical human substrate with a neutral diagnostic suit
-material plus the existing four semantic Sentinel rifle material groups. The
-rifle remains scale 1 and uses the exact world pose implied by the contact solve.
+The visual package isolates arm/contact mechanics from rigid armor deformation.
+It compiles the shared-rig posed human substrate with a neutral diagnostic suit
+plus the existing four semantic Sentinel rifle material groups. Wrist pivots
+stay anatomical; explicit palm sockets define contact; rifle scale remains 1.
 """
 from __future__ import annotations
 
@@ -15,15 +15,16 @@ from pathlib import Path
 from native_fabric_material import FabricSpec, write_fabric_material
 from native_geometry import Mesh, triangulate
 from native_hm08_extremity_gear import _load_identity_body
-from native_hm08_rifle_contact_pose import _add, _quat_rotate, build_hm08_rifle_contact_pose
+from native_hm08_rifle_contact_pose import _add, _quat_rotate
+from native_hm08_rifle_contact_pose_v2 import build_shared_rig_rifle_contact_pose
 from native_multi_gltf import MaterialPrimitive, write_multi_gltf
 from native_pbr import write_painted_metal
 from native_uv import box_project_world, validate_uv
 from native_weapon import sentinel_rifle, validate_weapon
 from native_weapon_multimat import DEFAULT_WORLD_UNITS_PER_TILE, GROUP_ORDER, _material_specs, semantic_material_groups
 
-SCHEMA = "axm.game-assets.hm08-rifle-contact-package.v0.1"
-ASSET_NAME = "sentinel_hm08_rifle_contact_v0_1"
+SCHEMA = "axm.game-assets.hm08-rifle-contact-package.v0.2"
+ASSET_NAME = "sentinel_hm08_rifle_contact_v0_2"
 
 
 def _sha(data: bytes) -> str:
@@ -49,7 +50,7 @@ def build_hm08_rifle_contact_package(
     root.mkdir(parents=True, exist_ok=True)
 
     body_m, _body_source_uv, identity_state = _load_identity_body()
-    posed_body, pose = build_hm08_rifle_contact_pose(body_m)
+    posed_body, pose = build_shared_rig_rifle_contact_pose(body_m)
     body_uv = box_project_world(posed_body, world_units_per_tile=0.18)
     body_uv_report = validate_uv(posed_body, body_uv)
     if body_uv_report["status"] != "pass":
@@ -82,7 +83,7 @@ def build_hm08_rifle_contact_package(
         MaterialPrimitive(
             posed_body,
             body_uv,
-            "Forge_ContactBody_Proposal",
+            "Forge_SharedRig_ContactBody_Proposal",
             "textures/contact_body/base_color.png",
             "textures/contact_body/normal.png",
             "textures/contact_body/orm.png",
@@ -100,7 +101,7 @@ def build_hm08_rifle_contact_package(
         uv_report = validate_uv(local_mesh, local_uv)
         if uv_report["status"] != "pass":
             raise ValueError(f"{group} contact rifle UV invalid: {uv_report}")
-        world_mesh = _transform_mesh(local_mesh, rotation, translation, name=f"contact_rifle_{group}")
+        world_mesh = _transform_mesh(local_mesh, rotation, translation, name=f"shared_rig_contact_rifle_{group}")
         texture_root = root / "textures" / "rifle" / group
         spec_record = specs[group]
         material = write_painted_metal(
@@ -130,16 +131,20 @@ def build_hm08_rifle_contact_package(
     delivery = write_multi_gltf(primitives, root, name=ASSET_NAME)
     expected_weapon_triangles = len(triangulate(rifle.mesh).faces)
     contact = pose["contact"]
-    hand_contact = pose["hand_centroid_contact"]
+    hand_visual = pose["hand_visual_contact"]
     acceptance = {
+        "shared_full_body_rig_used": pose["truth"]["uses_shared_full_body_rig"] is True and int(pose["shared_rig"]["joint_count"]) == 23,
+        "character_hand_sockets_explicit": pose["truth"]["character_hand_sockets_explicit"] is True,
         "contact_pose_exact_primary": float(contact["primary_position_error"]) < 1e-8,
         "contact_pose_exact_support": float(contact["support_position_error"]) < 1e-6,
         "contact_orientation_primary": float(contact["primary_orientation_error_deg"]) < 1e-5,
         "contact_orientation_support": float(contact["support_orientation_error_deg"]) < 1e-4,
-        "right_hand_region_on_joint": float(hand_contact["right"]["error_m"]) < 1e-6,
-        "left_hand_region_on_joint": float(hand_contact["left"]["error_m"]) < 1e-6,
+        "right_hand_surface_near_socket": float(hand_visual["right"]["centroid_to_socket_error_m"]) < 0.060,
+        "left_hand_surface_near_socket": float(hand_visual["left"]["centroid_to_socket_error_m"]) < 0.060,
         "rifle_not_scaled": pose["weapon"]["scale"] == [1.0,1.0,1.0],
-        "non_arm_body_unchanged": float(pose["non_arm_max_displacement_m"]) < 1e-10,
+        "stationary_weight_regions_unchanged": float(pose["stationary_weight_region_max_displacement_m"]) < 1e-9,
+        "head_unchanged": float(pose["head_max_displacement_m"]) < 1e-9,
+        "lower_body_unchanged": float(pose["lower_body_max_displacement_m"]) < 1e-9,
         "diagnostic_body_uv_valid": body_uv_report["status"] == "pass",
         "five_semantic_primitives": int(delivery["primitive_count"]) == 5,
         "five_semantic_materials": int(delivery["material_count"]) == 5,
@@ -151,8 +156,8 @@ def build_hm08_rifle_contact_package(
     manifest: dict[str, object] = {
         "schema": SCHEMA,
         "asset": ASSET_NAME,
-        "candidate_role": "two_hand_rifle_contact_visual_proof",
-        "changed_variable": "arm_contact_pose_plus_real_rifle",
+        "candidate_role": "shared_rig_two_hand_rifle_contact_visual_proof",
+        "changed_variable": "shared_humanoid_rig_contact_pose_plus_real_rifle",
         "identity_target_state": identity_state,
         "pose": pose,
         "body_diagnostic_material": body_material,
@@ -172,12 +177,14 @@ def build_hm08_rifle_contact_package(
             "production_rig_claim": False,
             "production_skinning_claim": False,
             "rigid_armor_contact_claim": False,
+            "temporary_arm_only_skeleton_used": False,
             "automatic_visual_promotion": False,
             "notes": [
-                "This package isolates the new two-hand contact mechanism. Current rigid armor is omitted because it has not yet been bound to the contact arm chains.",
-                "The body material is a diagnostic neutral suit, not a replacement for Sentinel's real layered undersuit/armor materials.",
-                "The rifle uses the existing canonical Sentinel rifle geometry, four semantic material groups and real grip sockets at scale 1.0.",
-                "Godot close views must still reject broken elbows, wrist twists, torso intersections or visually floating grips even when deterministic contact distances pass."
+                "This package now uses the shared body-derived 23-joint humanoid rig and explicit character palm sockets; the temporary arm-only contact skeleton is no longer the integration direction.",
+                "Rigid armor remains omitted from this first shared-rig contact visual because its current static limb plates are not yet bound to the posed arm chains.",
+                "The body material is diagnostic neutral fabric, not Sentinel's real layered undersuit/armor delivery.",
+                "The rifle uses canonical Forge geometry, four semantic material groups and real primary/support grip sockets at scale 1.0.",
+                "Godot close views must still reject broken elbows, shoulders, wrist twists, torso intersections or visibly floating palms even when socket-space contact passes."
             ],
         },
     }
