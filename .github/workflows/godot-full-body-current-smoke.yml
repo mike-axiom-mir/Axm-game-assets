@@ -116,7 +116,8 @@ jobs:
           from pathlib import Path
           receipt = json.loads(Path("engine/godot_face/godot-full-body-views-receipt.json").read_text())
           assert receipt["status"] == "pass", receipt
-          assert receipt["schema"] == "axm.game-assets.godot-full-body-views.v0.1"
+          assert receipt["schema"] == "axm.game-assets.godot-full-body-views.v0.2"
+          assert receipt["foreground_gate"]["delta_threshold"] == 0.01
           assert [v["name"] for v in receipt["views"]] == ["front", "three_quarter", "profile"]
           for view in receipt["views"]:
               metrics = view["metrics"]
@@ -146,8 +147,9 @@ jobs:
               "head_identity_overlap":package["head_identity_overlap"],
               "upper_body_identity_overlap":package["upper_body_identity_overlap"],
               "undersuit":{"surface_coverage_fraction":package["undersuit"]["surface_coverage_fraction"],"offset_m":package["undersuit"]["offset_m"]},
+              "foreground_gate":receipt["foreground_gate"],
               "views":[],
-              "truth":"Godot proves exact import/render/capture facts for the fitted undersuit over the complete closed human substrate. It does not promote tailoring, armor, rigging or final Sentinel quality."
+              "truth":"Godot proves exact import/render/capture facts for the fitted undersuit over the complete closed human substrate. Dark-garment foreground sensitivity is recorded separately from unchanged silhouette-size and exposure gates. It does not promote tailoring, armor, rigging or final Sentinel quality."
           }
           for view in receipt["views"]:
               name=view["name"]
@@ -158,7 +160,7 @@ jobs:
                   asset_digest=package["delivery"]["gltf_sha256"],
                   engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},
                   camera=view["camera"],
-                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"sentinel_clothed_body_v0.2","lighting":receipt["lighting"]},
+                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"sentinel_clothed_body_v0.2","lighting":receipt["lighting"],"foreground_gate":receipt["foreground_gate"]},
                   metrics={"foreground_coverage":metrics["foreground_coverage"],"foreground_luma_mean":metrics["foreground_luma_mean"],"near_white_foreground_fraction":metrics["near_white_foreground_fraction"],"luma_min":metrics["luma_min"],"luma_max":metrics["luma_max"],"luma_mean":metrics["luma_mean"],"luma_range":metrics["luma_range"]},
                   source_receipts=[source_digest],
               )
