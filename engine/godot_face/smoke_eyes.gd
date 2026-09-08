@@ -2,6 +2,7 @@ extends SceneTree
 
 const ASSET_PATH: String = "res://generated/sentinel_hm08_face_candidate_v0_1.gltf"
 const RECEIPT_PATH: String = "res://godot-face-eyes-import-receipt.json"
+const MIN_LAYERED_SURFACES: int = 5
 
 func write_receipt(receipt: Dictionary) -> void:
     var file: FileAccess = FileAccess.open(RECEIPT_PATH, FileAccess.WRITE)
@@ -25,17 +26,18 @@ func collect_meshes(node: Node, out: Array[MeshInstance3D]) -> void:
 
 func _initialize() -> void:
     var receipt: Dictionary = {
-        "schema": "axm.game-assets.godot-face-eyes-import.v0.1",
+        "schema": "axm.game-assets.godot-layered-face-import.v0.2",
         "asset": ASSET_PATH,
-        "truth": "Real Godot import evidence for the layered hm08 face+eyes A/B candidate. It validates structure/material presence, not eye fit or beauty."
+        "minimum_layered_surfaces": MIN_LAYERED_SURFACES,
+        "truth": "Real Godot import evidence for layered hm08 face candidates. This smoke test validates a minimum face+eye substrate and requires every imported surface to carry a material; candidate-specific workflows assert their exact additional layer count. It does not grade fit or beauty."
     }
     if not FileAccess.file_exists(ASSET_PATH):
-        fail("Face+eyes glTF does not exist", receipt)
+        fail("Layered face glTF does not exist", receipt)
         return
 
     var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(ASSET_PATH))
     if not (parsed is Dictionary):
-        fail("Face+eyes glTF is not readable JSON", receipt)
+        fail("Layered face glTF is not readable JSON", receipt)
         return
     var gltf: Dictionary = parsed as Dictionary
     var image_uris: Array[String] = []
@@ -46,10 +48,10 @@ func _initialize() -> void:
                 image_uris.append(uri)
     for uri: String in image_uris:
         if uri.contains("://"):
-            fail("Face+eyes evidence forbids remote image URI", receipt)
+            fail("Layered face evidence forbids remote image URI", receipt)
             return
         if not FileAccess.file_exists(ASSET_PATH.get_base_dir().path_join(uri)):
-            fail("Missing face+eyes texture: %s" % uri, receipt)
+            fail("Missing layered face texture: %s" % uri, receipt)
             return
     receipt["declared_external_images"] = image_uris
 
@@ -58,11 +60,11 @@ func _initialize() -> void:
     var error: int = document.append_from_file(ASSET_PATH, state)
     receipt["append_from_file_error"] = error
     if error != OK:
-        fail("Godot rejected face+eyes glTF", receipt)
+        fail("Godot rejected layered face glTF", receipt)
         return
     var instance: Node = document.generate_scene(state)
     if instance == null:
-        fail("Godot generated no face+eyes scene", receipt)
+        fail("Godot generated no layered face scene", receipt)
         return
 
     var mesh_nodes: Array[MeshInstance3D] = []
@@ -90,11 +92,11 @@ func _initialize() -> void:
     receipt["material_surfaces"] = material_surfaces
     receipt["material_classes"] = material_classes
     receipt["godot_version"] = Engine.get_version_info()
-    if mesh_nodes.is_empty() or surfaces != 5 or material_surfaces != 5 or vertices <= 0 or indices <= 0:
-        fail("Layered face+eyes scene failed expected five-surface structure", receipt)
+    if mesh_nodes.is_empty() or surfaces < MIN_LAYERED_SURFACES or material_surfaces != surfaces or vertices <= 0 or indices <= 0:
+        fail("Layered face scene failed minimum/material-complete structure", receipt)
         return
     receipt["status"] = "pass"
     write_receipt(receipt)
-    print("AXM GODOT FACE EYES IMPORT PASS ", JSON.stringify(receipt))
+    print("AXM GODOT LAYERED FACE IMPORT PASS ", JSON.stringify(receipt))
     instance.free()
     quit(0)
