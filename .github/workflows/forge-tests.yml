@@ -18,6 +18,8 @@ jobs:
         run: python native_asset_edit_test.py
       - name: Asset edit example surfaces test
         run: python native_asset_edit_examples_test.py
+      - name: HM08 player edit bridge test
+        run: python native_hm08_player_edit_test.py
       - name: Native geometry test
         run: python native_geometry_test.py
       - name: Native orientation test
