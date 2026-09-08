@@ -1,0 +1,168 @@
+name: hm08-finger-landmarks
+
+on:
+  push:
+    paths:
+      - "tools/bootstrap_hm08_finger_landmarks.py"
+      - "tools/bootstrap_hm08_finger_landmarks_test.py"
+      - ".github/workflows/hm08-finger-landmarks.yml"
+  pull_request:
+    paths:
+      - "tools/bootstrap_hm08_finger_landmarks.py"
+      - "tools/bootstrap_hm08_finger_landmarks_test.py"
+      - ".github/workflows/hm08-finger-landmarks.yml"
+  workflow_dispatch:
+
+# Temporary one-shot promotion authority. Returned to read-only/manual after
+# the audited landmark packet is pinned to this branch.
+permissions:
+  contents: write
+
+jobs:
+  derive-finger-landmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Unit-test finger landmark extractor
+        run: python tools/bootstrap_hm08_finger_landmarks_test.py
+
+      - name: Download pinned CC0 hm08 mesh and rig data
+        env:
+          MH_REV: a8bc2d54ff0ac92e78ff71431b1023eda42bf482
+        run: |
+          set -euo pipefail
+          rm -rf build/hm08-finger-source build/hm08-finger-landmarks
+          mkdir -p build/hm08-finger-source build/hm08-finger-landmarks
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/makehumancommunity/makehuman/${MH_REV}/makehuman/data/3dobjs/base.obj" \
+            -o build/hm08-finger-source/base.obj
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/makehumancommunity/makehuman/${MH_REV}/makehuman/data/rigs/default.mhskel" \
+            -o build/hm08-finger-source/default.mhskel
+          test "$(git hash-object build/hm08-finger-source/base.obj)" = "d26635e9326e3cca30778fd7b9c00062b03cce09"
+          test "$(git hash-object build/hm08-finger-source/default.mhskel)" = "b02cbecae00143856410d7561adf006d83bf9b3e"
+
+      - name: Derive source-indexed finger packet
+        env:
+          MH_REV: a8bc2d54ff0ac92e78ff71431b1023eda42bf482
+        run: |
+          python tools/bootstrap_hm08_finger_landmarks.py \
+            --base-obj build/hm08-finger-source/base.obj \
+            --rig-json build/hm08-finger-source/default.mhskel \
+            --output build/hm08-finger-landmarks/finger-landmarks.json \
+            --makehuman-revision "$MH_REV" \
+            --base-blob-sha1 d26635e9326e3cca30778fd7b9c00062b03cce09 \
+            --rig-blob-sha1 b02cbecae00143856410d7561adf006d83bf9b3e \
+            --expected-bones 30
+
+      - name: Audit helper landmarks against pinned visible body
+        run: |
+          python - <<'PY'
+          import json, math
+          from pathlib import Path
+          from native_uv import read_obj_uv
+
+          packet = json.loads(Path("build/hm08-finger-landmarks/finger-landmarks.json").read_text())
+          assert all(packet["acceptance"].values()), packet["acceptance"]
+          assert packet["finger_bone_count"] == 30
+          assert packet["side_counts"] == {"L": 15, "R": 15}
+          assert packet["source"]["base_obj_git_blob_sha1"] == "d26635e9326e3cca30778fd7b9c00062b03cce09"
+          assert packet["source"]["default_mhskel_git_blob_sha1"] == "b02cbecae00143856410d7561adf006d83bf9b3e"
+
+          source_map = json.loads(Path("seed_data/hm08_full_body_v0.1/source-index-map.json").read_text())
+          body_source_indices = {int(k) for k in source_map["source_to_compact"]}
+          body, _uv = read_obj_uv(Path("seed_data/hm08_full_body_v0.1/body.obj"), name="hm08_full_body_v0_1")
+
+          # default.mhskel joint groups intentionally reference bundled helper
+          # geometry rather than visible body vertices. Preserve that source
+          # truth and reconcile the resulting joint positions spatially.
+          helper_indices = {
+              int(index)
+              for row in packet["bones"]
+              for kind in ("head", "tail")
+              for index in row[f"{kind}_source_indices"]
+          }
+          overlap_with_visible_body = sorted(helper_indices & body_source_indices)
+          assert not overlap_with_visible_body, overlap_with_visible_body[:20]
+          assert packet["source_index_range"][0] > max(body_source_indices)
+
+          distances = []
+          side_rows = {(row["side"], row["digit"], row["segment"]): row for row in packet["bones"]}
+          for row in packet["bones"]:
+              for kind in ("head", "tail"):
+                  point = tuple(float(v) for v in row[f"{kind}_raw"])
+                  nearest = min(
+                      math.sqrt(sum((point[axis]-vertex[axis])**2 for axis in range(3)))
+                      for vertex in body.vertices
+                  )
+                  distances.append(nearest)
+
+          # Mirrored rig data should remain anatomically paired even though
+          # exact mesh asymmetry is allowed. X mirrors; Y/Z should stay close.
+          mirror_errors = []
+          for digit in range(1, 6):
+              for segment in range(1, 4):
+                  left = side_rows[("L", digit, segment)]
+                  right = side_rows[("R", digit, segment)]
+                  for kind in ("head_raw", "tail_raw"):
+                      l = [float(v) for v in left[kind]]
+                      r = [float(v) for v in right[kind]]
+                      mirror_errors.append(math.sqrt((l[0]+r[0])**2 + (l[1]-r[1])**2 + (l[2]-r[2])**2))
+
+          max_distance = max(distances)
+          mean_distance = sum(distances) / len(distances)
+          max_mirror_error = max(mirror_errors)
+          assert max_distance <= 0.30, max_distance
+          assert max_mirror_error <= 0.06, max_mirror_error
+
+          audit = {
+              "schema": "axm.game-assets.hm08-finger-landmarks-audit.v0.2",
+              "finger_bones": packet["finger_bone_count"],
+              "helper_source_vertex_count": len(helper_indices),
+              "helper_source_indices_outside_visible_body": True,
+              "helper_source_index_range": packet["source_index_range"],
+              "nearest_visible_body_distance_raw": {
+                  "mean": mean_distance,
+                  "max": max_distance,
+                  "max_m": max_distance * 0.1,
+              },
+              "mirror_pair_max_error_raw": max_mirror_error,
+              "length_m_range": packet["length_m_range"],
+              "truth": "Pinned default.mhskel finger joints are helper-geometry landmarks, not visible-body vertex identities. Their derived positions are spatially reconciled to the pinned visible body; this still does not claim finger skeleton or skinning quality."
+          }
+          Path("build/hm08-finger-landmarks/audit-summary.json").write_text(json.dumps(audit, indent=2, sort_keys=True)+"\n")
+          print("REAL HM08 FINGER LANDMARKS PASS", audit)
+          PY
+
+      - name: Preserve finger landmark evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: hm08-finger-landmarks
+          if-no-files-found: error
+          path: |
+            build/hm08-finger-landmarks/finger-landmarks.json
+            build/hm08-finger-landmarks/audit-summary.json
+
+      - name: One-shot promote audited landmark packet
+        if: github.event_name == 'push' && github.ref == 'refs/heads/forge/chat-2026-09-08-sentinel-fidelity'
+        run: |
+          set -euo pipefail
+          dest="seed_data/hm08_finger_landmarks_v0.1"
+          rm -rf "$dest"
+          mkdir -p "$dest"
+          cp build/hm08-finger-landmarks/finger-landmarks.json "$dest/finger-landmarks.json"
+          cp build/hm08-finger-landmarks/audit-summary.json "$dest/audit-summary.json"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$dest"
+          if git diff --cached --quiet; then
+            echo "Finger landmark packet already pinned."
+            exit 0
+          fi
+          git commit -m "data: pin audited hm08 finger landmarks"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
