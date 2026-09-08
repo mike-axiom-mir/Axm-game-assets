@@ -73,17 +73,19 @@ def select_hm08_scalp_candidates(
     eye_z = sum(float(eye_metadata["eyes"][side]["center_m"][2]) for side in ("left", "right")) * 0.5
     half_width = max(abs(lo[0]), abs(hi[0]), 1e-9)
 
-    # The first v0.2 native gate proved the strictest mask had only 202 unique
-    # roots. Broaden only legitimate upper-temple/back zones while remaining
-    # substantially tighter than v0.1's ear/forehead-leaking mask.
+    # Keep the already-repaired forehead/temple mask fixed. The previous
+    # 271-root failure came from an overly narrow posterior field, so expand
+    # only the back-of-skull region. It stays behind the eye plane and below
+    # the crown, avoiding the v0.1 ear/forehead leak while preserving the
+    # 320-unique-root density target.
     crown_y = eye_y + 0.042
     side_y = eye_y + 0.010
-    back_y = eye_y - 0.010
+    back_y = eye_y - 0.018
     side_z_max = eye_z - 0.004
-    back_z_max = eye_z - 0.038
+    back_z_max = eye_z - 0.028
     crown_lateral_limit = half_width * 0.89
     side_lateral_limit = half_width * 0.74
-    back_lateral_limit = half_width * 0.68
+    back_lateral_limit = half_width * 0.84
 
     crown: list[int] = []
     side: list[int] = []
@@ -263,11 +265,11 @@ def generate_hm08_short_scalp_hair(
             "source_grounded": True,
             "root_basis": "tightened canonical hm08 cranial cap + pinned eye plane",
             "v0_1_visual_repair": "tighten_temples_and_lay_guides_along_scalp_flow",
-            "native_gate_repair": "strict mask had 202 roots; modest legitimate-zone expansion keeps 320-root target without root reuse",
+            "native_gate_repair": "posterior-only scalp expansion preserves the 320-root target without reopening the rejected forehead/ear mask",
             "preferred_scalp_hair_claim": False,
             "notes": [
                 "v0.1 rendered as sparse masked scratches with temple/ear leakage and random tails; v0.2 narrows roots and replaces random free flow with crown/side/back scalp directions.",
-                "The first v0.2 native gate intentionally failed at 202 roots rather than reusing anchors. This revision modestly broadens valid scalp zones while preserving the 320 unique-root target.",
+                "The current repair expands only the posterior scalp field after CI proved the earlier v0.2 mask had 271 safe unique roots for a 320-root target.",
                 "Hairline, coverage and final groom quality remain real Godot visual gates."
             ],
         },
