@@ -1,0 +1,24 @@
+{
+  "schema": "axm-third-party-v1",
+  "repository": "Axm-game-assets",
+  "project_license": "Apache-2.0",
+  "audit": {
+    "status": "baseline",
+    "complete": false,
+    "note": "Imported assets/data and optional tools/models are tracked separately from research-only references. Absence of an entry is not proof of no third-party material."
+  },
+  "entries": [
+    {
+      "id": "makehuman-hm08-seed",
+      "kind": "asset-data",
+      "role": "optional-human-seed-topology-and-target-data",
+      "source": "MakeHuman hm08 assets as pinned by repository research/seed manifest",
+      "license": "CC0-1.0",
+      "license_verified": true,
+      "code_imported": false,
+      "canonical_state_owner": "AXM after explicit import",
+      "provenance_required": true
+    }
+  ],
+  "research_only_policy": "Restricted, proprietary, research-only, or unclear systems may influence architecture/mechanism research but their code, weights, assets or outputs are not promoted unless the exact license permits the intended use and jurisdiction."
+}
