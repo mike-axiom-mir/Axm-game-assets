@@ -150,7 +150,11 @@ def build_hm08_extremity_gear(
         x_center = (x_min + x_max) * 0.5
         z_center = (z_min + z_max) * 0.5 + 0.006
         sole_height = 0.026
-        sole = make_chamfered_box(width, sole_height, depth, min(0.018, width * 0.16), name=f"{side}_boot_sole")
+        # Sole thickness is the smallest chamfered-box dimension. Keep the
+        # corner radius well below half that thickness instead of deriving it
+        # from foot width, which made the first real-body gate reject the mesh.
+        sole_chamfer = min(0.008, sole_height * 0.30, width * 0.08)
+        sole = make_chamfered_box(width, sole_height, depth, sole_chamfer, name=f"{side}_boot_sole")
         sole = place(sole, x=x_center, y=lo[1] - sole_height * 0.34, z=z_center, name=f"{side}_boot_sole")
         sole_parts.append(sole)
         side_reports[side] = {
@@ -159,6 +163,7 @@ def build_hm08_extremity_gear(
             "width_m": width,
             "depth_m": depth,
             "height_m": sole_height,
+            "chamfer_m": sole_chamfer,
         }
 
     soles = combine(sole_parts, name="sentinel_boot_soles_v0_1")
