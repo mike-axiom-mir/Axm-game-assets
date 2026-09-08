@@ -146,25 +146,25 @@ func _initialize() -> void:
     environment.background_color = CLEAR_COLOR
     environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     environment.ambient_light_color = Color(0.50, 0.52, 0.57, 1.0)
-    environment.ambient_light_energy = 0.48
+    environment.ambient_light_energy = 0.28
     var world_environment: WorldEnvironment = WorldEnvironment.new()
     world_environment.environment = environment
     scene_root.add_child(world_environment)
 
     var key: DirectionalLight3D = DirectionalLight3D.new()
-    key.light_energy = 0.78
+    key.light_energy = 0.52
     key.rotation_degrees = Vector3(-34.0, -28.0, 0.0)
     key.shadow_enabled = true
     scene_root.add_child(key)
     var fill: OmniLight3D = OmniLight3D.new()
     fill.position = center + Vector3(-1.0, 0.45, 1.0).normalized()*radius*2.1
     fill.omni_range = radius*5.0
-    fill.light_energy = 0.66
+    fill.light_energy = 0.36
     scene_root.add_child(fill)
     var rim: OmniLight3D = OmniLight3D.new()
     rim.position = center + Vector3(1.1, 0.4, -0.8).normalized()*radius*2.2
     rim.omni_range = radius*5.0
-    rim.light_energy = 0.58
+    rim.light_energy = 0.30
     scene_root.add_child(rim)
     receipt["lighting"] = {
         "ambient_energy":environment.ambient_light_energy,
