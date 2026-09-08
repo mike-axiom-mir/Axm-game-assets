@@ -1,0 +1,21 @@
+{
+  "finger_bones": 30,
+  "helper_source_index_range": [
+    13854,
+    14453
+  ],
+  "helper_source_indices_outside_visible_body": true,
+  "helper_source_vertex_count": 320,
+  "length_m_range": [
+    0.014203462495990202,
+    0.03592445743762179
+  ],
+  "mirror_pair_max_error_raw": 0.0,
+  "nearest_visible_body_distance_raw": {
+    "max": 0.14656863846420248,
+    "max_m": 0.014656863846420249,
+    "mean": 0.06625842950709011
+  },
+  "schema": "axm.game-assets.hm08-finger-landmarks-audit.v0.2",
+  "truth": "Pinned default.mhskel finger joints are helper-geometry landmarks, not visible-body vertex identities. Their derived positions are spatially reconciled to the pinned visible body; this still does not claim finger skeleton or skinning quality."
+}
