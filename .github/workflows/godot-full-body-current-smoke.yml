@@ -6,6 +6,9 @@ on:
       - "native_hm08_full_body_current.py"
       - "native_hm08_full_body_current_test.py"
       - "native_hm08_full_body_seed_test.py"
+      - "native_hm08_undersuit.py"
+      - "native_hm08_undersuit_test.py"
+      - "native_fabric_material.py"
       - "seed_data/hm08_full_body_v0.1/**"
       - "engine/godot_face/render_full_body_views.gd"
       - ".github/workflows/godot-full-body-current-smoke.yml"
@@ -14,6 +17,9 @@ on:
       - "native_hm08_full_body_current.py"
       - "native_hm08_full_body_current_test.py"
       - "native_hm08_full_body_seed_test.py"
+      - "native_hm08_undersuit.py"
+      - "native_hm08_undersuit_test.py"
+      - "native_fabric_material.py"
       - "seed_data/hm08_full_body_v0.1/**"
       - "engine/godot_face/render_full_body_views.gd"
       - ".github/workflows/godot-full-body-current-smoke.yml"
@@ -32,29 +38,32 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Build complete Sentinel human body
+      - name: Build clothed Sentinel body candidate
         run: |
           rm -rf engine/godot_face/generated
           python native_hm08_full_body_seed_test.py
+          python native_hm08_undersuit_test.py
           python native_hm08_full_body_current_test.py
           python - <<'PY'
           from native_hm08_full_body_current import build_current_full_body_package
           package = build_current_full_body_package("engine/godot_face/generated", texture_size=128)
           assert all(package["acceptance"].values()), package["acceptance"]
-          assert package["schema"] == "axm.game-assets.hm08-full-body-current.v0.1"
-          assert package["candidate_role"] == "complete_human_body_candidate"
+          assert package["schema"] == "axm.game-assets.hm08-full-body-current.v0.2"
+          assert package["candidate_role"] == "sentinel_clothed_body_candidate"
           assert package["head_identity_overlap"]["compared_vertices"] == 4197
           assert package["head_identity_overlap"]["max_error_raw"] <= 1e-12
           assert package["upper_body_identity_overlap"]["compared_vertices"] == 10185
           assert package["upper_body_identity_overlap"]["max_error_raw"] <= 1e-12
           assert package["full_seed"]["source_vertices"] == 13380
           assert package["full_seed"]["source_faces"] == 13378
-          assert package["delivery"]["primitive_count"] == 9
-          assert package["delivery"]["material_count"] == 9
-          print("CURRENT FULL BODY BUILD PASS", package["head_identity_overlap"], package["upper_body_identity_overlap"], package["delivery"])
+          assert package["undersuit"]["surface_coverage_fraction"] > 0.70
+          assert package["delivery"]["primitive_count"] == 10
+          assert package["delivery"]["material_count"] == 10
+          assert package["delivery"]["material_names"][1] == "AXM_Sentinel_Graphite_Undersuit_v0_1"
+          print("CLOTHED SENTINEL BODY BUILD PASS", package["head_identity_overlap"], package["upper_body_identity_overlap"], package["undersuit"], package["delivery"])
           PY
           cp \
-            engine/godot_face/generated/sentinel_hm08_full_body_current_v0_1.gltf \
+            engine/godot_face/generated/sentinel_hm08_full_body_current_v0_2.gltf \
             engine/godot_face/generated/sentinel_hm08_face_candidate_v0_1.gltf
 
       - name: Download pinned Godot 4.7.2
@@ -69,7 +78,7 @@ jobs:
           chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
           .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
 
-      - name: Parse complete human body in Godot
+      - name: Parse clothed Sentinel body in Godot
         run: |
           rm -f engine/godot_face/godot-face-eyes-import-receipt.json
           .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
@@ -81,15 +90,15 @@ jobs:
           from pathlib import Path
           receipt = json.loads(Path("engine/godot_face/godot-face-eyes-import-receipt.json").read_text())
           assert receipt["status"] == "pass", receipt
-          assert receipt["surfaces"] == 9, receipt
-          assert receipt["material_surfaces"] == 9, receipt
-          assert len(receipt["declared_external_images"]) == 27, receipt
-          assert receipt["vertices"] > 45000, receipt
-          assert receipt["indices"] > 45000, receipt
-          print("FULL BODY GODOT IMPORT PASS", receipt)
+          assert receipt["surfaces"] == 10, receipt
+          assert receipt["material_surfaces"] == 10, receipt
+          assert len(receipt["declared_external_images"]) == 30, receipt
+          assert receipt["vertices"] > 60000, receipt
+          assert receipt["indices"] > 60000, receipt
+          print("CLOTHED SENTINEL GODOT IMPORT PASS", receipt)
           PY
 
-      - name: Render complete human-body views
+      - name: Render clothed Sentinel views
         run: |
           rm -f engine/godot_face/godot-full-body-views-receipt.json engine/godot_face/godot-full-body-front.png engine/godot_face/godot-full-body-three_quarter.png engine/godot_face/godot-full-body-profile.png
           if ! command -v xvfb-run >/dev/null 2>&1; then
@@ -113,10 +122,10 @@ jobs:
               metrics = view["metrics"]
               assert metrics["foreground_coverage"] >= view["minimum_foreground_coverage"]
               assert metrics["near_white_foreground_fraction"] <= view["maximum_near_white_foreground_fraction"]
-          print("FULL BODY VIEWS PASS", [(v["name"],v["metrics"]["foreground_coverage"],v["metrics"]["near_white_foreground_fraction"]) for v in receipt["views"]])
+          print("CLOTHED SENTINEL VIEWS PASS", [(v["name"],v["metrics"]["foreground_coverage"],v["metrics"]["near_white_foreground_fraction"]) for v in receipt["views"]])
           PY
 
-      - name: Bind complete-body captures to evidence packets
+      - name: Bind clothed-character captures to evidence packets
         env:
           GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
         run: |
@@ -130,14 +139,15 @@ jobs:
           package = json.loads(package_path.read_text())
           source_digest = "sha256:" + hashlib.sha256(package_path.read_bytes()).hexdigest()
           bundle = {
-              "schema":"axm.game-assets.godot-full-body-viewset.v0.1",
+              "schema":"axm.game-assets.godot-clothed-body-viewset.v0.2",
               "authority":"deterministic_capture_evidence_only",
               "asset_digest":package["delivery"]["gltf_sha256"],
               "candidate_role":package["candidate_role"],
               "head_identity_overlap":package["head_identity_overlap"],
               "upper_body_identity_overlap":package["upper_body_identity_overlap"],
+              "undersuit":{"surface_coverage_fraction":package["undersuit"]["surface_coverage_fraction"],"offset_m":package["undersuit"]["offset_m"]},
               "views":[],
-              "truth":"Godot proves exact import/render/capture facts for the complete closed human substrate. It does not promote neutral source anatomy, body skin, hair, rigging, armor or final Sentinel quality."
+              "truth":"Godot proves exact import/render/capture facts for the fitted undersuit over the complete closed human substrate. It does not promote tailoring, armor, rigging or final Sentinel quality."
           }
           for view in receipt["views"]:
               name=view["name"]
@@ -148,7 +158,7 @@ jobs:
                   asset_digest=package["delivery"]["gltf_sha256"],
                   engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},
                   camera=view["camera"],
-                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"complete_human_body_v0.1","lighting":receipt["lighting"]},
+                  render_settings={"renderer":"gl_compatibility","view_name":name,"world_bounds":receipt["world_bounds"],"layer":"sentinel_clothed_body_v0.2","lighting":receipt["lighting"]},
                   metrics={"foreground_coverage":metrics["foreground_coverage"],"foreground_luma_mean":metrics["foreground_luma_mean"],"near_white_foreground_fraction":metrics["near_white_foreground_fraction"],"luma_min":metrics["luma_min"],"luma_max":metrics["luma_max"],"luma_mean":metrics["luma_mean"],"luma_range":metrics["luma_range"]},
                   source_receipts=[source_digest],
               )
@@ -156,10 +166,10 @@ jobs:
               write_capture_packet(root/f"visual-capture-full-body-{name}.json",packet)
               bundle["views"].append({"name":name,"capture_digest":packet["capture_digest"],"image_sha256":packet["image"]["sha256"]})
           (root/"visual-capture-full-body-viewset.json").write_text(json.dumps(bundle,indent=2,sort_keys=True)+"\n")
-          print("FULL BODY CAPTURE PASS",bundle)
+          print("CLOTHED SENTINEL CAPTURE PASS",bundle)
           PY
 
-      - name: Preserve complete human-body evidence
+      - name: Preserve clothed Sentinel evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -173,9 +183,10 @@ jobs:
             engine/godot_face/godot-full-body-profile.png
             engine/godot_face/visual-capture-full-body-*.json
             engine/godot_face/generated/full-body-package.json
-            engine/godot_face/generated/sentinel_hm08_full_body_current_v0_1.gltf
-            engine/godot_face/generated/sentinel_hm08_full_body_current_v0_1.bin
+            engine/godot_face/generated/sentinel_hm08_full_body_current_v0_2.gltf
+            engine/godot_face/generated/sentinel_hm08_full_body_current_v0_2.bin
             engine/godot_face/generated/textures/skin/*
+            engine/godot_face/generated/textures/undersuit/*
             engine/godot_face/generated/textures/eyes/*
             engine/godot_face/generated/textures/brows/*
             engine/godot_face/generated/textures/lashes/*
