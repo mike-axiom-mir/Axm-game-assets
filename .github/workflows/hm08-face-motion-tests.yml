@@ -5,11 +5,17 @@ on:
     paths:
       - "native_hm08_face_motion.py"
       - "native_hm08_face_motion_test.py"
+      - "native_hm08_face_motion_gltf.py"
+      - "native_hm08_face_motion_gltf_test.py"
       - "native_facial.py"
+      - "native_facial_gltf.py"
+      - "native_character_gltf.py"
       - "native_hm08_face_eyes.py"
       - "native_hm08_face_proof.py"
       - "native_hm08_landmarks.py"
+      - "native_hm08_skin_physical.py"
       - "native_morph.py"
+      - "native_skin.py"
       - "native_target_authoring.py"
       - "native_targets.py"
       - "seed_data/hm08_head_v0.2/**"
@@ -19,11 +25,17 @@ on:
     paths:
       - "native_hm08_face_motion.py"
       - "native_hm08_face_motion_test.py"
+      - "native_hm08_face_motion_gltf.py"
+      - "native_hm08_face_motion_gltf_test.py"
       - "native_facial.py"
+      - "native_facial_gltf.py"
+      - "native_character_gltf.py"
       - "native_hm08_face_eyes.py"
       - "native_hm08_face_proof.py"
       - "native_hm08_landmarks.py"
+      - "native_hm08_skin_physical.py"
       - "native_morph.py"
+      - "native_skin.py"
       - "native_target_authoring.py"
       - "native_targets.py"
       - "seed_data/hm08_head_v0.2/**"
@@ -40,3 +52,5 @@ jobs:
           python-version: "3.13"
       - name: Deterministic hm08 face motion gates
         run: python native_hm08_face_motion_test.py
+      - name: Native hm08 face motion glTF gates
+        run: python native_hm08_face_motion_gltf_test.py
