@@ -47,10 +47,10 @@ jobs:
 
       - name: Build hm08 face motion observer package
         run: |
-          rm -rf engine/godot_face_motion/generated
+          rm -rf engine/godot_face_motion/generated engine/godot_face_motion/visual_evidence
           python native_hm08_face_motion_test.py
           python native_hm08_face_motion_gltf_test.py
-          python native_hm08_face_motion_gltf.py engine/godot_face_motion/generated --texture-size 128
+          python native_hm08_face_motion_gltf.py engine/godot_face_motion/generated --texture-size 256
 
       - name: Download pinned Godot 4.7.2
         env:
@@ -90,6 +90,32 @@ jobs:
           print("GODOT HM08 FACE MOTION OBSERVER PASS", receipt)
           PY
 
+      - name: Render fixed-camera motion evidence
+        run: |
+          command -v xvfb-run
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --path engine/godot_face_motion \
+            --script render_motion.gd
+          python - <<'PY'
+          import json
+          import struct
+          from pathlib import Path
+
+          root = Path("engine/godot_face_motion/visual_evidence")
+          receipt = json.loads((root / "visual-receipt.json").read_text())
+          assert receipt["schema"] == "axm.game-assets.godot-hm08-face-motion-visual.v0.1", receipt
+          assert [pose["name"] for pose in receipt["poses"]] == ["neutral", "blink", "smile", "jaw_open"], receipt
+          for pose in receipt["poses"]:
+              path = root / pose["file"]
+              data = path.read_bytes()
+              assert data[:8] == b"\x89PNG\r\n\x1a\n", path
+              width, height = struct.unpack(">II", data[16:24])
+              assert (width, height) == (768, 768), (path, width, height)
+              assert len(data) > 4096, (path, len(data))
+          print("GODOT HM08 FACE MOTION VISUAL FILES PASS", receipt)
+          PY
+
       - name: Preserve Godot face motion evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -98,5 +124,5 @@ jobs:
           if-no-files-found: warn
           path: |
             engine/godot_face_motion/godot-face-motion-import-receipt.json
-            engine/godot_face_motion/generated/hm08-face-motion-gltf.json
-            engine/godot_face_motion/generated/sentinel_hm08_face_motion_v0_1.gltf
+            engine/godot_face_motion/generated/**
+            engine/godot_face_motion/visual_evidence/**
