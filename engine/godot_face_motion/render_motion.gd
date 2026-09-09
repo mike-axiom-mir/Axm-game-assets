@@ -38,16 +38,13 @@ func set_pose(meshes: Array[MeshInstance3D], weights: Dictionary) -> void:
         for mesh_node: MeshInstance3D in meshes:
             if mesh_node.mesh == null:
                 continue
-            var property_path := "blend_shapes/" + target_name
-            if property_path in mesh_node:
-                mesh_node.set(property_path, float(weights[target_value]))
-                applied = true
-            else:
-                for index: int in range(mesh_node.mesh.get_blend_shape_count()):
-                    if str(mesh_node.mesh.get_blend_shape_name(index)) == target_name:
-                        mesh_node.set(property_path, float(weights[target_value]))
-                        applied = true
-                        break
+            for index: int in range(mesh_node.mesh.get_blend_shape_count()):
+                if str(mesh_node.mesh.get_blend_shape_name(index)) == target_name:
+                    mesh_node.set("blend_shapes/" + target_name, float(weights[target_value]))
+                    applied = true
+                    break
+            if applied:
+                break
         if not applied:
             fail("Could not apply render pose target %s" % target_name)
             return
@@ -137,7 +134,6 @@ func _render_all() -> void:
         fail("No MeshInstance3D found for visual evidence")
         return
 
-    # Give Godot two frames to initialize the SubViewport and imported materials.
     await process_frame
     await process_frame
 
