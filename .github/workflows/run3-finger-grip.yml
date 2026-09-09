@@ -1,0 +1,37 @@
+name: run3-finger-grip
+
+on:
+  push:
+    paths:
+      - "native_hm08_rifle_finger_grip.py"
+      - "native_hm08_rifle_finger_grip_test.py"
+      - "native_hm08_finger_rig.py"
+      - "native_hm08_rifle_contact_pose_v4.py"
+      - "native_weapon_human_scale.py"
+      - ".github/workflows/run3-finger-grip.yml"
+  pull_request:
+    paths:
+      - "native_hm08_rifle_finger_grip.py"
+      - "native_hm08_rifle_finger_grip_test.py"
+      - "native_hm08_finger_rig.py"
+      - "native_hm08_rifle_contact_pose_v4.py"
+      - "native_weapon_human_scale.py"
+      - ".github/workflows/run3-finger-grip.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-finger-grip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Gate source-grounded 53-joint finger rig
+        run: python native_hm08_finger_rig_test.py
+      - name: Gate rifle finger-wrap contact
+        run: python native_hm08_rifle_finger_grip_test.py
