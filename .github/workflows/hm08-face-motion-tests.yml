@@ -1,0 +1,42 @@
+name: hm08-face-motion-tests
+
+on:
+  push:
+    paths:
+      - "native_hm08_face_motion.py"
+      - "native_hm08_face_motion_test.py"
+      - "native_facial.py"
+      - "native_hm08_face_eyes.py"
+      - "native_hm08_face_proof.py"
+      - "native_hm08_landmarks.py"
+      - "native_morph.py"
+      - "native_target_authoring.py"
+      - "native_targets.py"
+      - "seed_data/hm08_head_v0.2/**"
+      - "docs/RUN3_FACE_MOTION_ACCEPTANCE.md"
+      - ".github/workflows/hm08-face-motion-tests.yml"
+  pull_request:
+    paths:
+      - "native_hm08_face_motion.py"
+      - "native_hm08_face_motion_test.py"
+      - "native_facial.py"
+      - "native_hm08_face_eyes.py"
+      - "native_hm08_face_proof.py"
+      - "native_hm08_landmarks.py"
+      - "native_morph.py"
+      - "native_target_authoring.py"
+      - "native_targets.py"
+      - "seed_data/hm08_head_v0.2/**"
+      - "docs/RUN3_FACE_MOTION_ACCEPTANCE.md"
+      - ".github/workflows/hm08-face-motion-tests.yml"
+
+jobs:
+  face-motion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Deterministic hm08 face motion gates
+        run: python native_hm08_face_motion_test.py
