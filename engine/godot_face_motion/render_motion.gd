@@ -61,25 +61,40 @@ func make_material(color: Color, roughness: float) -> StandardMaterial3D:
     material.roughness = roughness
     return material
 
+func load_runtime_texture(path: String, label: String) -> Texture2D:
+    # The observer package is generated after checkout, so these PNGs have no
+    # Godot import metadata. Load the source image bytes directly and create a
+    # runtime texture instead of asking ResourceLoader for a CompressedTexture2D.
+    var image: Image = Image.load_from_file(path)
+    if image == null or image.is_empty():
+        fail("Could not load generated %s image from %s" % [label, path])
+        return null
+    if not image.has_mipmaps():
+        image.generate_mipmaps()
+    var texture: ImageTexture = ImageTexture.create_from_image(image)
+    if texture == null:
+        fail("Could not create runtime %s texture" % label)
+        return null
+    return texture
+
 func make_deformation_safe_skin() -> ShaderMaterial:
     var shader_resource: Resource = load("res://deformation_safe_skin.gdshader")
-    var base_resource: Resource = load("res://generated/textures/base_color.png")
-    var normal_resource: Resource = load("res://generated/textures/normal.png")
-    var orm_resource: Resource = load("res://generated/textures/orm.png")
     if shader_resource == null or not shader_resource is Shader:
         fail("Could not load deformation-safe skin shader")
-    if base_resource == null or not base_resource is Texture2D:
-        fail("Could not load generated base-color texture")
-    if normal_resource == null or not normal_resource is Texture2D:
-        fail("Could not load generated normal texture")
-    if orm_resource == null or not orm_resource is Texture2D:
-        fail("Could not load generated ORM texture")
+        return null
+
+    var base_texture: Texture2D = load_runtime_texture("res://generated/textures/base_color.png", "base-color")
+    var normal_texture: Texture2D = load_runtime_texture("res://generated/textures/normal.png", "normal")
+    var orm_texture: Texture2D = load_runtime_texture("res://generated/textures/orm.png", "ORM")
+    if base_texture == null or normal_texture == null or orm_texture == null:
+        fail("Generated runtime skin textures are incomplete")
+        return null
 
     var material := ShaderMaterial.new()
     material.shader = shader_resource as Shader
-    material.set_shader_parameter("base_color_texture", base_resource as Texture2D)
-    material.set_shader_parameter("normal_texture", normal_resource as Texture2D)
-    material.set_shader_parameter("orm_texture", orm_resource as Texture2D)
+    material.set_shader_parameter("base_color_texture", base_texture)
+    material.set_shader_parameter("normal_texture", normal_texture)
+    material.set_shader_parameter("orm_texture", orm_texture)
     material.set_shader_parameter("normal_strength", 1.0)
     material.set_shader_parameter("roughness_floor", 0.08)
     return material
@@ -211,6 +226,7 @@ func _render_all() -> void:
         "camera_position": [CAMERA_POSITION.x, CAMERA_POSITION.y, CAMERA_POSITION.z],
         "face_center": [FACE_CENTER.x, FACE_CENTER.y, FACE_CENTER.z],
         "animation_players_disabled": players.size(),
+        "runtime_texture_loading": "Image.load_from_file -> ImageTexture.create_from_image",
         "render_only_eye_landmarks": {
             "left": [LEFT_EYE_CENTER.x, LEFT_EYE_CENTER.y, LEFT_EYE_CENTER.z],
             "right": [RIGHT_EYE_CENTER.x, RIGHT_EYE_CENTER.y, RIGHT_EYE_CENTER.z],
@@ -220,7 +236,7 @@ func _render_all() -> void:
         },
         "poses": [],
         "diagnostics": [],
-        "truth": "Fixed-camera Godot evidence. Imported PBR frames expose the StandardMaterial3D tangent-space failure under morphing. Derivative-PBR diagnostics use the same physical base/normal/ORM textures but reconstruct the geometric normal and tangent basis from the already-deformed fragment surface. Flat-lit and unshaded controls isolate texture/tangent versus geometry failures. No diagnostic automatically approves facial acting quality."
+        "truth": "Fixed-camera Godot evidence. Imported PBR frames expose the StandardMaterial3D tangent-space failure under morphing. Derivative-PBR diagnostics use the same physical base/normal/ORM textures but reconstruct the geometric normal and tangent basis from the already-deformed fragment surface. Generated PNGs are loaded directly as runtime ImageTextures because they are created after checkout and have no editor import metadata. Flat-lit and unshaded controls isolate texture/tangent versus geometry failures. No diagnostic automatically approves facial acting quality."
     }
 
     for pose: Dictionary in POSES:
@@ -230,6 +246,9 @@ func _render_all() -> void:
         receipt["poses"].append(frame)
 
     var derivative_skin := make_deformation_safe_skin()
+    if derivative_skin == null:
+        fail("Could not construct deformation-safe skin material")
+        return
     for mesh_node: MeshInstance3D in meshes:
         mesh_node.material_override = derivative_skin
 
