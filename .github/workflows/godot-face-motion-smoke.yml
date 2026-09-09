@@ -104,8 +104,9 @@ jobs:
 
           root = Path("engine/godot_face_motion/visual_evidence")
           receipt = json.loads((root / "visual-receipt.json").read_text())
-          assert receipt["schema"] == "axm.game-assets.godot-hm08-face-motion-visual.v0.1", receipt
+          assert receipt["schema"] == "axm.game-assets.godot-hm08-face-motion-visual.v0.2", receipt
           assert [pose["name"] for pose in receipt["poses"]] == ["neutral", "blink", "smile", "jaw_open"], receipt
+          assert receipt["render_only_eye_landmarks"]["source"] == "pinned hm08 eye-landmarks.json", receipt
           for pose in receipt["poses"]:
               path = root / pose["file"]
               data = path.read_bytes()
