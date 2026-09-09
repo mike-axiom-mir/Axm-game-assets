@@ -9,9 +9,12 @@ triangular webbing under flexion.
 v0.2 preserves the same 53-joint skeleton and pinned source bone segments but
 changes only the surface ownership/blend rule:
 - a tighter finger-neighborhood radius reduces accidental palm capture;
+- the source-grounded thumb proximal segment gets a small dedicated radius
+  expansion because it leaves the palm obliquely rather than in the long-finger
+  fan;
 - the hand->first-phalanx transition spans 40% of the proximal segment;
-- ambiguous space between two proximal digits is an explicit web transition,
-  shared by the hand joint and both adjacent finger roots;
+- ambiguous space between two proximal long digits is an explicit web
+  transition, shared by the hand joint and both adjacent finger roots;
 - inter-phalange blends widen to 30% at each end of a segment.
 
 Everything outside the classified lateral finger/root neighborhoods retains the
@@ -37,6 +40,8 @@ from native_hm08_humanoid_skin_v2 import build_hm08_skin_weights_v2
 from native_skin import Skeleton,SkinWeights,skin_vertices,validate_skin_weights
 
 SCHEMA="axm.game-assets.hm08-finger-skin.v0.2"
+THUMB_PROXIMAL_RADIUS_MULTIPLIER=1.22
+THUMB_PROXIMAL_RADIUS_CAP_M=0.0215
 
 
 def build_hm08_finger_skin_weights_v2(
@@ -53,17 +58,19 @@ def build_hm08_finger_skin_weights_v2(
     joints=[tuple(row) for row in base_weights.joints];weights=[tuple(row) for row in base_weights.weights]
 
     lo,hi=bounds(body);half_width=max(abs(lo[0]),abs(hi[0]),1e-9)
-    segment_rows={}
+    segment_rows={};segment_radii={}
     for side in ("left","right"):
         for digit in range(1,6):
             for segment in range(1,4):
                 row=rows[(side,digit,segment)]
                 head=tuple(float(value) for value in row["head_m"]);tail=tuple(float(value) for value in row["tail_m"])
                 length=_distance(head,tail);radius=max(0.0080,min(0.0175,length*0.40+0.0032))
+                if digit==1 and segment==1:
+                    radius=min(THUMB_PROXIMAL_RADIUS_CAP_M,radius*THUMB_PROXIMAL_RADIUS_MULTIPLIER)
                 current=finger_indices[f"{side}_finger{digit}_{segment}"]
                 parent=base_indices[f"{side}_hand"] if segment==1 else finger_indices[f"{side}_finger{digit}_{segment-1}"]
                 child=finger_indices[f"{side}_finger{digit}_{segment+1}"] if segment<3 else None
-                segment_rows[f"{side}:{digit}:{segment}"]=(head,tail,radius,current,parent,child)
+                key=f"{side}:{digit}:{segment}";segment_rows[key]=(head,tail,radius,current,parent,child);segment_radii[key]=radius
 
     overridden=set();webbing=set();proximal_transition=set();inter_joint_transition=set()
     assigned_by_segment={key:0 for key in segment_rows};assigned_by_side={"left":0,"right":0}
@@ -84,7 +91,11 @@ def build_hm08_finger_skin_weights_v2(
 
         roots=sorted(root_candidates,key=lambda row:(row[0],row[7]))
         r1,r2=roots[0],roots[1]
+        # Long-finger webbing is intentionally shared. Thumb-index webbing has
+        # a different saddle geometry, so v0.2 keeps it in the widened
+        # hand->thumb transition rather than forcing the same two-root rule.
         ambiguous_root=(
+            digit!=1 and int(r1[7])!=1 and int(r2[7])!=1 and
             segment==1 and t<0.46 and
             r1[2]<0.48 and r2[2]<0.48 and
             r2[0]<=1.28 and (r2[0]-r1[0])<=0.30
@@ -126,6 +137,9 @@ def build_hm08_finger_skin_weights_v2(
         "schema":SCHEMA,"base_skin_schema":base_skin_evidence["schema"],"vertex_count":len(body.vertices),"joint_count":len(skeleton.joints),
         "overridden_finger_root_vertices":len(overridden),"assigned_by_side":assigned_by_side,"assigned_by_segment":assigned_by_segment,
         "minimum_vertices_per_segment":min(assigned_by_segment.values()),"normalized_segment_distance_max":normalized_distance_max,
+        "segment_radius_m":segment_radii,
+        "thumb_proximal_radius_multiplier":THUMB_PROXIMAL_RADIUS_MULTIPLIER,
+        "thumb_proximal_radius_cap_m":THUMB_PROXIMAL_RADIUS_CAP_M,
         "webbing_vertex_count":len(webbing),"proximal_transition_vertex_count":len(proximal_transition),"inter_joint_transition_vertex_count":len(inter_joint_transition),
         "transition_vertex_count":len(transition),"webbing_pairs":webbing_pairs,
         "webbing_vertex_indices":sorted(webbing),"transition_vertex_indices":sorted(transition),
@@ -133,10 +147,12 @@ def build_hm08_finger_skin_weights_v2(
         "bind_reconstruction_max_error_m":bind_error,"max_influences":max(active_counts),"mean_influences":sum(active_counts)/len(active_counts),"validation":validation,
         "truth":{
             "shared_body_skin_preserved_outside_classified_finger_root_zone":preserved==len(body.vertices)-len(overridden),
-            "source_grounded_segments":True,"explicit_webbing_transition":True,"production_finger_skinning_claim":False,"corrective_shapes_claim":False,
+            "source_grounded_segments":True,"explicit_webbing_transition":True,"thumb_root_has_dedicated_source_neighborhood":True,
+            "production_finger_skinning_claim":False,"corrective_shapes_claim":False,
             "notes":[
                 "v0.2 changes weights only; the 53-joint source-grounded skeleton, canonical body mesh and v0.7 contact solution remain separate state.",
-                "Ambiguous proximal space is no longer forced to one nearest digit. Hand plus both adjacent proximal joints share the transition with at most three active influences.",
+                "Ambiguous proximal space between the four long fingers is no longer forced to one nearest digit. Hand plus both adjacent proximal joints share the transition with at most three active influences.",
+                "The thumb proximal source bone gets a bounded 22% radius expansion because its oblique palm exit was underrepresented by the long-finger neighborhood rule; the rest of the classifier remains tighter than v0.1.",
                 "The wider transition zones are a deformation hypothesis and require same-pose webbing distortion metrics plus Godot hands-close evidence before promotion."
             ],
         },
