@@ -41,8 +41,8 @@ def _add_deformation_normals(neutral_m, morphs_m) -> dict[str, float]:
 
     The source targets remain pure geometry deltas. Delivery normals are derived
     from the same neutral topology after applying each target at weight 1.0.
-    This keeps PBR shading aligned with deformation without changing identity or
-    target positions.
+    The native character compiler then derives tangent deltas in expanded UV
+    corner space from these positions + normals.
     """
     base_normals = vertex_normals(neutral_m)
     maxima: dict[str, float] = {}
@@ -127,6 +127,7 @@ def write_hm08_face_motion_gltf(
 
     target_names = document["meshes"][0].get("extras", {}).get("targetNames", [])
     primitive_targets = document["meshes"][0]["primitives"][0].get("targets", [])
+    compiler_axm = document.get("extras", {}).get("axm", {})
     weight_animations = [
         animation
         for animation in document.get("animations", [])
@@ -141,6 +142,11 @@ def write_hm08_face_motion_gltf(
             len(primitive_targets) == len(TARGET_ORDER)
             and all("NORMAL" in entry for entry in primitive_targets)
             and all(morph.normal_deltas is not None and len(morph.normal_deltas) == len(neutral_m.vertices) for morph in morphs_m)
+        ),
+        "morph_tangent_deltas_present": (
+            len(primitive_targets) == len(TARGET_ORDER)
+            and all("TANGENT" in entry for entry in primitive_targets)
+            and int(compiler_axm.get("morph_tangent_targets", -1)) == len(TARGET_ORDER)
         ),
         "three_weight_animations": len(weight_animations) == 3,
         "skin_nonmetal": material["pbrMetallicRoughness"]["metallicFactor"] == 0.0,
@@ -158,7 +164,7 @@ def write_hm08_face_motion_gltf(
         "neutral_identity_sha256": motion["neutral"]["sha256"],
         "deformation_normal_delta_max": normal_delta_maxima,
         "truth": (
-            "Real hm08 neutral geometry with reversible meter-space morph targets, derived deformation-normal deltas, and morph-weight animation channels. "
+            "Real hm08 neutral geometry with reversible meter-space morph targets, derived deformation-normal deltas, compiler-derived expanded UV-corner tangent deltas, and morph-weight animation channels. "
             "This package is an engine motion observer, not final facial acting or full current-face assembly."
         ),
     })
@@ -185,6 +191,7 @@ def write_hm08_face_motion_gltf(
         "faces": len(neutral_m.faces),
         "triangles": document["extras"]["axm"]["triangles"],
         "morph_targets": target_names,
+        "morph_tangent_targets": int(document["extras"]["axm"]["morph_tangent_targets"]),
         "motion_clips": [animation["name"] for animation in weight_animations],
         "deformation_normal_delta_max": normal_delta_maxima,
         "skin": skin,
@@ -197,7 +204,8 @@ def write_hm08_face_motion_gltf(
             "visual_quality_claim": False,
             "notes": [
                 "The neutral head is the same accepted hm08 identity substrate, converted explicitly from source decimeters to meters.",
-                "Morph normal deltas are deterministically derived from each full-weight deformed source topology so PBR shading follows the motion instead of reusing only neutral normals.",
+                "Morph normal deltas are deterministically derived from each full-weight deformed source topology.",
+                "The character compiler derives VEC3 morph tangent deltas from deformed positions/normals in expanded UV-corner space so normal-mapped deformation preserves seam-specific tangent bases.",
                 "A one-joint head skin exists only to satisfy the native skinned-character glTF path; facial motion itself is morph-driven.",
                 "Eyes, brows, lashes, hair and full humanoid deformation remain separate accepted/active packages and are not silently replaced here.",
             ],
@@ -221,6 +229,7 @@ if __name__ == "__main__":
         "asset": result["asset"],
         "gltf_sha256": result["gltf_sha256"],
         "morph_targets": result["morph_targets"],
+        "morph_tangent_targets": result["morph_tangent_targets"],
         "motion_clips": result["motion_clips"],
         "acceptance": result["acceptance"],
     }, indent=2, sort_keys=True))
