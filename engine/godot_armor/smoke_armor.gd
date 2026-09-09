@@ -1,6 +1,6 @@
 extends SceneTree
 
-const BODY_PATH := "res://generated/sentinel_hm08_full_body_current_v0_2.gltf"
+const BODY_PATH := "res://generated/body-control.gltf"
 const ARMOR_PATH := "res://generated/sentinel_armor_v0_1.gltf"
 const RECEIPT_PATH := "res://godot-armor-import-receipt.json"
 
@@ -71,10 +71,11 @@ func mesh_stats(node: Node) -> Dictionary:
 
 func _initialize() -> void:
     var receipt: Dictionary = {
-        "schema": "game-asset-forge.godot-sentinel-armor-import.v0.1",
+        "schema": "game-asset-forge.godot-sentinel-armor-import.v0.2",
         "body_asset": BODY_PATH,
         "armor_asset": ARMOR_PATH,
-        "truth": "Real Godot import structure for the complete clothed Sentinel substrate plus independent semantic rigid-armor overlay. This does not grade visual quality or deformation clearance."
+        "body_alias_rule": "body-control.gltf is copied from the exact glTF filename emitted by the current canonical full-body builder; its original binary/texture URIs remain beside it.",
+        "truth": "Real Godot import structure for the current complete clothed Sentinel substrate plus independent semantic rigid-armor overlay. The test follows the canonical body builder instead of hard-coding a historical body version. It does not grade visual quality or deformation clearance."
     }
     var body := import_gltf(BODY_PATH, receipt, "body")
     if body == null:
