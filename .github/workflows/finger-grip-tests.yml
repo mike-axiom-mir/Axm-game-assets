@@ -7,6 +7,10 @@ on:
       - "native_hm08_finger_rig_test.py"
       - "native_hm08_rifle_contact_pose_v5.py"
       - "native_hm08_rifle_contact_pose_v5_test.py"
+      - "native_hm08_rifle_contact_package_v5.py"
+      - "native_hm08_rifle_contact_package_v5_test.py"
+      - "native_hm08_rifle_contact_pose_v6.py"
+      - "native_hm08_rifle_contact_pose_v6_test.py"
       - "seed_data/hm08_finger_landmarks_v0.1/**"
       - ".github/workflows/finger-grip-tests.yml"
   pull_request:
@@ -15,6 +19,10 @@ on:
       - "native_hm08_finger_rig_test.py"
       - "native_hm08_rifle_contact_pose_v5.py"
       - "native_hm08_rifle_contact_pose_v5_test.py"
+      - "native_hm08_rifle_contact_package_v5.py"
+      - "native_hm08_rifle_contact_package_v5_test.py"
+      - "native_hm08_rifle_contact_pose_v6.py"
+      - "native_hm08_rifle_contact_pose_v6_test.py"
       - "seed_data/hm08_finger_landmarks_v0.1/**"
       - ".github/workflows/finger-grip-tests.yml"
   workflow_dispatch:
@@ -25,7 +33,7 @@ permissions:
 jobs:
   finger-grip:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -33,5 +41,9 @@ jobs:
           python-version: "3.13"
       - name: Source-grounded finger rig and skin
         run: python native_hm08_finger_rig_test.py
-      - name: V5 rifle finger grip pose
+      - name: V5 socket-center grip retained rejection proof
         run: python native_hm08_rifle_contact_pose_v5_test.py
+      - name: V5 Godot package determinism
+        run: python native_hm08_rifle_contact_package_v5_test.py
+      - name: V6 real grip-volume wrap proposal
+        run: python native_hm08_rifle_contact_pose_v6_test.py
