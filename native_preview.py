@@ -55,11 +55,19 @@ def render(mesh: Mesh, *, view: str = "front", size: int = 128, margin: float = 
     span_v = max(max_v - min_v, 1e-9)
     span_d = max(max_d - min_d, 1e-9)
     pad = size * margin
-    scale_x = (size - 1 - 2.0 * pad) / span_u
-    scale_y = (size - 1 - 2.0 * pad) / span_v
+    frame_span = size - 1 - 2.0 * pad
+    scale = frame_span / max(span_u, span_v)
+    content_width = span_u * scale
+    content_height = span_v * scale
+    origin_x = (size - 1 - content_width) * 0.5
+    origin_y = (size - 1 - content_height) * 0.5
 
     screen = [
-        (pad + (u - min_u) * scale_x, size - 1 - (pad + (v - min_v) * scale_y), depth)
+        (
+            origin_x + (u - min_u) * scale,
+            size - 1 - (origin_y + (v - min_v) * scale),
+            depth,
+        )
         for u, v, depth in projected
     ]
     depth_buffer = [float("-inf")] * (size * size)
@@ -100,11 +108,27 @@ def render(mesh: Mesh, *, view: str = "front", size: int = 128, margin: float = 
 
     depth_pixels = bytearray(size * size)
     covered = 0
+    left = top = size
+    right = bottom = -1
     for index, depth in enumerate(depth_buffer):
         if depth == float("-inf"):
             continue
         covered += 1
+        x, y = index % size, index // size
+        left, right = min(left, x), max(right, x)
+        top, bottom = min(top, y), max(bottom, y)
         depth_pixels[index] = max(0, min(255, round((depth - min_d) / span_d * 255.0)))
+
+    content_bounds = None
+    if covered:
+        content_bounds = {
+            "left": left,
+            "top": top,
+            "right": right,
+            "bottom": bottom,
+            "width": right - left + 1,
+            "height": bottom - top + 1,
+        }
 
     silhouette_png = png_bytes(size, size, 1, bytes(silhouette))
     depth_png = png_bytes(size, size, 1, bytes(depth_pixels))
@@ -114,6 +138,14 @@ def render(mesh: Mesh, *, view: str = "front", size: int = 128, margin: float = 
         "size": [size, size],
         "covered_pixels": covered,
         "coverage": covered / (size * size),
+        "projection": {
+            "type": "orthographic",
+            "fit": "contain",
+            "aspect_preserved": True,
+            "world_span": [span_u, span_v, span_d],
+            "pixels_per_world_unit": scale,
+            "content_bounds_px": content_bounds,
+        },
         "silhouette_png": silhouette_png,
         "depth_png": depth_png,
         "normal_png": normal_png,
@@ -134,4 +166,8 @@ def write_preview(mesh: Mesh, output: str | Path, *, size: int = 128, views=("fr
         for kind in ("silhouette", "depth", "normal"):
             (root / f"{view}-{kind}.png").write_bytes(result.pop(f"{kind}_png"))
         reports.append(result)
-    return {"mesh": mesh.name, "views": reports, "truth": "Diagnostic software rasterizer only; not an in-engine acceptance render."}
+    return {
+        "mesh": mesh.name,
+        "views": reports,
+        "truth": "Aspect-preserving orthographic diagnostic software rasterizer only; not an in-engine acceptance render.",
+    }
