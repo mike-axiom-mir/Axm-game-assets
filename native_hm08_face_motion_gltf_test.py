@@ -15,6 +15,7 @@ def run() -> None:
         result_b = write_hm08_face_motion_gltf(second, texture_size=64)
 
         assert all(result_a["acceptance"].values()), result_a["acceptance"]
+        assert result_a["acceptance"]["morph_normal_deltas_present"] is True
         assert result_a["validation"]["status"] == "pass", result_a["validation"]
         assert result_a["vertices"] == 4197
         assert result_a["faces"] == 4168
@@ -23,6 +24,12 @@ def run() -> None:
         assert result_a["gltf_sha256"] == result_b["gltf_sha256"]
         assert result_a["binary_sha256"] == result_b["binary_sha256"]
         assert result_a["manifest_sha256"] == result_b["manifest_sha256"]
+        assert result_a["deformation_normal_delta_max"] == result_b["deformation_normal_delta_max"]
+        assert set(result_a["deformation_normal_delta_max"]) == set(TARGET_ORDER)
+        assert all(
+            0.0 < float(result_a["deformation_normal_delta_max"][name]) <= 2.0
+            for name in TARGET_ORDER
+        )
         assert result_a["truth"]["engine_motion_observer"] is True
         assert result_a["truth"]["visual_quality_claim"] is False
 
@@ -31,9 +38,15 @@ def run() -> None:
         assert document["asset"]["version"] == "2.0"
         assert document["meshes"][0]["extras"]["targetNames"] == list(TARGET_ORDER)
         assert len(document["meshes"][0]["weights"]) == len(TARGET_ORDER)
+        primitive_targets = document["meshes"][0]["primitives"][0]["targets"]
+        assert len(primitive_targets) == len(TARGET_ORDER)
+        assert all("POSITION" in entry and "NORMAL" in entry for entry in primitive_targets), primitive_targets
         assert document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] == 0.0
         assert document["extras"]["axm"]["schema"] == "axm.game-assets.hm08-face-motion-gltf.v0.1"
         assert document["extras"]["axm"]["motion_target_order"] == list(TARGET_ORDER)
+        normal_max = document["extras"]["axm"]["deformation_normal_delta_max"]
+        assert set(normal_max) == set(TARGET_ORDER)
+        assert all(0.0 < float(normal_max[name]) <= 2.0 for name in TARGET_ORDER)
 
         weight_animations = [
             animation
@@ -61,6 +74,7 @@ def run() -> None:
                 "binary": result_a["binary_sha256"],
                 "morph_targets": result_a["morph_targets"],
                 "motion_clips": result_a["motion_clips"],
+                "deformation_normal_delta_max": result_a["deformation_normal_delta_max"],
             },
         )
 
