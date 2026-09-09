@@ -28,7 +28,11 @@ def run() -> None:
         joints=[(0, 1, 0, 0), (0, 1, 0, 0), (1, 0, 0, 0), (1, 0, 0, 0)],
         weights=[(0.8, 0.2, 0.0, 0.0), (0.8, 0.2, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0)],
     )
-    blink = MorphTarget("blink", [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, -0.05, 0.0), (0.0, -0.05, 0.0)])
+    blink = MorphTarget(
+        "blink",
+        [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, -0.05, 0.0), (0.0, -0.05, 0.0)],
+        normal_deltas=[(0.0, 0.0, 0.0)] * 4,
+    )
     half = pi * 0.25
     look = AnimationClip("look_left", [AnimationTrack(1, "rotation", [0.0, 0.5], [(0.0, 0.0, 0.0, 1.0), (0.0, sin(half / 2.0), 0.0, cos(half / 2.0))])])
 
@@ -39,6 +43,7 @@ def run() -> None:
         assert result["validation"]["status"] == "pass"
         assert result["joints"] == 2
         assert result["morph_targets"] == 1
+        assert result["morph_tangent_targets"] == 1
         assert result["animations"] == 1
         document = json.loads((root / result["gltf"]).read_text())
         attributes = document["meshes"][0]["primitives"][0]["attributes"]
@@ -47,7 +52,13 @@ def run() -> None:
         assert len(document["skins"][0]["joints"]) == 2
         ibm_accessor = document["accessors"][document["skins"][0]["inverseBindMatrices"]]
         assert ibm_accessor["type"] == "MAT4" and ibm_accessor["count"] == 2
-        assert len(document["meshes"][0]["primitives"][0]["targets"]) == 1
+        targets = document["meshes"][0]["primitives"][0]["targets"]
+        assert len(targets) == 1
+        assert set(targets[0]) == {"POSITION", "NORMAL", "TANGENT"}
+        tangent_accessor = document["accessors"][targets[0]["TANGENT"]]
+        assert tangent_accessor["type"] == "VEC3"
+        assert tangent_accessor["count"] == document["extras"]["axm"]["compiled_vertices"]
+        assert document["extras"]["axm"]["morph_tangent_targets"] == 1
         assert document["meshes"][0]["extras"]["targetNames"] == ["blink"]
         assert document["nodes"][0]["skin"] == 0
         assert len(document["animations"]) == 1
@@ -55,7 +66,13 @@ def run() -> None:
         assert channel["target"] == {"node": 2, "path": "rotation"}
         input_accessor = document["accessors"][document["animations"][0]["samplers"][0]["input"]]
         assert input_accessor["type"] == "SCALAR" and input_accessor["min"] == [0.0] and input_accessor["max"] == [0.5]
-        print("NATIVE CHARACTER GLTF TEST PASS", result["joints"], "joints", result["morph_targets"], "morph", result["animations"], "animation")
+        print(
+            "NATIVE CHARACTER GLTF TEST PASS",
+            result["joints"], "joints",
+            result["morph_targets"], "morph",
+            result["morph_tangent_targets"], "morph tangent target",
+            result["animations"], "animation",
+        )
 
 
 if __name__ == "__main__":
