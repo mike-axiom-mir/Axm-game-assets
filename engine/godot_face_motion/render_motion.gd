@@ -3,8 +3,8 @@ extends SceneTree
 const ASSET_PATH: String = "res://generated/sentinel_hm08_face_motion_v0_1.gltf"
 const OUTPUT_DIR: String = "res://visual_evidence"
 const FRAME_SIZE := Vector2i(768, 768)
-const FACE_CENTER := Vector3(0.0, 0.720, 0.105)
-const CAMERA_POSITION := Vector3(0.0, 0.720, 0.440)
+const FACE_CENTER := Vector3(0.0, 0.715, 0.105)
+const CAMERA_POSITION := Vector3(0.0, 0.715, 0.500)
 const LEFT_EYE_CENTER := Vector3(0.030775, 0.728415, 0.124535)
 const RIGHT_EYE_CENTER := Vector3(-0.030775, 0.728415, 0.124535)
 const EYE_RADIUS_M := 0.013815
@@ -59,7 +59,7 @@ func make_material(color: Color, roughness: float) -> StandardMaterial3D:
     material.roughness = roughness
     return material
 
-func add_eye(world: Node3D, center: Vector3, label: String) -> void:
+func add_eye_sclera(world: Node3D, center: Vector3, label: String) -> void:
     var sclera_mesh := SphereMesh.new()
     sclera_mesh.radius = EYE_RADIUS_M
     sclera_mesh.height = EYE_RADIUS_M * 2.0
@@ -68,35 +68,9 @@ func add_eye(world: Node3D, center: Vector3, label: String) -> void:
     var sclera := MeshInstance3D.new()
     sclera.name = label + "_Sclera"
     sclera.mesh = sclera_mesh
-    sclera.material_override = make_material(Color(0.78, 0.80, 0.76, 1.0), 0.38)
+    sclera.material_override = make_material(Color(0.72, 0.74, 0.71, 1.0), 0.42)
     sclera.position = center
     world.add_child(sclera)
-
-    var iris_mesh := CylinderMesh.new()
-    iris_mesh.top_radius = EYE_RADIUS_M * 0.38
-    iris_mesh.bottom_radius = EYE_RADIUS_M * 0.38
-    iris_mesh.height = 0.00055
-    iris_mesh.radial_segments = 32
-    var iris := MeshInstance3D.new()
-    iris.name = label + "_Iris"
-    iris.mesh = iris_mesh
-    iris.material_override = make_material(Color(0.18, 0.30, 0.33, 1.0), 0.30)
-    iris.position = center + Vector3(0.0, 0.0, EYE_RADIUS_M * 0.93)
-    iris.rotation_degrees = Vector3(90.0, 0.0, 0.0)
-    world.add_child(iris)
-
-    var pupil_mesh := CylinderMesh.new()
-    pupil_mesh.top_radius = EYE_RADIUS_M * 0.16
-    pupil_mesh.bottom_radius = EYE_RADIUS_M * 0.16
-    pupil_mesh.height = 0.00065
-    pupil_mesh.radial_segments = 24
-    var pupil := MeshInstance3D.new()
-    pupil.name = label + "_Pupil"
-    pupil.mesh = pupil_mesh
-    pupil.material_override = make_material(Color(0.012, 0.014, 0.016, 1.0), 0.22)
-    pupil.position = center + Vector3(0.0, 0.0, EYE_RADIUS_M * 0.955)
-    pupil.rotation_degrees = Vector3(90.0, 0.0, 0.0)
-    world.add_child(pupil)
 
 func _initialize() -> void:
     call_deferred("_render_all")
@@ -132,8 +106,8 @@ func _render_all() -> void:
     world.name = "EvidenceWorld"
     viewport.add_child(world)
     world.add_child(instance)
-    add_eye(world, LEFT_EYE_CENTER, "Left")
-    add_eye(world, RIGHT_EYE_CENTER, "Right")
+    add_eye_sclera(world, LEFT_EYE_CENTER, "Left")
+    add_eye_sclera(world, RIGHT_EYE_CENTER, "Right")
 
     var environment := WorldEnvironment.new()
     environment.environment = Environment.new()
@@ -141,45 +115,34 @@ func _render_all() -> void:
     environment.environment.background_color = Color(0.025, 0.030, 0.038, 1.0)
     environment.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     environment.environment.ambient_light_color = Color(0.46, 0.50, 0.56, 1.0)
-    environment.environment.ambient_light_energy = 0.16
+    environment.environment.ambient_light_energy = 0.15
     world.add_child(environment)
 
     var camera := Camera3D.new()
     camera.name = "EvidenceCamera"
     camera.position = CAMERA_POSITION
-    camera.fov = 34.0
+    camera.fov = 36.0
     camera.near = 0.05
     camera.far = 5.0
     world.add_child(camera)
     camera.look_at(FACE_CENTER, Vector3.UP)
     camera.current = true
 
-    var key := OmniLight3D.new()
+    var key := DirectionalLight3D.new()
     key.name = "KeyLight"
-    key.position = Vector3(-0.18, 0.82, 0.38)
-    key.light_color = Color(1.0, 0.91, 0.84, 1.0)
-    key.light_energy = 0.82
-    key.omni_range = 1.6
+    key.rotation_degrees = Vector3(-18.0, -24.0, 0.0)
+    key.light_color = Color(1.0, 0.92, 0.86, 1.0)
+    key.light_energy = 0.72
     key.shadow_enabled = false
     world.add_child(key)
 
-    var fill := OmniLight3D.new()
+    var fill := DirectionalLight3D.new()
     fill.name = "FillLight"
-    fill.position = Vector3(0.21, 0.70, 0.34)
-    fill.light_color = Color(0.62, 0.76, 1.0, 1.0)
-    fill.light_energy = 0.26
-    fill.omni_range = 1.4
+    fill.rotation_degrees = Vector3(-10.0, 32.0, 0.0)
+    fill.light_color = Color(0.66, 0.76, 1.0, 1.0)
+    fill.light_energy = 0.20
     fill.shadow_enabled = false
     world.add_child(fill)
-
-    var rim := OmniLight3D.new()
-    rim.name = "RimLight"
-    rim.position = Vector3(0.0, 0.84, -0.02)
-    rim.light_color = Color(0.78, 0.88, 1.0, 1.0)
-    rim.light_energy = 0.18
-    rim.omni_range = 1.0
-    rim.shadow_enabled = false
-    world.add_child(rim)
 
     var meshes: Array[MeshInstance3D] = []
     collect_meshes(instance, meshes)
@@ -187,12 +150,19 @@ func _render_all() -> void:
         fail("No imported MeshInstance3D found for visual evidence")
         return
 
+    # Keep imported clips inert during fixed-pose evidence capture.
+    for child: Node in instance.get_children():
+        if child is AnimationPlayer:
+            var player := child as AnimationPlayer
+            player.stop()
+            player.active = false
+
     await process_frame
     await process_frame
     await process_frame
 
     var receipt := {
-        "schema": "axm.game-assets.godot-hm08-face-motion-visual.v0.2",
+        "schema": "axm.game-assets.godot-hm08-face-motion-visual.v0.3",
         "asset": ASSET_PATH,
         "frame_size": [FRAME_SIZE.x, FRAME_SIZE.y],
         "camera_position": [CAMERA_POSITION.x, CAMERA_POSITION.y, CAMERA_POSITION.z],
@@ -201,10 +171,11 @@ func _render_all() -> void:
             "left": [LEFT_EYE_CENTER.x, LEFT_EYE_CENTER.y, LEFT_EYE_CENTER.z],
             "right": [RIGHT_EYE_CENTER.x, RIGHT_EYE_CENTER.y, RIGHT_EYE_CENTER.z],
             "radius_m": EYE_RADIUS_M,
-            "source": "pinned hm08 eye-landmarks.json"
+            "source": "pinned hm08 eye-landmarks.json",
+            "diagnostic_geometry": "sclera spheres only"
         },
         "poses": [],
-        "truth": "Rendered Godot frames are visual evidence for human/observer review. Render-only eyes restore the pinned hm08 helper-eye geometry for motion legibility without changing the exported motion source. Frame existence does not automatically approve facial-motion quality."
+        "truth": "Rendered Godot frames are fixed-camera visual evidence for human/observer review. Render-only sclera spheres restore pinned hm08 helper-eye scale without iris/pupil depth artifacts; imported animation playback is disabled during fixed-pose capture. This observer does not modify or automatically approve the exported motion source."
     }
 
     for pose: Dictionary in POSES:
