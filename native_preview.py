@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
+from html import escape
 from pathlib import Path
 
 from native_geometry import Mesh, face_normal, triangulate
@@ -157,6 +159,55 @@ def render(mesh: Mesh, *, view: str = "front", size: int = 128, margin: float = 
     }
 
 
+def _review_board_html(report: dict[str, object]) -> str:
+    cards = []
+    for view in report["views"]:
+        projection = view["projection"]
+        bounds = projection["content_bounds_px"]
+        span = projection["world_span"]
+        bounds_label = f'{bounds["width"]} × {bounds["height"]} px' if bounds else "no covered pixels"
+        for signal in ("silhouette", "depth", "normal"):
+            label = f"{view['view'].title()} {signal.title()}"
+            filename = f"{view['view']}-{signal}.png"
+            cards.append(
+                f'<article class="frame" data-signal="{signal}" data-view="{view["view"]}">'
+                f'<h2><span>{view["view"]}</span>{signal}</h2>'
+                f'<button type="button" class="inspect" aria-pressed="false" aria-label="Inspect {label}">'
+                f'<img src="{filename}" alt="{label} diagnostic" width="{view["size"][0]}" '
+                f'height="{view["size"][1]}" loading="lazy"></button>'
+                '<dl>'
+                f'<div><dt>Coverage</dt><dd>{view["coverage"]:.1%}</dd></div>'
+                f'<div><dt>Bounds</dt><dd>{bounds_label}</dd></div>'
+                f'<div><dt>World span</dt><dd>{span[0]:.3g} × {span[1]:.3g}</dd></div>'
+                '</dl>'
+                f'<a href="{filename}" target="_blank">Open original PNG</a>'
+                '</article>'
+            )
+    template = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__MESH__ · Diagnostic Review Board</title>
+<style>
+:root{color-scheme:dark;--bg:#071014;--panel:#0c1b21;--raised:#132a31;--line:#41616a;--text:#eff9f8;--muted:#9bb1b5;--signal:#76e4d5;--focus:#ffe990}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% 0,#19353d 0,#071014 50%);color:var(--text);font-family:system-ui,sans-serif}header,main,footer{width:min(1180px,calc(100% - 32px));margin:auto}header{padding:28px 0 18px}h1{margin:4px 0 8px;font-size:clamp(1.7rem,4vw,3rem);overflow-wrap:anywhere}.eyebrow,dt{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.11em}.boundary{max-width:75ch;color:var(--muted);line-height:1.5}.summary{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.summary span{border:1px solid var(--line);border-radius:999px;padding:6px 10px;color:var(--signal);font-size:.82rem}.controls{display:flex;gap:7px;flex-wrap:wrap;padding:12px 0 18px}button{font:inherit}.filter{border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);padding:9px 13px;cursor:pointer}.filter[aria-pressed="true"]{background:var(--signal);border-color:var(--signal);color:#03100f;font-weight:700}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.frame{min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(145deg,var(--panel),#091419)}.frame[data-selected="true"]{grid-column:1/-1;border-color:var(--signal);box-shadow:0 0 0 1px var(--signal)}.frame h2{display:flex;justify-content:space-between;margin:0 0 9px;font-size:.92rem;text-transform:capitalize}.frame h2 span{color:var(--signal)}.inspect{display:block;width:100%;border:0;padding:0;background:#020608;cursor:zoom-in}.inspect[aria-pressed="true"]{cursor:zoom-out}.inspect img{display:block;width:100%;height:auto;max-height:360px;object-fit:contain;image-rendering:pixelated}.frame[data-selected="true"] .inspect img{max-height:min(68vh,720px)}dl{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}dl div{min-width:0}dd{margin:3px 0 0;font-size:.78rem;overflow-wrap:anywhere}.frame a,footer a{color:var(--signal);font-size:.82rem}button:focus-visible,a:focus-visible{outline:3px solid var(--focus);outline-offset:3px}.frame[hidden]{display:none}footer{padding:24px 0 36px;color:var(--muted);font-size:.82rem}@media(max-width:760px){header,main,footer{width:min(100% - 22px,1180px)}header{padding-top:18px}.grid{grid-template-columns:1fr}.frame[data-selected="true"]{grid-column:auto}.controls{margin-inline:-11px;padding-inline:11px}.inspect img{max-height:none}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style></head><body>
+<header><div class="eyebrow">AXM Game Asset Forge · review surface</div><h1>__MESH__</h1><p class="boundary">Aspect-preserving orthographic software diagnostics. These frames expose silhouette, depth, and face-normal signals; they are not engine renders, aesthetic approval, or CANON.</p><div class="summary"><span>__VIEW_COUNT__ views</span><span>__FRAME_COUNT__ frames</span><span>__SIZE__ px source</span><span>contain fit</span></div></header>
+<main><nav class="controls" aria-label="Diagnostic signal filter"><button type="button" class="filter" data-filter="all" aria-pressed="true">All · __FRAME_COUNT__</button><button type="button" class="filter" data-filter="silhouette" aria-pressed="false">Silhouette</button><button type="button" class="filter" data-filter="depth" aria-pressed="false">Depth</button><button type="button" class="filter" data-filter="normal" aria-pressed="false">Normals</button></nav><section class="grid" aria-label="Diagnostic frames">__CARDS__</section><p id="announcer" class="eyebrow" aria-live="polite">Showing all __FRAME_COUNT__ diagnostic frames.</p></main>
+<footer>Exact frame hashes and projection metrics: <a href="preview-report.json">preview-report.json</a>. Select a frame to enlarge it; use Arrow keys, Home, or End to move across visible frames.</footer>
+<script>
+const filters=[...document.querySelectorAll('.filter')],frames=[...document.querySelectorAll('.frame')],announcer=document.querySelector('#announcer');
+function visibleFrames(){return frames.filter(frame=>!frame.hidden)}
+function show(signal){filters.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.filter===signal)));frames.forEach(frame=>{frame.hidden=signal!=='all'&&frame.dataset.signal!==signal;frame.dataset.selected='false';frame.querySelector('.inspect').setAttribute('aria-pressed','false')});const count=visibleFrames().length;announcer.textContent=`Showing ${count} ${signal==='all'?'diagnostic':signal} frame${count===1?'':'s'}.`}
+filters.forEach(button=>button.addEventListener('click',()=>show(button.dataset.filter)));
+frames.forEach(frame=>{const inspect=frame.querySelector('.inspect');inspect.addEventListener('click',()=>{const selected=frame.dataset.selected!=='true';frames.forEach(item=>{item.dataset.selected='false';item.querySelector('.inspect').setAttribute('aria-pressed','false')});frame.dataset.selected=String(selected);inspect.setAttribute('aria-pressed',String(selected));if(selected)announcer.textContent=`Inspecting ${frame.dataset.view} ${frame.dataset.signal}.`});inspect.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const visible=visibleFrames(),index=visible.indexOf(frame),next=event.key==='Home'?0:event.key==='End'?visible.length-1:(index+(event.key==='ArrowRight'?1:-1)+visible.length)%visible.length;visible[next].querySelector('.inspect').focus()})});
+</script></body></html>
+"""
+    first_view = report["views"][0]
+    return (template.replace("__MESH__", escape(str(report["mesh"])))
+            .replace("__VIEW_COUNT__", str(len(report["views"])))
+            .replace("__FRAME_COUNT__", str(len(cards)))
+            .replace("__SIZE__", str(first_view["size"][0]))
+            .replace("__CARDS__", "".join(cards)))
+
+
 def write_preview(mesh: Mesh, output: str | Path, *, size: int = 128, views=("front", "side", "top")) -> dict[str, object]:
     root = Path(output)
     root.mkdir(parents=True, exist_ok=True)
@@ -166,8 +217,18 @@ def write_preview(mesh: Mesh, output: str | Path, *, size: int = 128, views=("fr
         for kind in ("silhouette", "depth", "normal"):
             (root / f"{view}-{kind}.png").write_bytes(result.pop(f"{kind}_png"))
         reports.append(result)
-    return {
+    report = {
         "mesh": mesh.name,
         "views": reports,
         "truth": "Aspect-preserving orthographic diagnostic software rasterizer only; not an in-engine acceptance render.",
+        "review": {
+            "html": "review.html",
+            "report": "preview-report.json",
+            "authority": "presentation_only_no_automatic_acceptance",
+        },
     }
+    (root / "preview-report.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    (root / "review.html").write_text(_review_board_html(report), encoding="utf-8")
+    return report
