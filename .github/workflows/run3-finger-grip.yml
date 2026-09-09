@@ -15,6 +15,8 @@ on:
       - "native_hm08_finger_pose_corrective_test.py"
       - "native_hm08_finger_pose_corrective_v2.py"
       - "native_hm08_finger_pose_corrective_v2_test.py"
+      - "native_hm08_finger_weights_v2.py"
+      - "native_hm08_finger_weights_v2_test.py"
       - "native_dual_quaternion_skin.py"
       - "native_dual_quaternion_skin_test.py"
       - "native_hm08_finger_rig.py"
@@ -35,6 +37,8 @@ on:
       - "native_hm08_finger_pose_corrective_test.py"
       - "native_hm08_finger_pose_corrective_v2.py"
       - "native_hm08_finger_pose_corrective_v2_test.py"
+      - "native_hm08_finger_weights_v2.py"
+      - "native_hm08_finger_weights_v2_test.py"
       - "native_dual_quaternion_skin.py"
       - "native_dual_quaternion_skin_test.py"
       - "native_hm08_finger_rig.py"
@@ -49,7 +53,7 @@ permissions:
 jobs:
   native-finger-grip:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -79,3 +83,5 @@ jobs:
         run: python native_hm08_finger_pose_corrective_test.py
       - name: Gate pointwise knuckle corrective v0.10
         run: python native_hm08_finger_pose_corrective_v2_test.py
+      - name: Gate palm-web finger weights v0.2
+        run: python native_hm08_finger_weights_v2_test.py
