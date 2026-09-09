@@ -9,6 +9,10 @@ on:
       - "native_hm08_rifle_finger_grip_v2_test.py"
       - "native_hm08_rifle_grip_surface_pose.py"
       - "native_hm08_rifle_grip_surface_pose_test.py"
+      - "native_hm08_rifle_grip_dqs.py"
+      - "native_hm08_rifle_grip_dqs_test.py"
+      - "native_dual_quaternion_skin.py"
+      - "native_dual_quaternion_skin_test.py"
       - "native_hm08_finger_rig.py"
       - "native_hm08_rifle_contact_pose_v4.py"
       - "native_weapon_human_scale.py"
@@ -21,6 +25,10 @@ on:
       - "native_hm08_rifle_finger_grip_v2_test.py"
       - "native_hm08_rifle_grip_surface_pose.py"
       - "native_hm08_rifle_grip_surface_pose_test.py"
+      - "native_hm08_rifle_grip_dqs.py"
+      - "native_hm08_rifle_grip_dqs_test.py"
+      - "native_dual_quaternion_skin.py"
+      - "native_dual_quaternion_skin_test.py"
       - "native_hm08_finger_rig.py"
       - "native_hm08_rifle_contact_pose_v4.py"
       - "native_weapon_human_scale.py"
@@ -33,7 +41,7 @@ permissions:
 jobs:
   native-finger-grip:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -52,8 +60,10 @@ jobs:
           assert summary["digits_within_penetration_budget"] == 9, summary
           assert summary["worst_digits"][0]["digit"] == "right:3", summary
           print("V0.6 REJECTED AS EXPECTED", summary)
-          for key, row in sorted(packet["digit_contact"].items()):
-              print(key, {"baseline_penetration_m":row["baseline_penetration_m"],"final_penetration_m":row["final_penetration_m"],"curl_strength":row["curl_strength"]})
           PY
       - name: Gate grip-surface palm contact + finger wrap v0.7
         run: python native_hm08_rifle_grip_surface_pose_test.py
+      - name: Gate generic dual-quaternion skinning kernel
+        run: python native_dual_quaternion_skin_test.py
+      - name: Gate finger-local DQS deformation v0.8
+        run: python native_hm08_rifle_grip_dqs_test.py
