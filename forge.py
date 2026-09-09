@@ -45,6 +45,15 @@ def digest(data: Any) -> str:
     return "sha256:" + hashlib.sha256(canonical_json(data).encode()).hexdigest()
 
 
+def verify_embedded_digest(value: dict[str, Any], field: str) -> bool:
+    stored = value.get(field)
+    if not isinstance(stored, str):
+        return False
+    payload = deepcopy(value)
+    payload.pop(field, None)
+    return stored == digest(payload)
+
+
 def load(path: str | Path) -> dict[str, Any]:
     with Path(path).open("r", encoding="utf-8") as handle:
         return json.load(handle)
@@ -94,6 +103,11 @@ def audit(genome: dict[str, Any]) -> dict[str, Any]:
     required = ["genome_version", "asset", "targets", "budgets", "quality", "source_state", "pipeline", "provenance", "genome_digest"]
     for key in required:
         check(key in genome, f"required:{key}", f"top-level field {key} must exist")
+    check(
+        verify_embedded_digest(genome, "genome_digest"),
+        "genome:digest",
+        "genome_digest must bind the complete canonical genome payload",
+    )
     asset = genome.get("asset", {})
     check(bool(asset.get("id")), "asset:id", "stable asset id required")
     check(float(asset.get("unit_meters", 0) or 0) > 0, "asset:scale", "positive scale reference required")
@@ -222,7 +236,13 @@ def cmd_self_test(_: argparse.Namespace) -> int:
         "budgets": {"triangles": {"lod0": 100, "lod1": 50, "lod2": 25, "lod3": 10}},
         "quality": {"pbr_channels": ["base_color", "normal", "roughness", "metallic"]},
     }
-    assert audit(new_genome(request))["status"] == "pass"
+    genome = new_genome(request)
+    assert audit(genome)["status"] == "pass"
+    tampered = deepcopy(genome)
+    tampered["asset"]["name"] = "Tampered after sealing"
+    tampered_report = audit(tampered)
+    assert tampered_report["status"] == "fail"
+    assert any(gate["gate"] == "genome:digest" and gate["status"] == "fail" for gate in tampered_report["gates"])
     try:
         recipe_waves({"nodes": [{"stage": "intake", "needs": ["art_direction"]}, {"stage": "art_direction", "needs": ["intake"]}]})
     except ValueError:
