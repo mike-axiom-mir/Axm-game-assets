@@ -13,6 +13,8 @@ on:
       - "native_hm08_rifle_grip_dqs_test.py"
       - "native_hm08_finger_pose_corrective.py"
       - "native_hm08_finger_pose_corrective_test.py"
+      - "native_hm08_finger_pose_corrective_v2.py"
+      - "native_hm08_finger_pose_corrective_v2_test.py"
       - "native_dual_quaternion_skin.py"
       - "native_dual_quaternion_skin_test.py"
       - "native_hm08_finger_rig.py"
@@ -31,6 +33,8 @@ on:
       - "native_hm08_rifle_grip_dqs_test.py"
       - "native_hm08_finger_pose_corrective.py"
       - "native_hm08_finger_pose_corrective_test.py"
+      - "native_hm08_finger_pose_corrective_v2.py"
+      - "native_hm08_finger_pose_corrective_v2_test.py"
       - "native_dual_quaternion_skin.py"
       - "native_dual_quaternion_skin_test.py"
       - "native_hm08_finger_rig.py"
@@ -45,7 +49,7 @@ permissions:
 jobs:
   native-finger-grip:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -71,5 +75,7 @@ jobs:
         run: python native_dual_quaternion_skin_test.py
       - name: Gate finger-local DQS deformation v0.8
         run: python native_hm08_rifle_grip_dqs_test.py
-      - name: Gate bind-volume finger pose correctives v0.9
+      - name: Preserve weak bind-volume corrective v0.9
         run: python native_hm08_finger_pose_corrective_test.py
+      - name: Gate pointwise knuckle corrective v0.10
+        run: python native_hm08_finger_pose_corrective_v2_test.py
