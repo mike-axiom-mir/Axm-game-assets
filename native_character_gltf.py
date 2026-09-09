@@ -150,8 +150,11 @@ def compile_character_gltf(
     # glTF morph TANGENT attributes are VEC3 deltas: tangent handedness (the
     # base VEC4.w sign) is not morphed. Derive them in expanded UV-corner space
     # rather than source-vertex space so seams keep their own tangent basis.
+    # If the recomputed basis chooses the equivalent opposite handedness, flip
+    # its tangent XYZ too; keeping base w with -T preserves the same bitangent.
     morph_entries: list[dict[str, int]] = []
     morph_tangent_targets = 0
+    morph_tangent_reoriented_corners = 0
     for target in morph_targets:
         entry: dict[str, int] = {}
         position_deltas = [target.position_deltas[index] for index in source_indices]
@@ -179,14 +182,19 @@ def compile_character_gltf(
             deformed_tangents = _tangents(deformed_positions, deformed_normals, texcoords)
             tangent_deltas: list[tuple[float, float, float]] = []
             for base_tangent, deformed_tangent in zip(tangents, deformed_tangents):
+                orientation = 1.0
                 if base_tangent[3] * deformed_tangent[3] < 0.0:
-                    raise ValueError(
-                        f"morph {target.name!r} changes tangent handedness across a fixed UV corner"
-                    )
+                    orientation = -1.0
+                    morph_tangent_reoriented_corners += 1
+                aligned_tangent = (
+                    deformed_tangent[0] * orientation,
+                    deformed_tangent[1] * orientation,
+                    deformed_tangent[2] * orientation,
+                )
                 tangent_deltas.append((
-                    deformed_tangent[0] - base_tangent[0],
-                    deformed_tangent[1] - base_tangent[1],
-                    deformed_tangent[2] - base_tangent[2],
+                    aligned_tangent[0] - base_tangent[0],
+                    aligned_tangent[1] - base_tangent[1],
+                    aligned_tangent[2] - base_tangent[2],
                 ))
             entry["TANGENT"] = add_float(tangent_deltas, "VEC3", 3)
             morph_tangent_targets += 1
@@ -284,8 +292,9 @@ def compile_character_gltf(
                 "joints": len(skeleton.joints),
                 "morph_targets": len(morph_targets),
                 "morph_tangent_targets": morph_tangent_targets,
+                "morph_tangent_reoriented_corners": morph_tangent_reoriented_corners,
                 "animations": len(animations),
-                "truth": "Native structural character compiler with skeletal animation delivery. Morph targets that provide normal deltas also derive tangent deltas per expanded UV corner so normal-mapped deformation keeps a coherent tangent basis. Rig-generation intelligence, animation synthesis, correctives, hair/cloth and engine deformation evidence remain separate gates.",
+                "truth": "Native structural character compiler with skeletal animation delivery. Morph targets that provide normal deltas also derive tangent deltas per expanded UV corner so normal-mapped deformation keeps a coherent tangent basis. Equivalent tangent bases whose recomputed handedness flips are represented by negating tangent XYZ while retaining the immutable base handedness sign. Rig-generation intelligence, animation synthesis, correctives, hair/cloth and engine deformation evidence remain separate gates.",
             }
         },
     }
@@ -342,5 +351,6 @@ def write_character_gltf(
         "joints": len(skeleton.joints),
         "morph_targets": len(morph_targets),
         "morph_tangent_targets": document["extras"]["axm"]["morph_tangent_targets"],
+        "morph_tangent_reoriented_corners": document["extras"]["axm"]["morph_tangent_reoriented_corners"],
         "animations": len(animations),
     }
