@@ -61,6 +61,29 @@ func make_material(color: Color, roughness: float) -> StandardMaterial3D:
     material.roughness = roughness
     return material
 
+func make_deformation_safe_skin() -> ShaderMaterial:
+    var shader_resource: Resource = load("res://deformation_safe_skin.gdshader")
+    var base_resource: Resource = load("res://generated/textures/base_color.png")
+    var normal_resource: Resource = load("res://generated/textures/normal.png")
+    var orm_resource: Resource = load("res://generated/textures/orm.png")
+    if shader_resource == null or not shader_resource is Shader:
+        fail("Could not load deformation-safe skin shader")
+    if base_resource == null or not base_resource is Texture2D:
+        fail("Could not load generated base-color texture")
+    if normal_resource == null or not normal_resource is Texture2D:
+        fail("Could not load generated normal texture")
+    if orm_resource == null or not orm_resource is Texture2D:
+        fail("Could not load generated ORM texture")
+
+    var material := ShaderMaterial.new()
+    material.shader = shader_resource as Shader
+    material.set_shader_parameter("base_color_texture", base_resource as Texture2D)
+    material.set_shader_parameter("normal_texture", normal_resource as Texture2D)
+    material.set_shader_parameter("orm_texture", orm_resource as Texture2D)
+    material.set_shader_parameter("normal_strength", 1.0)
+    material.set_shader_parameter("roughness_floor", 0.08)
+    return material
+
 func add_eye_sclera(world: Node3D, center: Vector3, label: String) -> void:
     var sclera_mesh := SphereMesh.new()
     sclera_mesh.radius = EYE_RADIUS_M
@@ -182,7 +205,7 @@ func _render_all() -> void:
     await process_frame
 
     var receipt := {
-        "schema": "axm.game-assets.godot-hm08-face-motion-visual.v0.5",
+        "schema": "axm.game-assets.godot-hm08-face-motion-visual.v0.6",
         "asset": ASSET_PATH,
         "frame_size": [FRAME_SIZE.x, FRAME_SIZE.y],
         "camera_position": [CAMERA_POSITION.x, CAMERA_POSITION.y, CAMERA_POSITION.z],
@@ -197,7 +220,7 @@ func _render_all() -> void:
         },
         "poses": [],
         "diagnostics": [],
-        "truth": "Fixed-camera Godot evidence. Lit PBR frames judge delivered appearance. Flat-lit diagnostics keep lighting and vertex-normal deformation but remove the imported normal texture/tangent-space detail. Unshaded diagnostics remove lighting as well. This isolates geometry, vertex-normal and tangent-space material failures without modifying the exported motion source."
+        "truth": "Fixed-camera Godot evidence. Imported PBR frames expose the StandardMaterial3D tangent-space failure under morphing. Derivative-PBR diagnostics use the same physical base/normal/ORM textures but reconstruct the geometric normal and tangent basis from the already-deformed fragment surface. Flat-lit and unshaded controls isolate texture/tangent versus geometry failures. No diagnostic automatically approves facial acting quality."
     }
 
     for pose: Dictionary in POSES:
@@ -205,6 +228,20 @@ func _render_all() -> void:
         var frame := await save_viewport(viewport, str(pose["name"]))
         frame["weights"] = pose["weights"]
         receipt["poses"].append(frame)
+
+    var derivative_skin := make_deformation_safe_skin()
+    for mesh_node: MeshInstance3D in meshes:
+        mesh_node.material_override = derivative_skin
+
+    set_pose(meshes, {})
+    var neutral_derivative := await save_viewport(viewport, "neutral_derivative_pbr")
+    neutral_derivative["weights"] = {}
+    receipt["diagnostics"].append(neutral_derivative)
+
+    set_pose(meshes, {"smile": 0.80})
+    var smile_derivative := await save_viewport(viewport, "smile_derivative_pbr")
+    smile_derivative["weights"] = {"smile": 0.80}
+    receipt["diagnostics"].append(smile_derivative)
 
     var flat_lit := make_material(Color(0.58, 0.34, 0.27, 1.0), 0.62)
     for mesh_node: MeshInstance3D in meshes:
