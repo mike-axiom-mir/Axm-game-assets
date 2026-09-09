@@ -16,10 +16,12 @@ def run() -> None:
 
         assert all(result_a["acceptance"].values()), result_a["acceptance"]
         assert result_a["acceptance"]["morph_normal_deltas_present"] is True
+        assert result_a["acceptance"]["morph_tangent_deltas_present"] is True
         assert result_a["validation"]["status"] == "pass", result_a["validation"]
         assert result_a["vertices"] == 4197
         assert result_a["faces"] == 4168
         assert result_a["morph_targets"] == list(TARGET_ORDER)
+        assert result_a["morph_tangent_targets"] == len(TARGET_ORDER)
         assert result_a["motion_clips"] == ["blink_test", "smile_test", "jaw_open_test"]
         assert result_a["gltf_sha256"] == result_b["gltf_sha256"]
         assert result_a["binary_sha256"] == result_b["binary_sha256"]
@@ -40,7 +42,15 @@ def run() -> None:
         assert len(document["meshes"][0]["weights"]) == len(TARGET_ORDER)
         primitive_targets = document["meshes"][0]["primitives"][0]["targets"]
         assert len(primitive_targets) == len(TARGET_ORDER)
-        assert all("POSITION" in entry and "NORMAL" in entry for entry in primitive_targets), primitive_targets
+        assert all(
+            "POSITION" in entry and "NORMAL" in entry and "TANGENT" in entry
+            for entry in primitive_targets
+        ), primitive_targets
+        for entry in primitive_targets:
+            tangent_accessor = document["accessors"][entry["TANGENT"]]
+            assert tangent_accessor["type"] == "VEC3"
+            assert tangent_accessor["count"] == document["extras"]["axm"]["compiled_vertices"]
+        assert document["extras"]["axm"]["morph_tangent_targets"] == len(TARGET_ORDER)
         assert document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] == 0.0
         assert document["extras"]["axm"]["schema"] == "axm.game-assets.hm08-face-motion-gltf.v0.1"
         assert document["extras"]["axm"]["motion_target_order"] == list(TARGET_ORDER)
@@ -73,6 +83,7 @@ def run() -> None:
                 "gltf": result_a["gltf_sha256"],
                 "binary": result_a["binary_sha256"],
                 "morph_targets": result_a["morph_targets"],
+                "morph_tangent_targets": result_a["morph_tangent_targets"],
                 "motion_clips": result_a["motion_clips"],
                 "deformation_normal_delta_max": result_a["deformation_normal_delta_max"],
             },
