@@ -182,7 +182,7 @@ func _render_all() -> void:
     await process_frame
 
     var receipt := {
-        "schema": "axm.game-assets.godot-hm08-face-motion-visual.v0.4",
+        "schema": "axm.game-assets.godot-hm08-face-motion-visual.v0.5",
         "asset": ASSET_PATH,
         "frame_size": [FRAME_SIZE.x, FRAME_SIZE.y],
         "camera_position": [CAMERA_POSITION.x, CAMERA_POSITION.y, CAMERA_POSITION.z],
@@ -197,7 +197,7 @@ func _render_all() -> void:
         },
         "poses": [],
         "diagnostics": [],
-        "truth": "Fixed-camera Godot evidence. Lit PBR frames judge delivered appearance; unshaded neutral/smile diagnostics isolate geometry/morph delivery from material, normal-map, tangent and lighting effects. This observer does not modify or automatically approve the exported motion source."
+        "truth": "Fixed-camera Godot evidence. Lit PBR frames judge delivered appearance. Flat-lit diagnostics keep lighting and vertex-normal deformation but remove the imported normal texture/tangent-space detail. Unshaded diagnostics remove lighting as well. This isolates geometry, vertex-normal and tangent-space material failures without modifying the exported motion source."
     }
 
     for pose: Dictionary in POSES:
@@ -205,6 +205,20 @@ func _render_all() -> void:
         var frame := await save_viewport(viewport, str(pose["name"]))
         frame["weights"] = pose["weights"]
         receipt["poses"].append(frame)
+
+    var flat_lit := make_material(Color(0.58, 0.34, 0.27, 1.0), 0.62)
+    for mesh_node: MeshInstance3D in meshes:
+        mesh_node.material_override = flat_lit
+
+    set_pose(meshes, {})
+    var neutral_flat := await save_viewport(viewport, "neutral_flatlit")
+    neutral_flat["weights"] = {}
+    receipt["diagnostics"].append(neutral_flat)
+
+    set_pose(meshes, {"smile": 0.80})
+    var smile_flat := await save_viewport(viewport, "smile_flatlit")
+    smile_flat["weights"] = {"smile": 0.80}
+    receipt["diagnostics"].append(smile_flat)
 
     var unshaded := make_material(Color(0.58, 0.34, 0.27, 1.0), 1.0)
     unshaded.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
