@@ -39,5 +39,20 @@ jobs:
         run: python native_hm08_finger_rig_test.py
       - name: Preserve v0.5 rifle finger-wrap evidence
         run: python native_hm08_rifle_finger_grip_test.py
+      - name: Diagnose penetration-bounded v0.6 digit state
+        run: |
+          python - <<'PY'
+          from native_hm08_rifle_finger_grip_v2 import build_preferred_penetration_bounded_finger_grip
+          _mesh, packet = build_preferred_penetration_bounded_finger_grip()
+          for key, row in sorted(packet["digit_contact"].items()):
+              print(key, {
+                  "baseline_penetration_m": row["baseline_penetration_m"],
+                  "final_penetration_m": row["final_penetration_m"],
+                  "baseline_signed_surface_m": row["baseline_signed_surface_m"],
+                  "final_signed_surface_m": row["final_signed_surface_m"],
+                  "curl_strength": row["curl_strength"],
+                  "curl_direction": row["curl_direction"],
+              })
+          PY
       - name: Gate penetration-bounded v0.6 finger wrap
         run: python native_hm08_rifle_finger_grip_v2_test.py
