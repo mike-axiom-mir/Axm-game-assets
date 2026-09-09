@@ -38,15 +38,25 @@ jobs:
           rm -rf engine/godot_armor/generated
           mkdir -p engine/godot_armor/generated
           python - <<'PY'
+          import shutil
+          from pathlib import Path
           from native_hm08_full_body_current import build_current_full_body_package
           from native_sentinel_armor import write_sentinel_armor_package
-          body = build_current_full_body_package("engine/godot_armor/generated", texture_size=128)
-          armor = write_sentinel_armor_package("engine/godot_armor/generated", texture_size=128)
+          root = Path("engine/godot_armor/generated")
+          body = build_current_full_body_package(root, texture_size=128)
+          armor = write_sentinel_armor_package(root, texture_size=128)
           assert all(body["acceptance"].values()), body["acceptance"]
           assert all(armor["acceptance"].values()), armor["acceptance"]
           assert body["delivery"]["material_count"] >= 10
           assert armor["delivery"]["primitive_count"] >= 14
           assert armor["armor"]["minimum_clearance_over_undersuit_m"] >= 0.004
+          emitted = root / body["delivery"]["gltf"]
+          assert emitted.exists(), emitted
+          shutil.copyfile(emitted, root / "body-control.gltf")
+          # Temporary compatibility alias for the first render script. The
+          # copied glTF still references the exact current builder binary URI.
+          shutil.copyfile(emitted, root / "sentinel_hm08_full_body_current_v0_2.gltf")
+          (root / "body-control-source.txt").write_text(body["delivery"]["gltf"] + "\n")
           print("ARMOR BUILD PASS", body["delivery"], armor["delivery"], armor["armor"]["fit"])
           PY
 
@@ -170,10 +180,12 @@ jobs:
             engine/godot_armor/control-*.png
             engine/godot_armor/armored-*.png
             engine/godot_armor/visual-capture-armor-*.json
+            engine/godot_armor/generated/body-control.gltf
+            engine/godot_armor/generated/body-control-source.txt
+            engine/godot_armor/generated/sentinel_hm08_full_body_current_*.gltf
+            engine/godot_armor/generated/sentinel_hm08_full_body_current_*.bin
             engine/godot_armor/generated/armor-package.json
             engine/godot_armor/generated/sentinel_armor_v0_1.gltf
             engine/godot_armor/generated/sentinel_armor_v0_1.bin
-            engine/godot_armor/generated/sentinel_hm08_full_body_current_v0_2.gltf
-            engine/godot_armor/generated/sentinel_hm08_full_body_current_v0_2.bin
             engine/godot_armor/generated/textures/armor_primary/*
             engine/godot_armor/generated/textures/armor_mechanical/*
