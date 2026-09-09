@@ -5,6 +5,8 @@ on:
     paths:
       - "native_hm08_rifle_finger_grip.py"
       - "native_hm08_rifle_finger_grip_test.py"
+      - "native_hm08_rifle_finger_grip_v2.py"
+      - "native_hm08_rifle_finger_grip_v2_test.py"
       - "native_hm08_finger_rig.py"
       - "native_hm08_rifle_contact_pose_v4.py"
       - "native_weapon_human_scale.py"
@@ -13,6 +15,8 @@ on:
     paths:
       - "native_hm08_rifle_finger_grip.py"
       - "native_hm08_rifle_finger_grip_test.py"
+      - "native_hm08_rifle_finger_grip_v2.py"
+      - "native_hm08_rifle_finger_grip_v2_test.py"
       - "native_hm08_finger_rig.py"
       - "native_hm08_rifle_contact_pose_v4.py"
       - "native_weapon_human_scale.py"
@@ -33,5 +37,7 @@ jobs:
           python-version: "3.13"
       - name: Gate source-grounded 53-joint finger rig
         run: python native_hm08_finger_rig_test.py
-      - name: Gate rifle finger-wrap contact
+      - name: Preserve v0.5 rifle finger-wrap evidence
         run: python native_hm08_rifle_finger_grip_test.py
+      - name: Gate penetration-bounded v0.6 finger wrap
+        run: python native_hm08_rifle_finger_grip_v2_test.py
