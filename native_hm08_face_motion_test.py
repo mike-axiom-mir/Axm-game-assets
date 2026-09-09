@@ -4,6 +4,8 @@ from __future__ import annotations
 from tempfile import TemporaryDirectory
 
 from native_facial import sample_morph_weight_clip, validate_morph_weight_clip
+from native_geometry import scale
+from native_hm08_face_eyes import RAW_TO_M
 from native_hm08_face_motion import (
     MAX_AUTHORED_DISPLACEMENT_M,
     TARGET_ORDER,
@@ -65,11 +67,12 @@ def run() -> None:
 
     # Meter-space morph application must move geometry while preserving the
     # canonical face topology.
+    neutral_m = scale(neutral_a, RAW_TO_M, name="neutral_face_meter_test")
     blink_weights = [0.0] * len(TARGET_ORDER)
     blink_weights[TARGET_ORDER.index("left_blink")] = 1.0
-    blinked = apply_morphs(neutral_a, morphs_a, blink_weights, name="left_blink_meter_test")
-    assert blinked.faces == neutral_a.faces
-    assert sum(a != b for a, b in zip(neutral_a.vertices, blinked.vertices)) >= 8
+    blinked = apply_morphs(neutral_m, morphs_a, blink_weights, name="left_blink_meter_test")
+    assert blinked.faces == neutral_m.faces
+    assert sum(a != b for a, b in zip(neutral_m.vertices, blinked.vertices)) >= 8
 
     assert len(clips_a) == 3
     assert [clip.name for clip in clips_a] == ["blink_test", "smile_test", "jaw_open_test"]
