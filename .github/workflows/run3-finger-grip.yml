@@ -7,6 +7,8 @@ on:
       - "native_hm08_rifle_finger_grip_test.py"
       - "native_hm08_rifle_finger_grip_v2.py"
       - "native_hm08_rifle_finger_grip_v2_test.py"
+      - "native_hm08_rifle_grip_surface_pose.py"
+      - "native_hm08_rifle_grip_surface_pose_test.py"
       - "native_hm08_finger_rig.py"
       - "native_hm08_rifle_contact_pose_v4.py"
       - "native_weapon_human_scale.py"
@@ -17,6 +19,8 @@ on:
       - "native_hm08_rifle_finger_grip_test.py"
       - "native_hm08_rifle_finger_grip_v2.py"
       - "native_hm08_rifle_finger_grip_v2_test.py"
+      - "native_hm08_rifle_grip_surface_pose.py"
+      - "native_hm08_rifle_grip_surface_pose_test.py"
       - "native_hm08_finger_rig.py"
       - "native_hm08_rifle_contact_pose_v4.py"
       - "native_weapon_human_scale.py"
@@ -39,20 +43,17 @@ jobs:
         run: python native_hm08_finger_rig_test.py
       - name: Preserve v0.5 rifle finger-wrap evidence
         run: python native_hm08_rifle_finger_grip_test.py
-      - name: Diagnose penetration-bounded v0.6 digit state
+      - name: Preserve rejected v0.6 penetration diagnostic
         run: |
           python - <<'PY'
           from native_hm08_rifle_finger_grip_v2 import build_preferred_penetration_bounded_finger_grip
           _mesh, packet = build_preferred_penetration_bounded_finger_grip()
+          summary = packet["contact_summary"]
+          assert summary["digits_within_penetration_budget"] == 9, summary
+          assert summary["worst_digits"][0]["digit"] == "right:3", summary
+          print("V0.6 REJECTED AS EXPECTED", summary)
           for key, row in sorted(packet["digit_contact"].items()):
-              print(key, {
-                  "baseline_penetration_m": row["baseline_penetration_m"],
-                  "final_penetration_m": row["final_penetration_m"],
-                  "baseline_signed_surface_m": row["baseline_signed_surface_m"],
-                  "final_signed_surface_m": row["final_signed_surface_m"],
-                  "curl_strength": row["curl_strength"],
-                  "curl_direction": row["curl_direction"],
-              })
+              print(key, {"baseline_penetration_m":row["baseline_penetration_m"],"final_penetration_m":row["final_penetration_m"],"curl_strength":row["curl_strength"]})
           PY
-      - name: Gate penetration-bounded v0.6 finger wrap
-        run: python native_hm08_rifle_finger_grip_v2_test.py
+      - name: Gate grip-surface palm contact + finger wrap v0.7
+        run: python native_hm08_rifle_grip_surface_pose_test.py
