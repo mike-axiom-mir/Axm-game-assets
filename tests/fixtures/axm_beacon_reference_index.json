@@ -1,0 +1,18 @@
+{
+  "capsules": [
+    {
+      "attention_score": 7,
+      "base": "747ca8e384f13215c7119eca4aa150fe95d4bf27",
+      "capsule_id": "2345cdcd6107af8a453480e50b2e598c91ac63f4440179ef459f78418f474e8d",
+      "capsule_path": "capsules/2345cdcd6107af8a453480e50b2e598c91ac63f4440179ef459f78418f474e8d.json",
+      "file_count": 9,
+      "head": "293eba0f0dc9828a11843bbe5be79b2a97c3653e",
+      "kinds": ["code", "configuration", "knowledge", "protocol-state", "test-change"],
+      "patch_path": "patches/2345cdcd6107af8a453480e50b2e598c91ac63f4440179ef459f78418f474e8d.patch",
+      "repo": "mike-axiom-mir/axm-discovery-buddy",
+      "tags": ["add", "agents", "allowed", "any", "attention", "axm", "beacon", "boundary", "branch", "build", "bytes", "candidates", "canonical", "capsule", "changed", "changes", "classify", "cmd", "collect", "commands", "cross", "diff", "discover", "discovery", "ensure", "error", "extract", "fabric", "feat", "feed", "fetch", "git", "github", "growth", "identity", "indexes", "infer", "intersects", "json", "knowledge", "learning", "lines", "load", "local", "matches", "network", "organ", "parse", "parser", "path", "peer", "principle", "protocol", "publish", "purpose", "rank", "read", "ref", "repo", "repos", "repository", "request", "resolve", "run"]
+    }
+  ],
+  "protocol": "axm-beacon/0.1",
+  "repo": "mike-axiom-mir/axm-discovery-buddy"
+}
