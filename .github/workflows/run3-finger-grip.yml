@@ -11,6 +11,8 @@ on:
       - "native_hm08_rifle_grip_surface_pose_test.py"
       - "native_hm08_rifle_grip_dqs.py"
       - "native_hm08_rifle_grip_dqs_test.py"
+      - "native_hm08_finger_pose_corrective.py"
+      - "native_hm08_finger_pose_corrective_test.py"
       - "native_dual_quaternion_skin.py"
       - "native_dual_quaternion_skin_test.py"
       - "native_hm08_finger_rig.py"
@@ -27,6 +29,8 @@ on:
       - "native_hm08_rifle_grip_surface_pose_test.py"
       - "native_hm08_rifle_grip_dqs.py"
       - "native_hm08_rifle_grip_dqs_test.py"
+      - "native_hm08_finger_pose_corrective.py"
+      - "native_hm08_finger_pose_corrective_test.py"
       - "native_dual_quaternion_skin.py"
       - "native_dual_quaternion_skin_test.py"
       - "native_hm08_finger_rig.py"
@@ -41,7 +45,7 @@ permissions:
 jobs:
   native-finger-grip:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -67,3 +71,5 @@ jobs:
         run: python native_dual_quaternion_skin_test.py
       - name: Gate finger-local DQS deformation v0.8
         run: python native_hm08_rifle_grip_dqs_test.py
+      - name: Gate bind-volume finger pose correctives v0.9
+        run: python native_hm08_finger_pose_corrective_test.py
