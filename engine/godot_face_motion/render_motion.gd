@@ -19,11 +19,13 @@ func fail(message: String) -> void:
     push_error(message)
     quit(1)
 
-func collect_meshes(node: Node, out: Array[MeshInstance3D]) -> void:
+func collect_nodes(node: Node, meshes: Array[MeshInstance3D], players: Array[AnimationPlayer]) -> void:
     if node is MeshInstance3D:
-        out.append(node as MeshInstance3D)
+        meshes.append(node as MeshInstance3D)
+    if node is AnimationPlayer:
+        players.append(node as AnimationPlayer)
     for child: Node in node.get_children():
-        collect_meshes(child, out)
+        collect_nodes(child, meshes, players)
 
 func reset_weights(meshes: Array[MeshInstance3D]) -> void:
     for mesh_node: MeshInstance3D in meshes:
@@ -71,6 +73,27 @@ func add_eye_sclera(world: Node3D, center: Vector3, label: String) -> void:
     sclera.material_override = make_material(Color(0.72, 0.74, 0.71, 1.0), 0.42)
     sclera.position = center
     world.add_child(sclera)
+
+func save_viewport(viewport: SubViewport, name: String) -> Dictionary:
+    await process_frame
+    await process_frame
+    await process_frame
+    RenderingServer.force_draw()
+    var image := viewport.get_texture().get_image()
+    if image == null or image.is_empty():
+        fail("Godot returned an empty image for %s" % name)
+        return {}
+    var output_path := OUTPUT_DIR.path_join(name + ".png")
+    var save_error := image.save_png(output_path)
+    if save_error != OK:
+        fail("Could not save render %s" % name)
+        return {}
+    return {
+        "name": name,
+        "file": output_path.get_file(),
+        "width": image.get_width(),
+        "height": image.get_height(),
+    }
 
 func _initialize() -> void:
     call_deferred("_render_all")
@@ -145,28 +168,26 @@ func _render_all() -> void:
     world.add_child(fill)
 
     var meshes: Array[MeshInstance3D] = []
-    collect_meshes(instance, meshes)
+    var players: Array[AnimationPlayer] = []
+    collect_nodes(instance, meshes, players)
     if meshes.is_empty():
         fail("No imported MeshInstance3D found for visual evidence")
         return
-
-    # Keep imported clips inert during fixed-pose evidence capture.
-    for child: Node in instance.get_children():
-        if child is AnimationPlayer:
-            var player := child as AnimationPlayer
-            player.stop()
-            player.active = false
+    for player: AnimationPlayer in players:
+        player.stop()
+        player.active = false
 
     await process_frame
     await process_frame
     await process_frame
 
     var receipt := {
-        "schema": "axm.game-assets.godot-hm08-face-motion-visual.v0.3",
+        "schema": "axm.game-assets.godot-hm08-face-motion-visual.v0.4",
         "asset": ASSET_PATH,
         "frame_size": [FRAME_SIZE.x, FRAME_SIZE.y],
         "camera_position": [CAMERA_POSITION.x, CAMERA_POSITION.y, CAMERA_POSITION.z],
         "face_center": [FACE_CENTER.x, FACE_CENTER.y, FACE_CENTER.z],
+        "animation_players_disabled": players.size(),
         "render_only_eye_landmarks": {
             "left": [LEFT_EYE_CENTER.x, LEFT_EYE_CENTER.y, LEFT_EYE_CENTER.z],
             "right": [RIGHT_EYE_CENTER.x, RIGHT_EYE_CENTER.y, RIGHT_EYE_CENTER.z],
@@ -175,31 +196,30 @@ func _render_all() -> void:
             "diagnostic_geometry": "sclera spheres only"
         },
         "poses": [],
-        "truth": "Rendered Godot frames are fixed-camera visual evidence for human/observer review. Render-only sclera spheres restore pinned hm08 helper-eye scale without iris/pupil depth artifacts; imported animation playback is disabled during fixed-pose capture. This observer does not modify or automatically approve the exported motion source."
+        "diagnostics": [],
+        "truth": "Fixed-camera Godot evidence. Lit PBR frames judge delivered appearance; unshaded neutral/smile diagnostics isolate geometry/morph delivery from material, normal-map, tangent and lighting effects. This observer does not modify or automatically approve the exported motion source."
     }
 
     for pose: Dictionary in POSES:
         set_pose(meshes, pose["weights"] as Dictionary)
-        await process_frame
-        await process_frame
-        await process_frame
-        RenderingServer.force_draw()
-        var image := viewport.get_texture().get_image()
-        if image == null or image.is_empty():
-            fail("Godot returned an empty image for pose %s" % str(pose["name"]))
-            return
-        var output_path := OUTPUT_DIR.path_join(str(pose["name"]) + ".png")
-        var save_error := image.save_png(output_path)
-        if save_error != OK:
-            fail("Could not save render pose %s" % str(pose["name"]))
-            return
-        receipt["poses"].append({
-            "name": str(pose["name"]),
-            "weights": pose["weights"],
-            "file": output_path.get_file(),
-            "width": image.get_width(),
-            "height": image.get_height(),
-        })
+        var frame := await save_viewport(viewport, str(pose["name"]))
+        frame["weights"] = pose["weights"]
+        receipt["poses"].append(frame)
+
+    var unshaded := make_material(Color(0.58, 0.34, 0.27, 1.0), 1.0)
+    unshaded.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    for mesh_node: MeshInstance3D in meshes:
+        mesh_node.material_override = unshaded
+
+    set_pose(meshes, {})
+    var neutral_diag := await save_viewport(viewport, "neutral_unshaded")
+    neutral_diag["weights"] = {}
+    receipt["diagnostics"].append(neutral_diag)
+
+    set_pose(meshes, {"smile": 0.80})
+    var smile_diag := await save_viewport(viewport, "smile_unshaded")
+    smile_diag["weights"] = {"smile": 0.80}
+    receipt["diagnostics"].append(smile_diag)
 
     var receipt_path := OUTPUT_DIR.path_join("visual-receipt.json")
     var receipt_file := FileAccess.open(receipt_path, FileAccess.WRITE)
