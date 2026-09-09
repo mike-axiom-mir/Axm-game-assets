@@ -1,0 +1,177 @@
+name: godot-run3-finger-dqs-ab
+
+on:
+  push:
+    paths:
+      - "native_dual_quaternion_skin.py"
+      - "native_hm08_rifle_grip_dqs.py"
+      - "native_hm08_rifle_grip_dqs_test.py"
+      - "native_hm08_rifle_grip_dqs_package.py"
+      - "native_hm08_rifle_grip_dqs_package_test.py"
+      - "native_hm08_rifle_grip_surface_package.py"
+      - "engine/godot_face/render_rifle_contact_v3_views.gd"
+      - ".github/workflows/godot-run3-finger-dqs-ab.yml"
+  pull_request:
+    paths:
+      - "native_dual_quaternion_skin.py"
+      - "native_hm08_rifle_grip_dqs.py"
+      - "native_hm08_rifle_grip_dqs_test.py"
+      - "native_hm08_rifle_grip_dqs_package.py"
+      - "native_hm08_rifle_grip_dqs_package_test.py"
+      - "native_hm08_rifle_grip_surface_package.py"
+      - "engine/godot_face/render_rifle_contact_v3_views.gd"
+      - ".github/workflows/godot-run3-finger-dqs-ab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  godot-run3-finger-dqs-ab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build v0.7 LBS control and v0.8 DQS candidate
+        run: |
+          rm -rf engine/godot_face/control_dqs engine/godot_face/candidate_dqs
+          python native_dual_quaternion_skin_test.py
+          python native_hm08_rifle_grip_dqs_test.py
+          python native_hm08_rifle_grip_dqs_package_test.py
+          python - <<'PY'
+          from native_hm08_rifle_grip_surface_package import build_hm08_rifle_grip_surface_package
+          from native_hm08_rifle_grip_dqs_package import build_hm08_rifle_grip_dqs_package
+          control=build_hm08_rifle_grip_surface_package("engine/godot_face/control_dqs",texture_size=128)
+          candidate=build_hm08_rifle_grip_dqs_package("engine/godot_face/candidate_dqs",texture_size=128)
+          assert all(control["acceptance"].values()),control["acceptance"]
+          assert all(candidate["acceptance"].values()),candidate["acceptance"]
+          assert control["pose"]["selected_arm_pose"]==candidate["contact_pose"]["selected_arm_pose"]
+          assert control["pose"]["digit_contact"]==candidate["contact_pose"]["digit_contact"]
+          assert control["pose"]["weapon"]==candidate["contact_pose"]["weapon"]
+          assert control["rifle"]["scale"]==candidate["rifle"]["scale"]==[1.0,1.0,1.0]
+          assert control["rifle"]["dimensional_evidence"]["overall_length_m"]==candidate["rifle"]["dimensional_evidence"]["overall_length_m"]
+          print("RUN3 DQS A/B BUILD PASS",candidate["dqs"]["radial_preservation"])
+          PY
+
+      - name: Derive LBS and DQS renderers from one preserved camera lab
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          src=Path("engine/godot_face/render_rifle_contact_v3_views.gd").read_text()
+          old_truth="A/B successor to the preserved oversized-rifle v0.2 viewset. Shared rig, palm-socket mechanism and camera class remain; only the authored rifle dimensions change. Screenshots remain observational deformation/contact evidence."
+          old_block='''    var pose: Dictionary = package["pose"] as Dictionary\n    var contact: Dictionary = pose["contact"] as Dictionary\n    var primary: Vector3 = as_vec3(contact["primary_hand_contact_world_position"])\n    var support: Vector3 = as_vec3(contact["support_hand_contact_world_position"])'''
+
+          def derive(asset,package,receipt,prefix,changed,truth,pose_expr,out):
+              text=src
+              replacements={
+                  "res://generated/sentinel_hm08_rifle_contact_v0_3.gltf":asset,
+                  "res://generated/rifle-contact-package-v3.json":package,
+                  "godot-rifle-contact-v3-views-receipt.json":receipt,
+                  "godot-rifle-contact-v3-%s.png":prefix+"-%s.png",
+                  "human_scale_rifle_source_dimensions":changed,
+                  old_truth:truth,
+              }
+              for old,new in replacements.items():
+                  if old not in text: raise SystemExit(f"renderer contract missing: {old}")
+                  text=text.replace(old,new)
+              new_block=f'''    var pose: Dictionary = {pose_expr}\n    var selected: Dictionary = pose["selected_arm_pose"] as Dictionary\n    var right: Dictionary = selected["right"] as Dictionary\n    var left: Dictionary = selected["left"] as Dictionary\n    var contact: Dictionary = {{"primary_hand_contact_world_position":right["world_contact"],"support_hand_contact_world_position":left["world_contact"]}}\n    var primary: Vector3 = as_vec3(contact["primary_hand_contact_world_position"])\n    var support: Vector3 = as_vec3(contact["support_hand_contact_world_position"])'''
+              if old_block not in text: raise SystemExit("contact extraction block missing")
+              text=text.replace(old_block,new_block)
+              Path(out).write_text(text)
+
+          derive(
+              "res://control_dqs/sentinel_hm08_rifle_grip_surface_v0_7.gltf",
+              "res://control_dqs/rifle-grip-surface-package.json",
+              "godot-run3-dqs-control-v7-views-receipt.json",
+              "godot-run3-dqs-control-v7",
+              "finger_deformation_lbs_control",
+              "Run 3 same-run LBS control. Grip-surface palm contact, 53-joint finger pose, weights, weapon, materials and cameras match the DQS candidate; only finger deformation algorithm differs.",
+              'package["pose"] as Dictionary',
+              "engine/godot_face/render_run3_dqs_control.gd",
+          )
+          derive(
+              "res://candidate_dqs/sentinel_hm08_rifle_grip_dqs_v0_8.gltf",
+              "res://candidate_dqs/rifle-grip-dqs-package.json",
+              "godot-run3-dqs-candidate-v8-views-receipt.json",
+              "godot-run3-dqs-candidate-v8",
+              "finger_deformation_dual_quaternion_candidate",
+              "Run 3 same-run DQS candidate. Grip-surface palm contact, 53-joint finger pose, weights, weapon, materials and cameras match the LBS control; only finger-influenced vertex deformation changes to DQS.",
+              'package["contact_pose"] as Dictionary',
+              "engine/godot_face/render_run3_dqs_candidate.gd",
+          )
+          PY
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" -o .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+
+      - name: Render v0.7 LBS control
+        run: |
+          if ! command -v xvfb-run >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y xvfb; fi
+          rm -f engine/godot_face/godot-run3-dqs-control-v7-*.png engine/godot_face/godot-run3-dqs-control-v7-views-receipt.json
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --display-driver x11 --rendering-method gl_compatibility \
+            --path engine/godot_face --script render_run3_dqs_control.gd
+
+      - name: Render v0.8 DQS candidate
+        run: |
+          rm -f engine/godot_face/godot-run3-dqs-candidate-v8-*.png engine/godot_face/godot-run3-dqs-candidate-v8-views-receipt.json
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --display-driver x11 --rendering-method gl_compatibility \
+            --path engine/godot_face --script render_run3_dqs_candidate.gd
+
+      - name: Validate same-run LBS vs DQS captures
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("engine/godot_face")
+          cases={
+              "lbs":("godot-run3-dqs-control-v7-views-receipt.json","finger_deformation_lbs_control"),
+              "dqs":("godot-run3-dqs-candidate-v8-views-receipt.json","finger_deformation_dual_quaternion_candidate"),
+          }
+          bundle={"schema":"axm.game-assets.godot-run3-finger-dqs-ab.v0.1","cases":{},"truth":"Same-run observational A/B. Grip contact, skeleton pose, skin weights, rifle, materials, camera and lighting are shared. Only finger-influenced deformation is LBS vs DQS."}
+          for case,(receipt_name,expected) in cases.items():
+              receipt=json.loads((root/receipt_name).read_text())
+              assert receipt["status"]=="pass",receipt
+              assert receipt["changed_variable"]==expected,receipt
+              assert receipt["surfaces"]==5 and receipt["material_surfaces"]==5
+              assert [v["name"] for v in receipt["views"]]==["front_contact","three_quarter_contact","hands_close"]
+              bundle["cases"][case]={"views":[{"name":v["name"],"foreground_coverage":v["metrics"]["foreground_coverage"],"near_white":v["metrics"]["near_white_foreground_fraction"]} for v in receipt["views"]]}
+          candidate=json.loads((root/"candidate_dqs"/"rifle-grip-dqs-package.json").read_text())
+          bundle["native_radial_preservation"]=candidate["dqs"]["radial_preservation"]
+          (root/"godot-run3-dqs-ab.json").write_text(json.dumps(bundle,indent=2,sort_keys=True)+"\n")
+          print("RUN3 GODOT LBS/DQS A/B PASS",bundle)
+          PY
+
+      - name: Preserve LBS vs DQS evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-run3-finger-dqs-ab-evidence
+          if-no-files-found: error
+          path: |
+            engine/godot_face/godot-run3-dqs-control-v7-views-receipt.json
+            engine/godot_face/godot-run3-dqs-control-v7-*.png
+            engine/godot_face/godot-run3-dqs-candidate-v8-views-receipt.json
+            engine/godot_face/godot-run3-dqs-candidate-v8-*.png
+            engine/godot_face/godot-run3-dqs-ab.json
+            engine/godot_face/render_run3_dqs_control.gd
+            engine/godot_face/render_run3_dqs_candidate.gd
+            engine/godot_face/control_dqs/rifle-grip-surface-package.json
+            engine/godot_face/control_dqs/sentinel_hm08_rifle_grip_surface_v0_7.gltf
+            engine/godot_face/control_dqs/sentinel_hm08_rifle_grip_surface_v0_7.bin
+            engine/godot_face/candidate_dqs/rifle-grip-dqs-package.json
+            engine/godot_face/candidate_dqs/sentinel_hm08_rifle_grip_dqs_v0_8.gltf
+            engine/godot_face/candidate_dqs/sentinel_hm08_rifle_grip_dqs_v0_8.bin
