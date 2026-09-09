@@ -9,8 +9,8 @@ twisted the hand.
 v0.6 keeps the same 53-joint skin and preserved arm/rifle transform, but derives
 an oriented grip volume from the actual primary-grip / foregrip component mesh.
 Each digit receives a target on the far *surface* of that volume relative to its
-proximal root. The solver therefore has a geometric reason to wrap around the
-weapon instead of converging into one interior point.
+proximal root. Candidate curls that drive the fingertip too deeply into the
+weapon are rejected before target distance is considered.
 """
 from __future__ import annotations
 
@@ -32,6 +32,7 @@ from native_weapon_human_scale import sentinel_rifle_human_scale
 SCHEMA = "axm.game-assets.hm08-rifle-contact-pose.v0.6"
 SURFACE_CLEARANCE_M = 0.003
 AXIAL_MARGIN_FRACTION = 0.12
+MAX_TIP_PENETRATION_M = 0.006
 
 
 def _sub(a, b):
@@ -142,11 +143,7 @@ def _surface_target(volume: dict[str,object], root_world, fallback_world) -> tup
         radial=_sub(radial,_mul(axis,_dot(radial,axis)))
     toward_root=_normalize(radial)
     target_direction=_mul(toward_root,-1.0)
-
-    support=max(
-        _dot(row,target_direction)
-        for row in volume["radial_rows"]
-    )
+    support=max(_dot(row,target_direction) for row in volume["radial_rows"])
     if support<=0.0:
         raise ValueError(f"grip volume {volume['name']} has no positive far-side support")
     target=_add(centerline,_mul(target_direction,support+SURFACE_CLEARANCE_M))
@@ -216,11 +213,16 @@ def build_grip_volume_rifle_contact_pose(body_m: Mesh) -> tuple[Mesh,dict[str,ob
                 candidate,segments=_solve_digit(current,bind,indices,rig_evidence,side,digit,target,scale)
                 tip=_tip_world(candidate,indices,rig_evidence,side,digit)
                 target_error=_distance(tip,target)
-                candidates.append((target_error,scale,candidate,tip,segments))
-            candidates.sort(key=lambda row:(row[0],row[1]))
-            target_error,scale,current,tip,segments=candidates[0]
+                gap=_surface_gap(volume,tip)
+                penetration=max(0.0,-float(gap["surface_gap_m"]))
+                safe=penetration<=MAX_TIP_PENETRATION_M+1e-12
+                candidates.append((0 if safe else 1,target_error,penetration,scale,candidate,tip,segments,gap))
+            candidates.sort(key=lambda row:(row[0],row[1],row[2],row[3]))
+            safe_candidate_count=sum(1 for row in candidates if row[0]==0)
+            if safe_candidate_count<=0:
+                raise ValueError(f"no collision-safe curl candidate for {side} digit {digit}: {[(row[1],row[2],row[3]) for row in candidates]}")
+            _unsafe,target_error,penetration,scale,current,tip,segments,gap=candidates[0]
             improvement=open_target_error-target_error
-            gap=_surface_gap(volume,tip)
             final_surface_gaps.append(float(gap["surface_gap_m"]))
             all_improvements.append(improvement)
             side_rows["digits"][str(digit)]={
@@ -228,6 +230,9 @@ def build_grip_volume_rifle_contact_pose(body_m: Mesh) -> tuple[Mesh,dict[str,ob
                 "open_tip_world":list(open_tip),
                 "target":target_meta,
                 "scale":scale,
+                "safe_candidate_count":safe_candidate_count,
+                "maximum_allowed_tip_penetration_m":MAX_TIP_PENETRATION_M,
+                "selected_tip_penetration_m":penetration,
                 "open_tip_to_surface_target_m":open_target_error,
                 "curled_tip_to_surface_target_m":target_error,
                 "improvement_m":improvement,
@@ -280,10 +285,8 @@ def build_grip_volume_rifle_contact_pose(body_m: Mesh) -> tuple[Mesh,dict[str,ob
         "primary_contact_preserved":float(v4["contact"]["primary_position_error"])<1e-8,
         "support_contact_preserved":float(v4["contact"]["support_position_error"])<1e-6,
         "real_grip_components_used":volumes["right"]["name"]=="primary_grip" and volumes["left"]["name"]=="foregrip",
-        "all_surface_targets_outside_grip":all(
-            abs(float(row["target"]["surface_clearance_m"])-SURFACE_CLEARANCE_M)<1e-12
-            for side in ("right","left") for row in choices[side]["digits"].values()
-        ),
+        "all_surface_targets_outside_grip":all(abs(float(row["target"]["surface_clearance_m"])-SURFACE_CLEARANCE_M)<1e-12 for side in ("right","left") for row in choices[side]["digits"].values()),
+        "every_digit_has_collision_safe_candidate":all(int(row["safe_candidate_count"])>0 for side in ("right","left") for row in choices[side]["digits"].values()),
         "every_fingertip_closer_to_surface_target":len(all_improvements)==10 and minimum_improvement>1e-6,
         "both_hand_target_means_closer":all(choices[side]["curled_target_mean_m"]<choices[side]["open_target_mean_m"] for side in ("right","left")),
         "finger_surface_moves":curl_moved>200 and finger_curl_max>0.003,
@@ -291,7 +294,7 @@ def build_grip_volume_rifle_contact_pose(body_m: Mesh) -> tuple[Mesh,dict[str,ob
         "head_unchanged_by_curl":head_curl<1e-9,
         "lower_body_unchanged_by_curl":lower_curl<1e-9,
         "curl_bounded":finger_curl_max<0.12,
-        "no_extreme_tip_penetration":max_deep_penetration<0.018,
+        "tip_penetration_bounded":max_deep_penetration<=MAX_TIP_PENETRATION_M+1e-12,
         "posed_skeleton_valid":posed_report["status"]=="pass",
     }
 
@@ -307,10 +310,11 @@ def build_grip_volume_rifle_contact_pose(body_m: Mesh) -> tuple[Mesh,dict[str,ob
         "finger_skin_evidence":skin_evidence,
     }
     result["finger_grip"]={
-        "changed_variable_from_v0_5":"target_geometry_socket_center_to_real_component_surface_volume",
+        "changed_variable_from_v0_5":"target_geometry_and_candidate_selection_socket_center_to_collision_aware_real_component_surface_volume",
         "v0_5_visual_status":"rejected_real_godot_hand_close_crushed_twisted_fingers",
-        "selection_rule":"per-digit parent-space capped shortest rotations toward a far-surface target derived from the actual primary_grip/foregrip component volume; no socket-center convergence",
+        "selection_rule":"derive far-surface targets from real primary_grip/foregrip geometry; reject candidate curls deeper than the fingertip penetration budget before minimizing target error",
         "surface_clearance_m":SURFACE_CLEARANCE_M,
+        "maximum_tip_penetration_m":MAX_TIP_PENETRATION_M,
         "axial_margin_fraction":AXIAL_MARGIN_FRACTION,
         "scale_candidates":list(SCALE_CANDIDATES),
         "choices":choices,
@@ -338,7 +342,8 @@ def build_grip_volume_rifle_contact_pose(body_m: Mesh) -> tuple[Mesh,dict[str,ob
             "v0.5 is preserved as a mechanically green but visually rejected attempt because socket-center targeting crushed/twisted fingers in real Godot evidence.",
             "v0.6 derives an oriented volume from the actual primary-grip and foregrip meshes after the proven rifle world transform.",
             "Each finger root chooses an axial slice; the fingertip target sits on the far support surface of that slice plus 3 mm clearance, encouraging a wrap rather than convergence inside the weapon.",
-            "Surface-target metrics are proposal evidence only. The exact preserved Godot hand-close camera decides whether v0.6 is visually usable.",
+            "The first v0.6 pass showed that target-distance minimization alone could still choose a shortcut through the grip. Candidate selection now rejects fingertip penetration deeper than 6 mm before comparing target error.",
+            "Surface-target and penetration metrics are proposal evidence only. The exact preserved Godot hand-close camera decides whether v0.6 is visually usable.",
             "Metacarpal articulation and compressed-knuckle correctives remain later quality gates even if v0.6 improves the gross wrap."
         ],
     }
