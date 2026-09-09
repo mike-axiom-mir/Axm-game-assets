@@ -9,14 +9,16 @@ accepted current/full-body packages and are not duplicated here.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 from native_facial_gltf import compile_facial_character_gltf
-from native_geometry import scale
+from native_geometry import scale, vertex_normals
 from native_gltf import _sha256, validate_gltf
 from native_hm08_face_eyes import RAW_TO_M, SEED_ROOT
 from native_hm08_face_motion import TARGET_ORDER, build_hm08_face_motion_state
 from native_hm08_skin_physical import write_hm08_physical_skin
+from native_morph import apply_morphs
 from native_skin import Joint, Skeleton, SkinWeights
 from native_skin_material import SkinMaterialSpec
 from native_uv import read_obj_uv, validate_uv
@@ -32,6 +34,35 @@ def _head_only_skin(vertex_count: int) -> tuple[Skeleton, SkinWeights]:
         weights=[(1.0, 0.0, 0.0, 0.0)] * vertex_count,
     )
     return skeleton, weights
+
+
+def _add_deformation_normals(neutral_m, morphs_m) -> dict[str, float]:
+    """Attach deterministic full-weight normal deltas to each position morph.
+
+    The source targets remain pure geometry deltas. Delivery normals are derived
+    from the same neutral topology after applying each target at weight 1.0.
+    This keeps PBR shading aligned with deformation without changing identity or
+    target positions.
+    """
+    base_normals = vertex_normals(neutral_m)
+    maxima: dict[str, float] = {}
+    for morph in morphs_m:
+        deformed = apply_morphs(neutral_m, [morph], [1.0], name=f"{morph.name}_normal_probe")
+        deformed_normals = vertex_normals(deformed)
+        deltas = [
+            (
+                deformed_normal[0] - base_normal[0],
+                deformed_normal[1] - base_normal[1],
+                deformed_normal[2] - base_normal[2],
+            )
+            for base_normal, deformed_normal in zip(base_normals, deformed_normals)
+        ]
+        morph.normal_deltas = deltas
+        maxima[morph.name] = max(
+            math.sqrt(delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2])
+            for delta in deltas
+        )
+    return maxima
 
 
 def write_hm08_face_motion_gltf(
@@ -50,6 +81,7 @@ def write_hm08_face_motion_gltf(
         raise ValueError(f"neutral hm08 UV state invalid: {uv_report}")
 
     neutral_m = scale(neutral_raw, RAW_TO_M, name=ASSET_NAME)
+    normal_delta_maxima = _add_deformation_normals(neutral_m, morphs_m)
     skeleton, skin_weights = _head_only_skin(len(neutral_m.vertices))
 
     skin_spec = SkinMaterialSpec(
@@ -94,6 +126,7 @@ def write_hm08_face_motion_gltf(
     material["pbrMetallicRoughness"]["roughnessFactor"] = 1.0
 
     target_names = document["meshes"][0].get("extras", {}).get("targetNames", [])
+    primitive_targets = document["meshes"][0]["primitives"][0].get("targets", [])
     weight_animations = [
         animation
         for animation in document.get("animations", [])
@@ -104,6 +137,11 @@ def write_hm08_face_motion_gltf(
         "neutral_uv_preserved": uv_report["status"] == "pass",
         "explicit_meter_delivery": RAW_TO_M == 0.1,
         "seven_named_morph_targets": target_names == list(TARGET_ORDER),
+        "morph_normal_deltas_present": (
+            len(primitive_targets) == len(TARGET_ORDER)
+            and all("NORMAL" in entry for entry in primitive_targets)
+            and all(morph.normal_deltas is not None and len(morph.normal_deltas) == len(neutral_m.vertices) for morph in morphs_m)
+        ),
         "three_weight_animations": len(weight_animations) == 3,
         "skin_nonmetal": material["pbrMetallicRoughness"]["metallicFactor"] == 0.0,
         "physical_skin_maps_present": all(
@@ -118,8 +156,9 @@ def write_hm08_face_motion_gltf(
         "motion_target_order": list(TARGET_ORDER),
         "motion_clips": [clip.name for clip in clips],
         "neutral_identity_sha256": motion["neutral"]["sha256"],
+        "deformation_normal_delta_max": normal_delta_maxima,
         "truth": (
-            "Real hm08 neutral geometry with reversible meter-space morph targets and morph-weight animation channels. "
+            "Real hm08 neutral geometry with reversible meter-space morph targets, derived deformation-normal deltas, and morph-weight animation channels. "
             "This package is an engine motion observer, not final facial acting or full current-face assembly."
         ),
     })
@@ -147,6 +186,7 @@ def write_hm08_face_motion_gltf(
         "triangles": document["extras"]["axm"]["triangles"],
         "morph_targets": target_names,
         "motion_clips": [animation["name"] for animation in weight_animations],
+        "deformation_normal_delta_max": normal_delta_maxima,
         "skin": skin,
         "motion": motion,
         "validation": validation,
@@ -157,6 +197,7 @@ def write_hm08_face_motion_gltf(
             "visual_quality_claim": False,
             "notes": [
                 "The neutral head is the same accepted hm08 identity substrate, converted explicitly from source decimeters to meters.",
+                "Morph normal deltas are deterministically derived from each full-weight deformed source topology so PBR shading follows the motion instead of reusing only neutral normals.",
                 "A one-joint head skin exists only to satisfy the native skinned-character glTF path; facial motion itself is morph-driven.",
                 "Eyes, brows, lashes, hair and full humanoid deformation remain separate accepted/active packages and are not silently replaced here.",
             ],
