@@ -104,13 +104,15 @@ jobs:
 
           root = Path("engine/godot_face_motion/visual_evidence")
           receipt = json.loads((root / "visual-receipt.json").read_text())
-          assert receipt["schema"] == "axm.game-assets.godot-hm08-face-motion-visual.v0.3", receipt
+          assert receipt["schema"] == "axm.game-assets.godot-hm08-face-motion-visual.v0.4", receipt
           assert [pose["name"] for pose in receipt["poses"]] == ["neutral", "blink", "smile", "jaw_open"], receipt
+          assert [item["name"] for item in receipt["diagnostics"]] == ["neutral_unshaded", "smile_unshaded"], receipt
           eye_evidence = receipt["render_only_eye_landmarks"]
           assert eye_evidence["source"] == "pinned hm08 eye-landmarks.json", receipt
           assert eye_evidence["diagnostic_geometry"] == "sclera spheres only", receipt
-          for pose in receipt["poses"]:
-              path = root / pose["file"]
+          assert receipt["animation_players_disabled"] >= 1, receipt
+          for item in [*receipt["poses"], *receipt["diagnostics"]]:
+              path = root / item["file"]
               data = path.read_bytes()
               assert data[:8] == b"\x89PNG\r\n\x1a\n", path
               width, height = struct.unpack(">II", data[16:24])
