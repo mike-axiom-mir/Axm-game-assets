@@ -12,12 +12,14 @@ def run() -> None:
     assert packet["truth"]["weapon_transform_changed_from_v0_4"] is False
     assert packet["truth"]["internal_weapon_sockets_preserved"] is True
     assert packet["truth"]["palm_surface_derived_from_grip_geometry"] is True
-    assert summary["surface_contact_open_finger_max_penetration_m"] < summary["original_internal_socket_open_finger_max_penetration_m"], summary
-    assert summary["surface_contact_open_finger_max_penetration_m"] <= 0.006, summary
+    original_open = summary["original_internal_socket_open_finger_max_penetration_m"]
+    surface_open = summary["surface_contact_open_finger_max_penetration_m"]
+    assert surface_open < original_open * 0.50, summary
     assert summary["digits_within_penetration_budget"] == 10, summary
     assert summary["max_surface_penetration_m"] <= summary["penetration_budget_m"] + 1e-12, summary
+    assert summary["max_surface_penetration_m"] <= 0.0015, summary
     assert summary["final_mean_tip_surface_error_m"] < summary["baseline_mean_tip_surface_error_m"], summary
-    assert summary["relative_tip_error"] < 0.85, summary
+    assert summary["relative_tip_error"] < 0.20, summary
     assert summary["curled_digits"] >= 7, summary
     assert summary["finger_vertices_moved"] > 100
     assert summary["nonfinger_max_delta_from_surface_arm_pose_m"] <= 1e-10, summary
