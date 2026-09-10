@@ -18,7 +18,13 @@ for (let attempt = 0; attempt < 50; attempt++) {
   await delay(100);
 }
 
-const browser = await chromium.launch({ headless: true });
+// Chromium no longer guarantees automatic software WebGL fallback in headless
+// environments. Opt into its bundled SwiftShader only for this trusted local CI
+// fixture so the evidence gate tests Three.js rendering rather than GPU presence.
+const browser = await chromium.launch({
+  headless: true,
+  args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
+});
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const consoleErrors = [];
 const pageErrors = [];
@@ -32,6 +38,13 @@ page.on("request", request => {
 
 try {
   await page.goto("http://127.0.0.1:4173/index.html", { waitUntil: "domcontentloaded" });
+  const webgl = await page.evaluate(() => {
+    const probe = document.createElement("canvas");
+    const gl = probe.getContext("webgl2") || probe.getContext("webgl");
+    return { available: Boolean(gl), version: gl?.getParameter(gl.VERSION) || null };
+  });
+  assert.equal(webgl.available, true, `hosted Chromium has no WebGL context: ${JSON.stringify(webgl)}`);
+
   await page.waitForFunction(() => window.__AXM_THREE_REVIEW__?.state === "rendered", null, { timeout: 15000 });
   await page.waitForFunction(() => Number(document.querySelector("#drawCalls")?.textContent || 0) > 0);
 
@@ -95,7 +108,12 @@ try {
   assert.deepEqual(consoleErrors, []);
   assert.deepEqual(pageErrors, []);
   assert.deepEqual(externalRequests, []);
-  console.log(JSON.stringify({ desktop, mobile, consoleErrors, pageErrors, externalRequests }, null, 2));
+  console.log(JSON.stringify({ webgl, desktop, mobile, consoleErrors, pageErrors, externalRequests }, null, 2));
+} catch (error) {
+  console.error("Three.js browser witness failed", error);
+  console.error(JSON.stringify({ consoleErrors, pageErrors, externalRequests }, null, 2));
+  await page.screenshot({ path: new URL("threejs-glb-review-failure.png", root).pathname, fullPage: true }).catch(() => {});
+  throw error;
 } finally {
   await browser.close();
   server.kill("SIGTERM");
