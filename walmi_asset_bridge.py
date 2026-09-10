@@ -24,6 +24,7 @@ PROVIDER_REPOSITORY = "mike-axiom-mir/axm-walmi"
 PROVIDER_PR = 7
 PROVIDER_HEAD = "abe3fd43c588ff2a282298b27e4c0530f8d88fc2"
 PROVIDER_CONTRACT = "waldo-axm-mirror verify-asset+materialize-asset"
+PROVIDER_READY_STATE = "INNER_ASSET_CANDIDATE_READY"
 MAX_CANDIDATE_BYTES = 64 * 1024 * 1024
 MAX_MATERIALIZED_FILES = 128
 MAX_MATERIALIZED_BYTES = 64 * 1024 * 1024
@@ -107,7 +108,7 @@ def _provider_call(provider: Path, args: Iterable[str]) -> str:
 
 def _parse_verify(stdout: str) -> str:
     parts = stdout.split()
-    if len(parts) != 3 or parts[0:2] != ["OK", "READY"]:
+    if len(parts) != 3 or parts[0:2] != ["OK", PROVIDER_READY_STATE]:
         raise BridgeError("WALMI_VERIFY_PROTOCOL", f"unexpected output: {stdout!r}")
     digest = parts[2].lower()
     if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
@@ -210,6 +211,7 @@ def build_walmi_asset_proposal(provider: Path, candidate: Path, materialized: Pa
             "pull_request": PROVIDER_PR,
             "head": PROVIDER_HEAD,
             "contract": PROVIDER_CONTRACT,
+            "ready_state": PROVIDER_READY_STATE,
             "candidate_file_sha256": candidate_file_sha256,
             "provider_candidate_sha256": verify_identity,
         },
