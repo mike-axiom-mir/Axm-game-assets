@@ -17,7 +17,39 @@
       "license_verified": true,
       "code_imported": false,
       "canonical_state_owner": "AXM after explicit import",
-      "provenance_required": true
+      "provenance_required": true,
+      "provenance": {
+        "research_record": "research/MAKEHUMAN_CC0_SEED.md",
+        "source_repository": "https://github.com/makehumancommunity/makehuman",
+        "captured": "2026-09-07",
+        "makehuman_revision": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+        "asset_license": {
+          "path": "LICENSE.ASSETS.md",
+          "declared_license": "CC0-1.0",
+          "git_blob_sha1": "f3ede1fc3318f8d794e2cb51924186c62f02f71a"
+        },
+        "application_license": {
+          "path": "LICENSE.CODE.md",
+          "declared_license": "GNU AGPL v3",
+          "git_blob_sha1": "4ef32f0833975b98cb4080343c8fd60ab6d0f88c"
+        },
+        "base_obj": {
+          "path": "makehuman/data/3dobjs/base.obj",
+          "git_blob_sha1": "d26635e9326e3cca30778fd7b9c00062b03cce09"
+        },
+        "pinned_targets": {
+          "nose-width1-incr.target": {
+            "path": "makehuman/data/targets/nose/nose-width1-incr.target",
+            "git_blob_sha1": "db108799ff4614f32bb33f5e7ae4781a2a82349c"
+          }
+        },
+        "seed_manifests": [
+          "seed_data/hm08_full_body_v0.1/seed-manifest.json",
+          "seed_data/hm08_head_v0.1/seed-manifest.json",
+          "seed_data/hm08_head_v0.2/seed-manifest.json",
+          "seed_data/hm08_upper_body_v0.1/seed-manifest.json"
+        ]
+      }
     }
   ],
   "research_only_policy": "Restricted, proprietary, research-only, or unclear systems may influence architecture/mechanism research but their code, weights, assets or outputs are not promoted unless the exact license permits the intended use and jurisdiction."
