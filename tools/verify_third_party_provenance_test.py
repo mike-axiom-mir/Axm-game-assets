@@ -94,6 +94,9 @@ def seed_manifest_payload() -> dict[str, object]:
 
 
 def make_fixture(root: Path) -> None:
+    extra = root / "seed_data" / "hm08_extra_v9"
+    if extra.exists():
+        shutil.rmtree(extra)
     write_json(root / "THIRD_PARTY.json", ledger_payload())
     record = "\n".join(
         [
