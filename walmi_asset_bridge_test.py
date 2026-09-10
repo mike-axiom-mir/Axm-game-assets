@@ -20,21 +20,37 @@ def png_bytes(width: int = 2, height: int = 2) -> bytes:
     return bridge.PNG_SIGNATURE + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
 
 
-def make_fake_provider(root: Path, *, bad_verify: bool = False, bad_materialize: bool = False, symlink: bool = False) -> Path:
+def make_fake_provider(
+    root: Path,
+    *,
+    bad_verify: bool = False,
+    wrong_ready_state: bool = False,
+    bad_materialize: bool = False,
+    symlink: bool = False,
+) -> Path:
     provider = root / "fake-waldo"
+    verify_output = (
+        "print('BROKEN'); raise SystemExit(0)"
+        if bad_verify
+        else (
+            "print('OK READY ' + identity); raise SystemExit(0)"
+            if wrong_ready_state
+            else "print('OK INNER_ASSET_CANDIDATE_READY ' + identity); raise SystemExit(0)"
+        )
+    )
     script = f'''#!/usr/bin/env python3
 import hashlib, json, pathlib, sys
 cmd = sys.argv[1]
 candidate = pathlib.Path(sys.argv[2])
 identity = hashlib.sha256(b"provider:" + candidate.read_bytes()).hexdigest()
 if cmd == "verify-asset":
-    {"print('BROKEN'); raise SystemExit(0)" if bad_verify else "print('OK READY ' + identity); raise SystemExit(0)"}
+    {verify_output}
 if cmd == "materialize-asset":
     out = pathlib.Path(sys.argv[3])
     out.mkdir()
     (out / "asset.png").write_bytes({png_bytes()!r})
     (out / "candidate.json").write_text(json.dumps({{"candidate_only": True}}), encoding="utf-8")
-    (out / "validation.json").write_text(json.dumps({{"state": "READY"}}), encoding="utf-8")
+    (out / "validation.json").write_text(json.dumps({{"state": "INNER_ASSET_CANDIDATE_READY"}}), encoding="utf-8")
     {"(out / 'escape').symlink_to(out / 'asset.png')" if symlink else "None"}
     {"print('OK MATERIALIZED ' + ('0' * 64) + ' ' + str(out))" if bad_materialize else "print('OK MATERIALIZED ' + identity + ' ' + str(out))"}
     raise SystemExit(0)
@@ -59,6 +75,7 @@ class WalmiAssetBridgeTest(unittest.TestCase):
             proposal = bridge.build_walmi_asset_proposal(provider, candidate, root / "materialized")
             self.assertEqual(proposal["schema"], bridge.SCHEMA)
             self.assertEqual(proposal["status"], "PROPOSAL_ONLY")
+            self.assertEqual(proposal["provider"]["ready_state"], bridge.PROVIDER_READY_STATE)
             self.assertEqual(proposal["primary_asset"]["width"], 2)
             self.assertEqual(proposal["primary_asset"]["height"], 2)
             self.assertFalse(any(proposal["authority"].values()))
@@ -77,6 +94,15 @@ class WalmiAssetBridgeTest(unittest.TestCase):
             root = Path(tmp)
             with self.assertRaisesRegex(bridge.BridgeError, "WALMI_VERIFY_PROTOCOL"):
                 bridge.build_walmi_asset_proposal(make_fake_provider(root, bad_verify=True), self._candidate(root), root / "out")
+
+    def test_generic_ready_token_is_not_accepted_as_inner_asset_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with self.assertRaisesRegex(bridge.BridgeError, "WALMI_VERIFY_PROTOCOL"):
+                bridge.build_walmi_asset_proposal(
+                    make_fake_provider(root, wrong_ready_state=True), self._candidate(root), root / "out"
+                )
+            self.assertFalse((root / "out").exists())
 
     def test_verify_materialize_identity_drift_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
