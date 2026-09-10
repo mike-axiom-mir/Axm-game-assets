@@ -22,6 +22,9 @@ jobs:
         python: ["3.11", "3.13"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
@@ -31,7 +34,7 @@ jobs:
         run: python native_pipeline_test.py
       - name: Run verified GLB fail-closed regressions
         run: python native_glb_delivery_test.py
-      - name: Whitespace gate
+      - name: Whitespace gate against exact stacked base
         run: git diff --check "${{ github.event.pull_request.base.sha || github.event.before }}"..HEAD
 
   exact-rts-request:
@@ -41,8 +44,11 @@ jobs:
       RTS_REF: 020da41ef913a50856569ad0643e4882581ee3ff
       PROVIDER_REF: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - name: Check out Game Asset Forge provider
+      - name: Check out exact Game Asset Forge provider head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
