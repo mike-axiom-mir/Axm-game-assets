@@ -1,0 +1,61 @@
+{
+  "protocol": "axm-beacon/0.1",
+  "repo": "mike-axiom-mir/Axm-game-assets",
+  "interests": [
+    "game asset genome canonical asset state",
+    "pbr materials surface detail",
+    "topology lod optimization",
+    "rigging deformation facial animation",
+    "engine validation import export",
+    "vfx secondary motion simulation",
+    "provenance receipts source tool identity",
+    "visual quality evidence repair loops",
+    "realization contracts device engine adaptation"
+  ],
+  "publish": {
+    "include": [
+      "forge.py",
+      "native_*.py",
+      "tools/*.py",
+      "tests/*.py",
+      "tests/fixtures/*.json",
+      "schemas/*.json",
+      "docs/*.md",
+      "research/*.md",
+      "research/*.json",
+      "recipes/*.json",
+      "profiles/*.json",
+      "asset_genomes/*.json",
+      ".axm/beacon.json",
+      ".axm/beacon/*.py",
+      ".github/workflows/axm-beacon-*.yml"
+    ],
+    "exclude": [
+      ".git/**",
+      ".axm/beacon/feed/**",
+      ".axm/beacon/inbox/**",
+      "seed_data/**",
+      "build/**",
+      "dist/**",
+      "private/**",
+      "quarantine/**",
+      "**/private/**",
+      "**/quarantine/**",
+      "**/__pycache__/**",
+      "**/*.pyc",
+      ".env*",
+      "**/.env*",
+      "**/*credential*",
+      "**/*secret*",
+      "**/*.key",
+      "**/*.pem"
+    ],
+    "max_capsules": 200,
+    "tags": ["axm", "game-assets", "asset-forge", "standalone"]
+  },
+  "peer_discovery": {
+    "github_owner": "mike-axiom-mir",
+    "repo_prefixes": ["axm-", "Axm-"],
+    "feed_branch": "axm-beacon-feed"
+  }
+}
