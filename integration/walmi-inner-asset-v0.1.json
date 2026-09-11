@@ -1,0 +1,44 @@
+{
+  "schema": "axm.game-assets.integration/v0.1",
+  "id": "walmi-inner-asset-materialization",
+  "classification": "OPTIONAL_ADAPTER_BRIDGE",
+  "status": "EXPERIMENTAL",
+  "provider": {
+    "repository": "mike-axiom-mir/axm-walmi",
+    "pull_request": 7,
+    "head": "abe3fd43c588ff2a282298b27e4c0530f8d88fc2",
+    "cli": "waldo-axm-mirror",
+    "commands": [
+      "verify-asset",
+      "materialize-asset"
+    ],
+    "code_license": "Apache-2.0"
+  },
+  "consumer": {
+    "repository": "mike-axiom-mir/Axm-game-assets",
+    "entrypoint": "walmi_asset_bridge.py",
+    "proposal_schema": "axm.game-assets.walmi-asset-proposal/v0.1",
+    "role": "external_visual_candidate"
+  },
+  "runtime": {
+    "provider_discovery": false,
+    "provider_required_for_forge": false,
+    "network_required": false,
+    "account_required": false,
+    "cloud_required": false,
+    "ai_model_required": false
+  },
+  "asset_license": {
+    "inferred_by_bridge": false,
+    "value": null
+  },
+  "authority": {
+    "automatic_install": false,
+    "automatic_selection": false,
+    "visual_approval": false,
+    "genome_mutation": false,
+    "promotion": false,
+    "merge": false,
+    "canon": false
+  }
+}
