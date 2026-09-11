@@ -170,6 +170,10 @@ python forge.py audit build/sentinel/genome.json
 python forge.py doctor
 ```
 
+`forge.py init` acquires a new output directory with create-only filesystem semantics before publishing canonical Genome bytes. The output path must not already exist. A repeated or concurrent initializer returns `HOLD AXM_FORGE_INIT_OUTPUT_EXISTS` and leaves every existing byte untouched; choosing whether to reuse, archive or replace that state remains an explicit caller decision.
+
+If read-only inspection identifies a Genome-only interrupted initialization, `python forge.py recover-init REQUEST OUTPUT` can publish only the exact missing intake receipt. Recovery requires the retained Genome bytes to equal the deterministic state derived from the caller-pinned request and embedded creation time. It never rewrites the Genome or conflicting/evolved evidence; all other partial states remain held for explicit review.
+
 CI exercises the native geometry, modeling, hard-surface, multires, target, target-authoring, parametric, seed-bundle, organic proof, skin material, eye, PBR, UV, preview, glTF, packaging, skinning, morph, animation, character-state and character-LOD paths.
 
 Example capability check:
