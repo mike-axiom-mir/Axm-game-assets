@@ -29,11 +29,19 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const consoleErrors = [];
 const pageErrors = [];
 const externalRequests = [];
+const failedResponses = [];
+const requestFailures = [];
 page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
 page.on("pageerror", error => pageErrors.push(String(error)));
 page.on("request", request => {
   const url = new URL(request.url());
   if (url.hostname !== "127.0.0.1") externalRequests.push(request.url());
+});
+page.on("response", response => {
+  if (response.status() >= 400) failedResponses.push({ url: response.url(), status: response.status() });
+});
+page.on("requestfailed", request => {
+  requestFailures.push({ url: request.url(), failure: request.failure() });
 });
 
 try {
@@ -45,7 +53,17 @@ try {
   });
   assert.equal(webgl.available, true, `hosted Chromium has no WebGL context: ${JSON.stringify(webgl)}`);
 
-  await page.waitForFunction(() => window.__AXM_THREE_REVIEW__?.state === "rendered", null, { timeout: 15000 });
+  await page.waitForFunction(
+    () => ["rendered", "held"].includes(window.__AXM_THREE_REVIEW__?.state),
+    null,
+    { timeout: 15000 }
+  );
+  const loaderWitness = await page.evaluate(() => window.__AXM_THREE_REVIEW__);
+  assert.equal(
+    loaderWitness?.state,
+    "rendered",
+    `Three.js loader did not render: ${JSON.stringify({ loaderWitness, failedResponses, requestFailures })}`
+  );
   await page.waitForFunction(() => Number(document.querySelector("#drawCalls")?.textContent || 0) > 0);
 
   const desktop = await page.evaluate(() => {
@@ -108,10 +126,13 @@ try {
   assert.deepEqual(consoleErrors, []);
   assert.deepEqual(pageErrors, []);
   assert.deepEqual(externalRequests, []);
-  console.log(JSON.stringify({ webgl, desktop, mobile, consoleErrors, pageErrors, externalRequests }, null, 2));
+  assert.deepEqual(failedResponses, []);
+  assert.deepEqual(requestFailures, []);
+  console.log(JSON.stringify({ webgl, desktop, mobile, consoleErrors, pageErrors, externalRequests, failedResponses, requestFailures }, null, 2));
 } catch (error) {
+  const loaderWitness = await page.evaluate(() => window.__AXM_THREE_REVIEW__).catch(() => null);
   console.error("Three.js browser witness failed", error);
-  console.error(JSON.stringify({ consoleErrors, pageErrors, externalRequests }, null, 2));
+  console.error(JSON.stringify({ loaderWitness, consoleErrors, pageErrors, externalRequests, failedResponses, requestFailures }, null, 2));
   await page.screenshot({ path: new URL("threejs-glb-review-failure.png", root).pathname, fullPage: true }).catch(() => {});
   throw error;
 } finally {
