@@ -1,0 +1,191 @@
+name: godot-sentinel-armor-smoke
+
+on:
+  push:
+    paths:
+      - "native_sentinel_armor.py"
+      - "native_sentinel_armor_test.py"
+      - "engine/godot_armor/**"
+      - ".github/workflows/godot-sentinel-armor-smoke.yml"
+      - "docs/RUN3_ARMOR_ACCEPTANCE.md"
+  pull_request:
+    paths:
+      - "native_sentinel_armor.py"
+      - "native_sentinel_armor_test.py"
+      - "engine/godot_armor/**"
+      - ".github/workflows/godot-sentinel-armor-smoke.yml"
+      - "docs/RUN3_ARMOR_ACCEPTANCE.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sentinel-armor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Gate native semantic armor
+        run: python native_sentinel_armor_test.py
+
+      - name: Build body control and armor overlay
+        run: |
+          rm -rf engine/godot_armor/generated
+          mkdir -p engine/godot_armor/generated
+          python - <<'PY'
+          import shutil
+          from pathlib import Path
+          from native_hm08_full_body_current import build_current_full_body_package
+          from native_sentinel_armor import write_sentinel_armor_package
+          root = Path("engine/godot_armor/generated")
+          body = build_current_full_body_package(root, texture_size=128)
+          armor = write_sentinel_armor_package(root, texture_size=128)
+          assert all(body["acceptance"].values()), body["acceptance"]
+          assert all(armor["acceptance"].values()), armor["acceptance"]
+          assert body["delivery"]["material_count"] >= 10
+          assert armor["delivery"]["primitive_count"] >= 14
+          assert armor["armor"]["minimum_clearance_over_undersuit_m"] >= 0.004
+          emitted = root / body["delivery"]["gltf"]
+          assert emitted.exists(), emitted
+          shutil.copyfile(emitted, root / "body-control.gltf")
+          # Temporary compatibility alias for the first render script. The
+          # copied glTF still references the exact current builder binary URI.
+          shutil.copyfile(emitted, root / "sentinel_hm08_full_body_current_v0_2.gltf")
+          (root / "body-control-source.txt").write_text(body["delivery"]["gltf"] + "\n")
+          print("ARMOR BUILD PASS", body["delivery"], armor["delivery"], armor["armor"]["fit"])
+          PY
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" --output .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Import body and armor in Godot
+        run: |
+          rm -f engine/godot_armor/godot-armor-import-receipt.json
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --headless \
+            --path engine/godot_armor \
+            --script smoke_armor.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_armor/godot-armor-import-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert receipt["body"]["surfaces"] >= 10, receipt
+          assert receipt["armor"]["surfaces"] >= 14, receipt
+          assert receipt["armor"]["material_surfaces"] == receipt["armor"]["surfaces"], receipt
+          print("GODOT ARMOR IMPORT PASS", receipt)
+          PY
+
+      - name: Render control vs armored views
+        run: |
+          rm -f engine/godot_armor/control-*.png engine/godot_armor/armored-*.png engine/godot_armor/godot-armor-views-receipt.json
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --display-driver x11 \
+            --rendering-method gl_compatibility \
+            --path engine/godot_armor \
+            --script render_armor_views.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_armor/godot-armor-views-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert [view["name"] for view in receipt["views"]] == ["front", "three_quarter", "profile"]
+          assert receipt["coverage_delta_sum"] > 0.002, receipt
+          for view in receipt["views"]:
+              assert view["control"]["near_white_foreground_fraction"] <= 0.035, view
+              assert view["armored"]["near_white_foreground_fraction"] <= 0.035, view
+          print("GODOT ARMOR VIEWS PASS", [(v["name"], v["coverage_delta"], v["bbox_width_delta"]) for v in receipt["views"]])
+          PY
+
+      - name: Bind armored captures to deterministic evidence packets
+        env:
+          GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          from native_visual_evidence import build_capture_packet, validate_capture_packet, write_capture_packet
+          root = Path("engine/godot_armor")
+          receipt = json.loads((root / "godot-armor-views-receipt.json").read_text())
+          package_path = root / "generated" / "armor-package.json"
+          package = json.loads(package_path.read_text())
+          source_digest = "sha256:" + hashlib.sha256(package_path.read_bytes()).hexdigest()
+          bundle = {
+              "schema":"game-asset-forge.godot-sentinel-armor-viewset.v0.1",
+              "authority":"deterministic_capture_evidence_only",
+              "asset_digest":package["delivery"]["gltf_sha256"],
+              "candidate_role":package["candidate_role"],
+              "views":[],
+              "truth":"Capture packets bind the exact armored PNGs to armor package, engine, camera and measured render facts. Visual quality promotion remains observational."
+          }
+          for view in receipt["views"]:
+              name = view["name"]
+              png_path = root / f"armored-{name}.png"
+              png = png_path.read_bytes()
+              metrics = view["armored"]
+              packet = build_capture_packet(
+                  png,
+                  asset_digest=package["delivery"]["gltf_sha256"],
+                  engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},
+                  camera=view["camera"],
+                  render_settings={"renderer":"gl_compatibility","view_name":name,"layer":"sentinel_armor_v0.1","lighting":receipt["lighting"]},
+                  metrics={
+                      "foreground_coverage":metrics["foreground_coverage"],
+                      "foreground_bbox_width_fraction":metrics["foreground_bbox_width_fraction"],
+                      "foreground_bbox_height_fraction":metrics["foreground_bbox_height_fraction"],
+                      "near_white_foreground_fraction":metrics["near_white_foreground_fraction"],
+                      "foreground_luma_mean":metrics["foreground_luma_mean"],
+                      "luma_min":metrics["luma_min"],
+                      "luma_max":metrics["luma_max"],
+                      "luma_range":metrics["luma_range"],
+                      "control_coverage_delta":view["coverage_delta"],
+                  },
+                  source_receipts=[source_digest],
+              )
+              assert validate_capture_packet(packet, png)["status"] == "pass"
+              write_capture_packet(root / f"visual-capture-armor-{name}.json", packet)
+              bundle["views"].append({"name":name,"capture_digest":packet["capture_digest"],"image_sha256":packet["image"]["sha256"]})
+          (root / "visual-capture-armor-viewset.json").write_text(json.dumps(bundle, indent=2, sort_keys=True) + "\n")
+          print("ARMOR CAPTURE PACKETS PASS", bundle)
+          PY
+
+      - name: Preserve armor evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-sentinel-armor-evidence
+          if-no-files-found: warn
+          path: |
+            engine/godot_armor/godot-armor-import-receipt.json
+            engine/godot_armor/godot-armor-views-receipt.json
+            engine/godot_armor/control-*.png
+            engine/godot_armor/armored-*.png
+            engine/godot_armor/visual-capture-armor-*.json
+            engine/godot_armor/generated/body-control.gltf
+            engine/godot_armor/generated/body-control-source.txt
+            engine/godot_armor/generated/sentinel_hm08_full_body_current_*.gltf
+            engine/godot_armor/generated/sentinel_hm08_full_body_current_*.bin
+            engine/godot_armor/generated/armor-package.json
+            engine/godot_armor/generated/sentinel_armor_v0_1.gltf
+            engine/godot_armor/generated/sentinel_armor_v0_1.bin
+            engine/godot_armor/generated/textures/armor_primary/*
+            engine/godot_armor/generated/textures/armor_mechanical/*
