@@ -114,6 +114,7 @@ def _validate_three_root(three_root: Path, expected_version: str) -> tuple[dict[
 
     paths = {
         "three.module.js": three_root / "build" / "three.module.js",
+        "three.core.js": three_root / "build" / "three.core.js",
         "GLTFLoader.js": three_root / "examples" / "jsm" / "loaders" / "GLTFLoader.js",
         "OrbitControls.js": three_root / "examples" / "jsm" / "controls" / "OrbitControls.js",
         "BufferGeometryUtils.js": three_root / "examples" / "jsm" / "utils" / "BufferGeometryUtils.js",
@@ -405,6 +406,7 @@ def build_threejs_review_stage(
     shutil.copyfile(receipt_path, output / "delivery-receipt.json")
     copy_map = {
         "three.module.js": "three.module.js",
+        "three.core.js": "three.core.js",
         "GLTFLoader.js": "addons/loaders/GLTFLoader.js",
         "OrbitControls.js": "addons/controls/OrbitControls.js",
         "BufferGeometryUtils.js": "addons/utils/BufferGeometryUtils.js",
