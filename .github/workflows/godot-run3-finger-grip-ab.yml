@@ -1,0 +1,180 @@
+name: godot-run3-finger-grip-ab
+
+on:
+  push:
+    paths:
+      - "native_hm08_rifle_grip_surface_pose.py"
+      - "native_hm08_rifle_grip_surface_pose_test.py"
+      - "native_hm08_rifle_grip_surface_package.py"
+      - "native_hm08_rifle_grip_surface_package_test.py"
+      - "native_hm08_rifle_contact_package_v4.py"
+      - "engine/godot_face/render_rifle_contact_v3_views.gd"
+      - ".github/workflows/godot-run3-finger-grip-ab.yml"
+  pull_request:
+    paths:
+      - "native_hm08_rifle_grip_surface_pose.py"
+      - "native_hm08_rifle_grip_surface_pose_test.py"
+      - "native_hm08_rifle_grip_surface_package.py"
+      - "native_hm08_rifle_grip_surface_package_test.py"
+      - "native_hm08_rifle_contact_package_v4.py"
+      - "engine/godot_face/render_rifle_contact_v3_views.gd"
+      - ".github/workflows/godot-run3-finger-grip-ab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  godot-run3-finger-grip-ab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build control and candidate from same checkout
+        run: |
+          rm -rf engine/godot_face/control engine/godot_face/generated
+          python native_hm08_rifle_contact_pose_v4_test.py
+          python native_hm08_rifle_grip_surface_pose_test.py
+          python native_hm08_rifle_grip_surface_package_test.py
+          python - <<'PY'
+          from native_hm08_rifle_contact_package_v4 import build_hm08_rifle_contact_package_v4
+          from native_hm08_rifle_grip_surface_package import build_hm08_rifle_grip_surface_package
+          control=build_hm08_rifle_contact_package_v4("engine/godot_face/control",texture_size=128)
+          candidate=build_hm08_rifle_grip_surface_package("engine/godot_face/generated",texture_size=128)
+          assert all(control["acceptance"].values()),control["acceptance"]
+          assert all(candidate["acceptance"].values()),candidate["acceptance"]
+          assert control["rifle"]["scale"]==candidate["rifle"]["scale"]==[1.0,1.0,1.0]
+          assert control["rifle"]["dimensional_evidence"]["overall_length_m"]==candidate["rifle"]["dimensional_evidence"]["overall_length_m"]
+          print("RUN3 A/B BUILD PASS",control["delivery"]["gltf_sha256"],candidate["delivery"]["gltf_sha256"],candidate["pose"]["contact_summary"])
+          PY
+
+      - name: Derive control and candidate renderers from one preserved camera lab
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          src=Path("engine/godot_face/render_rifle_contact_v3_views.gd").read_text()
+          old_truth="A/B successor to the preserved oversized-rifle v0.2 viewset. Shared rig, palm-socket mechanism and camera class remain; only the authored rifle dimensions change. Screenshots remain observational deformation/contact evidence."
+
+          control=src
+          control_replacements={
+              "res://generated/sentinel_hm08_rifle_contact_v0_3.gltf":"res://control/sentinel_hm08_rifle_contact_v0_4.gltf",
+              "res://generated/rifle-contact-package-v3.json":"res://control/rifle-contact-package-v4.json",
+              "godot-rifle-contact-v3-views-receipt.json":"godot-run3-grip-control-v4-views-receipt.json",
+              "godot-rifle-contact-v3-%s.png":"godot-run3-grip-control-v4-%s.png",
+              "human_scale_rifle_source_dimensions":"run2_v0_4_open_finger_control",
+              old_truth:"Run 3 same-run control. Human-scale rifle, segment arm skin and Run 2 v0.4 internal palm-socket/open-finger contact are rendered with the preserved camera/lighting lab."
+          }
+          for old,new in control_replacements.items():
+              if old not in control: raise SystemExit(f"control renderer contract missing: {old}")
+              control=control.replace(old,new)
+          Path("engine/godot_face/render_run3_grip_control.gd").write_text(control)
+
+          candidate=src
+          candidate_replacements={
+              "res://generated/sentinel_hm08_rifle_contact_v0_3.gltf":"res://generated/sentinel_hm08_rifle_grip_surface_v0_7.gltf",
+              "res://generated/rifle-contact-package-v3.json":"res://generated/rifle-grip-surface-package.json",
+              "godot-rifle-contact-v3-views-receipt.json":"godot-run3-grip-candidate-v7-views-receipt.json",
+              "godot-rifle-contact-v3-%s.png":"godot-run3-grip-candidate-v7-%s.png",
+              "human_scale_rifle_source_dimensions":"grip_surface_plus_source_grounded_finger_wrap",
+              old_truth:"Run 3 same-run candidate. Rifle dimensions/transform and camera/lighting class are held; the hand system changes to derived grip-surface palm contact plus source-grounded 53-joint finger wrap. Screenshots remain observational evidence."
+          }
+          for old,new in candidate_replacements.items():
+              if old not in candidate: raise SystemExit(f"candidate renderer contract missing: {old}")
+              candidate=candidate.replace(old,new)
+          old_block='''    var pose: Dictionary = package["pose"] as Dictionary\n    var contact: Dictionary = pose["contact"] as Dictionary\n    var primary: Vector3 = as_vec3(contact["primary_hand_contact_world_position"])\n    var support: Vector3 = as_vec3(contact["support_hand_contact_world_position"])'''
+          new_block='''    var pose: Dictionary = package["pose"] as Dictionary\n    var selected: Dictionary = pose["selected_arm_pose"] as Dictionary\n    var right: Dictionary = selected["right"] as Dictionary\n    var left: Dictionary = selected["left"] as Dictionary\n    var contact: Dictionary = {"primary_hand_contact_world_position":right["world_contact"],"support_hand_contact_world_position":left["world_contact"]}\n    var primary: Vector3 = as_vec3(contact["primary_hand_contact_world_position"])\n    var support: Vector3 = as_vec3(contact["support_hand_contact_world_position"])'''
+          if old_block not in candidate: raise SystemExit("candidate contact extraction block missing")
+          candidate=candidate.replace(old_block,new_block)
+          Path("engine/godot_face/render_run3_grip_candidate.gd").write_text(candidate)
+          PY
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" -o .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Render same-run v0.4 control
+        run: |
+          if ! command -v xvfb-run >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y xvfb; fi
+          rm -f engine/godot_face/godot-run3-grip-control-v4-*.png engine/godot_face/godot-run3-grip-control-v4-views-receipt.json
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --display-driver x11 --rendering-method gl_compatibility \
+            --path engine/godot_face --script render_run3_grip_control.gd
+
+      - name: Render same-run v0.7 candidate
+        run: |
+          rm -f engine/godot_face/godot-run3-grip-candidate-v7-*.png engine/godot_face/godot-run3-grip-candidate-v7-views-receipt.json
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --display-driver x11 --rendering-method gl_compatibility \
+            --path engine/godot_face --script render_run3_grip_candidate.gd
+
+      - name: Validate and bind A/B evidence
+        env:
+          GODOT_ARCHIVE_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          from native_visual_evidence import build_capture_packet,validate_capture_packet,write_capture_packet
+          root=Path("engine/godot_face")
+          cases={
+              "control":{"receipt":"godot-run3-grip-control-v4-views-receipt.json","package":root/"control"/"rifle-contact-package-v4.json","prefix":"godot-run3-grip-control-v4","expected":"run2_v0_4_open_finger_control"},
+              "candidate":{"receipt":"godot-run3-grip-candidate-v7-views-receipt.json","package":root/"generated"/"rifle-grip-surface-package.json","prefix":"godot-run3-grip-candidate-v7","expected":"grip_surface_plus_source_grounded_finger_wrap"},
+          }
+          bundle={"schema":"axm.game-assets.godot-run3-finger-grip-ab.v0.1","authority":"deterministic_capture_evidence_only","cases":{},"truth":"Same-run Godot A/B. Camera class, lighting, renderer and human-scale rifle are shared. Candidate changes the hand-contact system. Screenshot difference is not automatic aesthetic promotion."}
+          for case,row in cases.items():
+              receipt=json.loads((root/row["receipt"]).read_text())
+              package=json.loads(row["package"].read_text())
+              assert receipt["status"]=="pass",receipt
+              assert receipt["changed_variable"]==row["expected"],receipt
+              assert receipt["surfaces"]==5 and receipt["material_surfaces"]==5
+              assert [v["name"] for v in receipt["views"]]==["front_contact","three_quarter_contact","hands_close"]
+              source_digest="sha256:"+hashlib.sha256(row["package"].read_bytes()).hexdigest()
+              case_rows=[]
+              for view in receipt["views"]:
+                  m=view["metrics"]
+                  assert m["foreground_coverage"]>=view["minimum_foreground_coverage"]
+                  assert m["near_white_foreground_fraction"]<=view["maximum_near_white_foreground_fraction"]
+                  png_path=root/f'{row["prefix"]}-{view["name"]}.png'; png=png_path.read_bytes()
+                  packet=build_capture_packet(png,asset_digest=package["delivery"]["gltf_sha256"],engine={"name":"Godot","version":receipt["godot_version"],"pinned_archive_sha256":os.environ["GODOT_ARCHIVE_SHA256"]},camera=view["camera"],render_settings={"renderer":"gl_compatibility","view_name":view["name"],"run3_case":case,"lighting":receipt["lighting"],"foreground_gate":receipt["foreground_gate"]},metrics={"foreground_coverage":m["foreground_coverage"],"foreground_luma_mean":m["foreground_luma_mean"],"near_white_foreground_fraction":m["near_white_foreground_fraction"],"luma_min":m["luma_min"],"luma_max":m["luma_max"],"luma_mean":m["luma_mean"],"luma_range":m["luma_range"]},source_receipts=[source_digest])
+                  assert validate_capture_packet(packet,png)["status"]=="pass"
+                  out=root/f'visual-capture-run3-grip-{case}-{view["name"]}.json';write_capture_packet(out,packet)
+                  case_rows.append({"name":view["name"],"capture_digest":packet["capture_digest"],"image_sha256":packet["image"]["sha256"]})
+              bundle["cases"][case]={"asset_digest":package["delivery"]["gltf_sha256"],"views":case_rows}
+          candidate=json.loads((root/"generated"/"rifle-grip-surface-package.json").read_text())
+          bundle["candidate_native_contact_summary"]=candidate["pose"]["contact_summary"]
+          (root/"visual-capture-run3-grip-ab.json").write_text(json.dumps(bundle,indent=2,sort_keys=True)+"\n")
+          print("RUN3 GODOT GRIP A/B PASS",bundle["candidate_native_contact_summary"])
+          PY
+
+      - name: Preserve same-run grip A/B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-run3-finger-grip-ab-evidence
+          if-no-files-found: error
+          path: |
+            engine/godot_face/godot-run3-grip-control-v4-views-receipt.json
+            engine/godot_face/godot-run3-grip-control-v4-*.png
+            engine/godot_face/godot-run3-grip-candidate-v7-views-receipt.json
+            engine/godot_face/godot-run3-grip-candidate-v7-*.png
+            engine/godot_face/visual-capture-run3-grip-*.json
+            engine/godot_face/render_run3_grip_control.gd
+            engine/godot_face/render_run3_grip_candidate.gd
+            engine/godot_face/control/rifle-contact-package-v4.json
+            engine/godot_face/control/sentinel_hm08_rifle_contact_v0_4.gltf
+            engine/godot_face/control/sentinel_hm08_rifle_contact_v0_4.bin
+            engine/godot_face/generated/rifle-grip-surface-package.json
+            engine/godot_face/generated/sentinel_hm08_rifle_grip_surface_v0_7.gltf
+            engine/godot_face/generated/sentinel_hm08_rifle_grip_surface_v0_7.bin
