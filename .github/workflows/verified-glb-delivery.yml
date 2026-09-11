@@ -1,0 +1,177 @@
+name: Verified rigid GLB delivery
+
+on:
+  pull_request:
+    paths:
+      - "native_glb_delivery.py"
+      - "native_glb_delivery_test.py"
+      - "docs/VERIFIED_GLB_DELIVERY.md"
+      - ".github/workflows/verified-glb-delivery.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provider-contract:
+    name: Python ${{ matrix.python }} provider contract
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Compile bounded delivery seam
+        run: python -m py_compile native_glb_delivery.py native_glb_delivery_test.py native_pipeline.py native_gltf.py
+      - name: Re-run inherited verified native package boundary
+        run: python native_pipeline_test.py
+      - name: Run verified GLB fail-closed regressions
+        run: python native_glb_delivery_test.py
+      - name: Whitespace gate against exact stacked base
+        run: git diff --check "${{ github.event.pull_request.base.sha || github.event.before }}"..HEAD
+
+  exact-rts-request:
+    name: Exact RTS request to verified rigid GLB
+    runs-on: ubuntu-latest
+    env:
+      RTS_REF: 020da41ef913a50856569ad0643e4882581ee3ff
+      PROVIDER_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out exact Game Asset Forge provider head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check out exact RTS request provider
+        uses: actions/checkout@v4
+        with:
+          repository: mike-axiom-mir/axm-many-race-rts-current
+          ref: ${{ env.RTS_REF }}
+          path: _consumer/rts
+      - name: Verify exact consumer and provider heads
+        run: |
+          test "$(git -C _consumer/rts rev-parse HEAD)" = "$RTS_REF"
+          test "$(git rev-parse HEAD)" = "$PROVIDER_REF"
+      - name: Export a real RTS guard rigid-proxy request
+        working-directory: _consumer/rts
+        run: |
+          node --experimental-default-type=module --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+          import { unitPackFrom } from "./src/contentPacks.js";
+          const pack = unitPackFrom("northpole", ["guard"]);
+          if (!pack || pack.units.length !== 1 || pack.units[0].id !== "guard") throw new Error("guard unit pack unavailable");
+          writeFileSync(`${process.env.RUNNER_TEMP}/guard-unit-pack.json`, `${JSON.stringify(pack, null, 2)}\n`);
+          NODE
+          node --experimental-default-type=module tools/export-forge-unit-request.mjs \
+            --unit-pack "$RUNNER_TEMP/guard-unit-pack.json" \
+            --unit guard \
+            --asset-type rigid-proxy \
+            --unit-meters 1.82 \
+            --source-ref "$RTS_REF" \
+            --provider-ref "$PROVIDER_REF" \
+            --output "$RUNNER_TEMP/forge-request.json" \
+            --receipt "$RUNNER_TEMP/forge-request-receipt.json"
+      - name: Build and verify a provider-owned rigid package for that explicit identity
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from native_geometry import make_box, write_obj
+          from native_pipeline import build_rigid_package, verify_rigid_package
+
+          temp = Path(os.environ["RUNNER_TEMP"])
+          request = json.loads((temp / "forge-request.json").read_text(encoding="utf-8"))
+          assert request["contract"] == "axm.rts.forge-unit-request/v0.1"
+          assert request["asset"]["type"] == "rigid-proxy"
+          assert request["targets"] == {"engines": ["threejs"], "delivery": ["glb"]}
+          source = temp / "guard-rigid-proxy.obj"
+          write_obj(make_box((0.65, 1.82, 0.42), name=request["asset"]["id"]), source, include_normals=False)
+          package = build_rigid_package(source, temp / "rigid-package", material_size=32, seed=20260910)
+          verified = verify_rigid_package(temp / "rigid-package", expected_manifest_sha256=package["manifest_sha256"])
+          assert verified["status"] == "pass"
+          (temp / "manifest-pin.txt").write_text(package["manifest_sha256"], encoding="utf-8")
+          PY
+      - name: Derive the self-contained GLB through the explicit request binding
+        run: |
+          python native_glb_delivery.py \
+            --package "$RUNNER_TEMP/rigid-package" \
+            --expected-manifest-sha256 "$(cat "$RUNNER_TEMP/manifest-pin.txt")" \
+            --consumer-request "$RUNNER_TEMP/forge-request.json" \
+            --output "$RUNNER_TEMP/rts-northpole-guard.glb" \
+            --receipt "$RUNNER_TEMP/rts-northpole-guard.glb.receipt.json"
+      - name: Independently inspect request binding and GLB container
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import struct
+          from pathlib import Path
+
+          temp = Path(os.environ["RUNNER_TEMP"])
+          request = json.loads((temp / "forge-request.json").read_text(encoding="utf-8"))
+          receipt = json.loads((temp / "rts-northpole-guard.glb.receipt.json").read_text(encoding="utf-8"))
+          glb = (temp / "rts-northpole-guard.glb").read_bytes()
+          canonical = json.dumps(request, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+          assert receipt["consumer_request"]["sha256"] == "sha256:" + hashlib.sha256(canonical).hexdigest()
+          assert receipt["consumer_request"]["asset_id"] == "rts-northpole-guard"
+          assert receipt["consumer_request"]["asset_type"] == "rigid-proxy"
+          assert receipt["consumer_request"]["engine"] == "threejs"
+          assert receipt["consumer_request"]["delivery"] == "glb"
+          assert receipt["delivery"]["sha256"] == "sha256:" + hashlib.sha256(glb).hexdigest()
+          assert receipt["delivery"]["self_contained"] is True
+          assert all(value is False for value in receipt["authority"].values())
+
+          magic, version, total = struct.unpack_from("<4sII", glb, 0)
+          assert (magic, version, total) == (b"glTF", 2, len(glb))
+          json_len, json_type = struct.unpack_from("<II", glb, 12)
+          assert json_type == 0x4E4F534A
+          start = 20
+          doc = json.loads(glb[start:start + json_len].rstrip(b" ").decode("utf-8"))
+          assert doc["buffers"][0].get("uri") is None
+          assert len(doc["images"]) == 3
+          assert all(image.get("mimeType") == "image/png" and "uri" not in image for image in doc["images"])
+          assert doc["asset"]["extras"]["axm_verified_delivery"]["source_manifest_sha256"] == receipt["source"]["manifest_sha256"]
+          print("RTS REQUEST -> VERIFIED RIGID GLB PASS", len(glb), "bytes")
+          PY
+      - name: Prove character requests fail closed at this rigid-only seam
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          temp = Path(os.environ["RUNNER_TEMP"])
+          request = json.loads((temp / "forge-request.json").read_text(encoding="utf-8"))
+          request["asset"]["type"] = "character"
+          bad = temp / "character-request.json"
+          bad.write_text(json.dumps(request, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          out = temp / "must-not-exist.glb"
+          result = subprocess.run([
+              sys.executable, "native_glb_delivery.py",
+              "--package", str(temp / "rigid-package"),
+              "--expected-manifest-sha256", (temp / "manifest-pin.txt").read_text(),
+              "--consumer-request", str(bad),
+              "--output", str(out),
+          ], capture_output=True, text=True)
+          assert result.returncode != 0
+          assert "only explicit rigid-proxy" in result.stderr
+          assert not out.exists()
+          print("CHARACTER REQUEST FAIL-CLOSED PASS")
+          PY
