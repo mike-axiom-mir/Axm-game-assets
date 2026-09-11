@@ -1,0 +1,87 @@
+name: run3-finger-grip
+
+on:
+  push:
+    paths:
+      - "native_hm08_rifle_finger_grip.py"
+      - "native_hm08_rifle_finger_grip_test.py"
+      - "native_hm08_rifle_finger_grip_v2.py"
+      - "native_hm08_rifle_finger_grip_v2_test.py"
+      - "native_hm08_rifle_grip_surface_pose.py"
+      - "native_hm08_rifle_grip_surface_pose_test.py"
+      - "native_hm08_rifle_grip_dqs.py"
+      - "native_hm08_rifle_grip_dqs_test.py"
+      - "native_hm08_finger_pose_corrective.py"
+      - "native_hm08_finger_pose_corrective_test.py"
+      - "native_hm08_finger_pose_corrective_v2.py"
+      - "native_hm08_finger_pose_corrective_v2_test.py"
+      - "native_hm08_finger_weights_v2.py"
+      - "native_hm08_finger_weights_v2_test.py"
+      - "native_dual_quaternion_skin.py"
+      - "native_dual_quaternion_skin_test.py"
+      - "native_hm08_finger_rig.py"
+      - "native_hm08_rifle_contact_pose_v4.py"
+      - "native_weapon_human_scale.py"
+      - ".github/workflows/run3-finger-grip.yml"
+  pull_request:
+    paths:
+      - "native_hm08_rifle_finger_grip.py"
+      - "native_hm08_rifle_finger_grip_test.py"
+      - "native_hm08_rifle_finger_grip_v2.py"
+      - "native_hm08_rifle_finger_grip_v2_test.py"
+      - "native_hm08_rifle_grip_surface_pose.py"
+      - "native_hm08_rifle_grip_surface_pose_test.py"
+      - "native_hm08_rifle_grip_dqs.py"
+      - "native_hm08_rifle_grip_dqs_test.py"
+      - "native_hm08_finger_pose_corrective.py"
+      - "native_hm08_finger_pose_corrective_test.py"
+      - "native_hm08_finger_pose_corrective_v2.py"
+      - "native_hm08_finger_pose_corrective_v2_test.py"
+      - "native_hm08_finger_weights_v2.py"
+      - "native_hm08_finger_weights_v2_test.py"
+      - "native_dual_quaternion_skin.py"
+      - "native_dual_quaternion_skin_test.py"
+      - "native_hm08_finger_rig.py"
+      - "native_hm08_rifle_contact_pose_v4.py"
+      - "native_weapon_human_scale.py"
+      - ".github/workflows/run3-finger-grip.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-finger-grip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Gate source-grounded 53-joint finger rig
+        run: python native_hm08_finger_rig_test.py
+      - name: Preserve v0.5 rifle finger-wrap evidence
+        run: python native_hm08_rifle_finger_grip_test.py
+      - name: Preserve rejected v0.6 penetration diagnostic
+        run: |
+          python - <<'PY'
+          from native_hm08_rifle_finger_grip_v2 import build_preferred_penetration_bounded_finger_grip
+          _mesh, packet = build_preferred_penetration_bounded_finger_grip()
+          summary = packet["contact_summary"]
+          assert summary["digits_within_penetration_budget"] == 9, summary
+          assert summary["worst_digits"][0]["digit"] == "right:3", summary
+          print("V0.6 REJECTED AS EXPECTED", summary)
+          PY
+      - name: Gate grip-surface palm contact + finger wrap v0.7
+        run: python native_hm08_rifle_grip_surface_pose_test.py
+      - name: Gate generic dual-quaternion skinning kernel
+        run: python native_dual_quaternion_skin_test.py
+      - name: Gate finger-local DQS deformation v0.8
+        run: python native_hm08_rifle_grip_dqs_test.py
+      - name: Preserve weak bind-volume corrective v0.9
+        run: python native_hm08_finger_pose_corrective_test.py
+      - name: Gate pointwise knuckle corrective v0.10
+        run: python native_hm08_finger_pose_corrective_v2_test.py
+      - name: Gate palm-web finger weights v0.2
+        run: python native_hm08_finger_weights_v2_test.py

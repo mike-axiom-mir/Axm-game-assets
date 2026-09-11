@@ -1,0 +1,36 @@
+name: AXM Beacon Tests
+
+on:
+  pull_request:
+    paths:
+      - '.axm/beacon/**'
+      - '.axm/beacon.json'
+      - 'tests/test_asset_beacon.py'
+      - 'tests/fixtures/axm_beacon_reference_index.json'
+      - 'docs/AXM_BEACON_ADOPTION.md'
+      - '.github/workflows/axm-beacon-*.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.axm/beacon/**'
+      - '.axm/beacon.json'
+      - 'tests/test_asset_beacon.py'
+      - 'tests/fixtures/axm_beacon_reference_index.json'
+      - 'docs/AXM_BEACON_ADOPTION.md'
+      - '.github/workflows/axm-beacon-*.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m unittest -v tests/test_asset_beacon.py

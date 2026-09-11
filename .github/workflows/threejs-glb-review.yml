@@ -1,0 +1,121 @@
+name: Three.js verified GLB review
+
+on:
+  pull_request:
+    paths:
+      - "threejs_glb_review.py"
+      - "threejs_glb_review_test.py"
+      - "native_glb_delivery.py"
+      - "native_glb_delivery_test.py"
+      - "native_pipeline.py"
+      - "tests/threejs-glb-review-browser.mjs"
+      - "docs/THREEJS_GLB_REVIEW.md"
+      - ".github/workflows/threejs-glb-review.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Check syntax
+        run: python -m py_compile threejs_glb_review.py threejs_glb_review_test.py native_glb_delivery.py
+      - name: Run Three.js stage regressions
+        run: python threejs_glb_review_test.py
+      - name: Preserve verified GLB prerequisite regressions
+        run: python native_glb_delivery_test.py
+      - name: Whitespace gate against exact stacked base
+        run: git diff --check "${{ github.event.pull_request.base.sha || github.event.before }}"..HEAD
+
+  chromium:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned engine and browser verifier
+        run: |
+          npm install --no-save --package-lock=false three@0.180.0 playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Build exact verified GLB fixture and local Three.js stage
+        run: |
+          mkdir -p test-results/threejs-glb-review-input
+          cat > test-results/threejs-glb-review-input/northpole-guard-review-proxy.obj <<'EOF'
+          o northpole-guard-review-proxy
+          v -0.25 0.0 -0.15
+          v 0.25 0.0 -0.15
+          v 0.25 1.82 -0.15
+          v -0.25 1.82 -0.15
+          v -0.25 0.0 0.15
+          v 0.25 0.0 0.15
+          v 0.25 1.82 0.15
+          v -0.25 1.82 0.15
+          f 1 2 3
+          f 1 3 4
+          f 5 8 7
+          f 5 7 6
+          f 1 5 6
+          f 1 6 2
+          f 2 6 7
+          f 2 7 3
+          f 3 7 8
+          f 3 8 4
+          f 5 1 4
+          f 5 4 8
+          EOF
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from native_pipeline import build_rigid_package
+          from native_glb_delivery import build_verified_glb_delivery
+
+          root = Path("test-results/threejs-glb-review-input")
+          manifest = build_rigid_package(root / "northpole-guard-review-proxy.obj", root / "package", material_size=16, seed=7)
+          delivery = build_verified_glb_delivery(
+              root / "package",
+              root / "northpole-guard-review-proxy.glb",
+              expected_manifest_sha256=manifest["manifest_sha256"],
+          )
+          (root / "delivery-receipt.json").write_text(json.dumps(delivery, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          (root / "build-receipt.json").write_text(json.dumps({"manifest_sha256": manifest["manifest_sha256"]}, indent=2) + "\n", encoding="utf-8")
+          PY
+          python threejs_glb_review.py \
+            --glb test-results/threejs-glb-review-input/northpole-guard-review-proxy.glb \
+            --delivery-receipt test-results/threejs-glb-review-input/delivery-receipt.json \
+            --three-root node_modules/three \
+            --expected-three-version 0.180.0 \
+            --output-dir test-results/threejs-glb-review
+          test -f test-results/threejs-glb-review/vendor/THREE-LICENSE.txt
+          ! grep -E 'https?://' test-results/threejs-glb-review/index.html
+      - name: Exercise the actual local Three.js surface
+        run: node tests/threejs-glb-review-browser.mjs
+      - name: Upload rendered evidence and receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: threejs-glb-review-evidence
+          path: |
+            test-results/threejs-glb-review/*.png
+            test-results/threejs-glb-review/review-receipt.json
+            test-results/threejs-glb-review/delivery-receipt.json
+            test-results/threejs-glb-review-input/build-receipt.json
+          if-no-files-found: warn

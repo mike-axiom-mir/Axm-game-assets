@@ -1,0 +1,103 @@
+name: walmi-asset-bridge
+
+on:
+  push:
+    paths:
+      - "walmi_asset_bridge.py"
+      - "walmi_asset_bridge_test.py"
+      - "integration/walmi-inner-asset-v0.1.json"
+      - "docs/WALMI_ASSET_BRIDGE.md"
+      - ".github/workflows/walmi-asset-bridge.yml"
+  pull_request:
+    paths:
+      - "walmi_asset_bridge.py"
+      - "walmi_asset_bridge_test.py"
+      - "integration/walmi-inner-asset-v0.1.json"
+      - "docs/WALMI_ASSET_BRIDGE.md"
+      - ".github/workflows/walmi-asset-bridge.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  consumer-contract:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile bridge
+        run: python -m py_compile walmi_asset_bridge.py walmi_asset_bridge_test.py
+      - name: Run fail-closed bridge regressions
+        run: python -m unittest -v walmi_asset_bridge_test.py
+
+  real-walmi-provider:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: mike-axiom-mir/axm-walmi
+          ref: abe3fd43c588ff2a282298b27e4c0530f8d88fc2
+          path: walmi-provider
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          cache-dependency-path: walmi-provider/go.sum
+      - name: Verify exact provider checkout and focused provider contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C walmi-provider rev-parse HEAD)" = "abe3fd43c588ff2a282298b27e4c0530f8d88fc2"
+          (cd walmi-provider && go test ./cmd/waldo-axm-mirror -run TestInnerAssetCLIFlow -count=1)
+      - name: Build provider and forge a real candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd walmi-provider && go build -o "$RUNNER_TEMP/waldo-axm-mirror" ./cmd/waldo-axm-mirror)
+          "$RUNNER_TEMP/waldo-axm-mirror" forge-asset \
+            walmi-provider/examples/axm-mirror/inner-asset-recipe.json \
+            "$RUNNER_TEMP/witness-orb.axmasset"
+          "$RUNNER_TEMP/waldo-axm-mirror" verify-asset "$RUNNER_TEMP/witness-orb.axmasset"
+          rm -rf walmi-provider
+      - name: Admit provider output through Game Assets bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e walmi-provider
+          python walmi_asset_bridge.py \
+            --provider "$RUNNER_TEMP/waldo-axm-mirror" \
+            --candidate "$RUNNER_TEMP/witness-orb.axmasset" \
+            --materialized "$RUNNER_TEMP/witness-orb-files" \
+            --proposal "$RUNNER_TEMP/game-assets-proposal.json" \
+            > "$RUNNER_TEMP/proposal-stdout.json"
+      - name: Verify consumer receipt and materialized primary asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"])
+          proposal = json.loads((root / "game-assets-proposal.json").read_text())
+          stdout = json.loads((root / "proposal-stdout.json").read_text())
+          assert proposal == stdout
+          assert proposal["schema"] == "axm.game-assets.walmi-asset-proposal/v0.1"
+          assert proposal["status"] == "PROPOSAL_ONLY"
+          assert proposal["provider"]["head"] == "abe3fd43c588ff2a282298b27e4c0530f8d88fc2"
+          assert proposal["provider"]["candidate_file_sha256"] == hashlib.sha256((root / "witness-orb.axmasset").read_bytes()).hexdigest()
+          assert not any(proposal["authority"].values())
+          asset = root / "witness-orb-files" / "asset.png"
+          assert proposal["primary_asset"]["sha256"] == hashlib.sha256(asset.read_bytes()).hexdigest()
+          paths = {item["path"] for item in proposal["materialized_inventory"]}
+          assert {"asset.png", "candidate.json", "validation.json"} <= paths
+          print("PASS real WALMI provider -> Game Assets proposal-only bridge")
+          PY

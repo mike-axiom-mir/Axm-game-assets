@@ -1,0 +1,26 @@
+name: third-party-provenance-truth
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  provenance:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Verify committed third-party provenance
+        run: python tools/verify_third_party_provenance.py
+      - name: Exercise adversarial provenance regressions
+        run: python tools/verify_third_party_provenance_test.py
+      - name: Parse third-party ledger
+        run: python -m json.tool THIRD_PARTY.json > /dev/null
