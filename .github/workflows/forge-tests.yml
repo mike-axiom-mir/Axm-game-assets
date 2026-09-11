@@ -14,6 +14,8 @@ jobs:
           python-version: "3.13"
       - name: Self test
         run: python forge.py self-test
+      - name: Create-only Genome initialization test
+        run: python forge_init_state_test.py
       - name: Native asset edit engine test
         run: python native_asset_edit_test.py
       - name: Asset edit example surfaces test
