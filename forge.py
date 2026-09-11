@@ -11,12 +11,14 @@ import hashlib
 import json
 import platform
 import shutil
+import sys
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 VERSION = "0.1.0"
+INIT_OUTPUT_EXISTS = "AXM_FORGE_INIT_OUTPUT_EXISTS"
 
 STAGES = [
     ("intake", "deterministic"), ("art_direction", "hybrid"),
@@ -31,6 +33,14 @@ STAGES = [
     ("canonize", "deterministic"),
 ]
 KNOWN_STAGES = {stage for stage, _ in STAGES}
+
+
+class ForgeStateError(RuntimeError):
+    """Stable fail-closed error for canonical Forge state transitions."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 def utc_now() -> str:
@@ -74,6 +84,28 @@ def new_genome(request: dict[str, Any]) -> dict[str, Any]:
     }
     genome["genome_digest"] = digest(genome)
     return genome
+
+
+def initialize_genome(request: dict[str, Any], output: str | Path) -> Path:
+    """Create one new Genome output without replacing existing authority."""
+    genome = new_genome(request)
+    intake_receipt = receipt(
+        "intake", "pass", [genome["provenance"]["request_digest"]], [genome["genome_digest"]],
+        {"id": "axm-game-assets", "version": VERSION, "mode": "deterministic"},
+        ["Genome initialized. No geometry generation claimed."],
+    )
+    out = Path(output)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        out.mkdir()
+    except FileExistsError as error:
+        raise ForgeStateError(
+            INIT_OUTPUT_EXISTS,
+            f"canonical Genome output already exists: {out}",
+        ) from error
+    save(out / "genome.json", genome)
+    save(out / "receipts" / "000-intake.json", intake_receipt)
+    return out / "genome.json"
 
 
 def receipt(stage: str, status: str, inputs: list[str], outputs: list[str], tool: dict[str, Any], notes: list[str] | None = None) -> dict[str, Any]:
@@ -167,15 +199,7 @@ def doctor() -> dict[str, Any]:
 
 def cmd_init(args: argparse.Namespace) -> int:
     request = load(args.request)
-    genome = new_genome(request)
-    out = Path(args.output)
-    save(out / "genome.json", genome)
-    save(out / "receipts" / "000-intake.json", receipt(
-        "intake", "pass", [genome["provenance"]["request_digest"]], [genome["genome_digest"]],
-        {"id": "axm-game-assets", "version": VERSION, "mode": "deterministic"},
-        ["Genome initialized. No geometry generation claimed."],
-    ))
-    print(out / "genome.json")
+    print(initialize_genome(request, args.output))
     return 0
 
 
@@ -249,4 +273,8 @@ def parser() -> argparse.ArgumentParser:
 
 if __name__ == "__main__":
     args = parser().parse_args()
-    raise SystemExit(args.fn(args))
+    try:
+        raise SystemExit(args.fn(args))
+    except ForgeStateError as error:
+        print(f"HOLD {error.code}: {error}", file=sys.stderr)
+        raise SystemExit(2) from error
