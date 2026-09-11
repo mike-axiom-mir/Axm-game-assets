@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""AXM native skinned + morph-capable glTF 2.0 compiler v0.1."""
+"""AXM native skinned + morph-capable glTF 2.0 compiler v0.2."""
 from __future__ import annotations
 
 import json
+import math
 import struct
 from pathlib import Path
 from typing import Any, Sequence
@@ -52,6 +53,13 @@ def _pack_u16_vec4(values: Sequence[tuple[int, int, int, int]]) -> bytes:
     if any(value < 0 or value > 65535 for value in flat):
         raise ValueError("joint index exceeds unsigned-short glTF storage")
     return struct.pack("<" + "H" * len(flat), *flat)
+
+
+def _normalized_vec3(value: tuple[float, float, float]) -> tuple[float, float, float]:
+    length = math.sqrt(value[0] * value[0] + value[1] * value[1] + value[2] * value[2])
+    if length <= 1e-12:
+        raise ValueError("cannot normalize near-zero morph normal")
+    return (value[0] / length, value[1] / length, value[2] / length)
 
 
 def compile_character_gltf(
@@ -139,7 +147,14 @@ def compile_character_gltf(
     inverse_binds = [flatten_matrix_column_major(matrix) for matrix in inverse_bind_matrices(skeleton)]
     inverse_bind_accessor = add_float(inverse_binds, "MAT4", 16, target=None)
 
+    # glTF morph TANGENT attributes are VEC3 deltas: tangent handedness (the
+    # base VEC4.w sign) is not morphed. Derive them in expanded UV-corner space
+    # rather than source-vertex space so seams keep their own tangent basis.
+    # If the recomputed basis chooses the equivalent opposite handedness, flip
+    # its tangent XYZ too; keeping base w with -T preserves the same bitangent.
     morph_entries: list[dict[str, int]] = []
+    morph_tangent_targets = 0
+    morph_tangent_reoriented_corners = 0
     for target in morph_targets:
         entry: dict[str, int] = {}
         position_deltas = [target.position_deltas[index] for index in source_indices]
@@ -147,6 +162,42 @@ def compile_character_gltf(
         if target.normal_deltas is not None:
             normal_deltas = [target.normal_deltas[index] for index in source_indices]
             entry["NORMAL"] = add_float(normal_deltas, "VEC3", 3)
+
+            deformed_positions = [
+                (
+                    base[0] + delta[0],
+                    base[1] + delta[1],
+                    base[2] + delta[2],
+                )
+                for base, delta in zip(positions, position_deltas)
+            ]
+            deformed_normals = [
+                _normalized_vec3((
+                    base[0] + delta[0],
+                    base[1] + delta[1],
+                    base[2] + delta[2],
+                ))
+                for base, delta in zip(normals, normal_deltas)
+            ]
+            deformed_tangents = _tangents(deformed_positions, deformed_normals, texcoords)
+            tangent_deltas: list[tuple[float, float, float]] = []
+            for base_tangent, deformed_tangent in zip(tangents, deformed_tangents):
+                orientation = 1.0
+                if base_tangent[3] * deformed_tangent[3] < 0.0:
+                    orientation = -1.0
+                    morph_tangent_reoriented_corners += 1
+                aligned_tangent = (
+                    deformed_tangent[0] * orientation,
+                    deformed_tangent[1] * orientation,
+                    deformed_tangent[2] * orientation,
+                )
+                tangent_deltas.append((
+                    aligned_tangent[0] - base_tangent[0],
+                    aligned_tangent[1] - base_tangent[1],
+                    aligned_tangent[2] - base_tangent[2],
+                ))
+            entry["TANGENT"] = add_float(tangent_deltas, "VEC3", 3)
+            morph_tangent_targets += 1
         morph_entries.append(entry)
 
     animation_entries: list[dict[str, Any]] = []
@@ -203,7 +254,7 @@ def compile_character_gltf(
         mesh_entry["extras"] = {"targetNames": [target.name for target in morph_targets]}
 
     document: dict[str, Any] = {
-        "asset": {"version": "2.0", "generator": "AXM Game Asset Forge native_character_gltf v0.1"},
+        "asset": {"version": "2.0", "generator": "AXM Game Asset Forge native_character_gltf v0.2"},
         "scene": 0,
         "scenes": [{"nodes": [0, int(root_joint) + 1]}],
         "nodes": nodes,
@@ -240,8 +291,10 @@ def compile_character_gltf(
                 "triangles": len(indices) // 3,
                 "joints": len(skeleton.joints),
                 "morph_targets": len(morph_targets),
+                "morph_tangent_targets": morph_tangent_targets,
+                "morph_tangent_reoriented_corners": morph_tangent_reoriented_corners,
                 "animations": len(animations),
-                "truth": "Native structural character compiler with skeletal animation delivery. Rig-generation intelligence, animation synthesis, correctives, hair/cloth and engine deformation evidence are separate gates.",
+                "truth": "Native structural character compiler with skeletal animation delivery. Morph targets that provide normal deltas also derive tangent deltas per expanded UV corner so normal-mapped deformation keeps a coherent tangent basis. Equivalent tangent bases whose recomputed handedness flips are represented by negating tangent XYZ while retaining the immutable base handedness sign. Rig-generation intelligence, animation synthesis, correctives, hair/cloth and engine deformation evidence remain separate gates.",
             }
         },
     }
@@ -297,5 +350,7 @@ def write_character_gltf(
         "compiled_vertices": document["extras"]["axm"]["compiled_vertices"],
         "joints": len(skeleton.joints),
         "morph_targets": len(morph_targets),
+        "morph_tangent_targets": document["extras"]["axm"]["morph_tangent_targets"],
+        "morph_tangent_reoriented_corners": document["extras"]["axm"]["morph_tangent_reoriented_corners"],
         "animations": len(animations),
     }

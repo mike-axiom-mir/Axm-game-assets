@@ -1,0 +1,137 @@
+name: godot-face-motion-smoke
+
+on:
+  push:
+    paths:
+      - "native_hm08_face_motion*.py"
+      - "native_facial.py"
+      - "native_facial_gltf.py"
+      - "native_character_gltf.py"
+      - "native_hm08_face_eyes.py"
+      - "native_hm08_landmarks.py"
+      - "native_hm08_skin_physical.py"
+      - "native_morph.py"
+      - "native_skin.py"
+      - "native_target_authoring.py"
+      - "native_targets.py"
+      - "seed_data/hm08_head_v0.2/**"
+      - "engine/godot_face_motion/**"
+      - ".github/workflows/godot-face-motion-smoke.yml"
+  pull_request:
+    paths:
+      - "native_hm08_face_motion*.py"
+      - "native_facial.py"
+      - "native_facial_gltf.py"
+      - "native_character_gltf.py"
+      - "native_hm08_face_eyes.py"
+      - "native_hm08_landmarks.py"
+      - "native_hm08_skin_physical.py"
+      - "native_morph.py"
+      - "native_skin.py"
+      - "native_target_authoring.py"
+      - "native_targets.py"
+      - "seed_data/hm08_head_v0.2/**"
+      - "engine/godot_face_motion/**"
+      - ".github/workflows/godot-face-motion-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  godot-face-motion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build hm08 face motion observer package
+        run: |
+          rm -rf engine/godot_face_motion/generated engine/godot_face_motion/visual_evidence
+          python native_hm08_face_motion_test.py
+          python native_hm08_face_motion_gltf_test.py
+          python native_hm08_face_motion_gltf.py engine/godot_face_motion/generated --texture-size 256
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" --output .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Observe imported morph targets and clips in Godot
+        run: |
+          rm -f engine/godot_face_motion/godot-face-motion-import-receipt.json
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --headless \
+            --path engine/godot_face_motion \
+            --script smoke_motion.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("engine/godot_face_motion/godot-face-motion-import-receipt.json").read_text())
+          assert receipt["status"] == "pass", receipt
+          assert sorted(receipt["observed_targets"]) == sorted([
+              "left_blink", "right_blink", "left_brow_raise", "right_brow_raise",
+              "smile", "frown", "jaw_open",
+          ]), receipt
+          assert receipt["mesh_instances"] >= 1, receipt
+          assert receipt["surfaces"] >= 1 and receipt["vertices"] > 0 and receipt["indices"] > 0, receipt
+          assert receipt["animation_players"] >= 1, receipt
+          for name in ("blink_test", "smile_test", "jaw_open_test"):
+              assert any(actual == name or actual.endswith("/" + name) for actual in receipt["animation_names"]), receipt
+          for name, weight in receipt["runtime_weight_receipts"].items():
+              assert abs(float(weight) - 0.5) <= 0.0001, (name, weight, receipt)
+          print("GODOT HM08 FACE MOTION OBSERVER PASS", receipt)
+          PY
+
+      - name: Render fixed-camera motion evidence
+        run: |
+          command -v xvfb-run
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --path engine/godot_face_motion \
+            --script render_motion.gd
+          python - <<'PY'
+          import json
+          import struct
+          from pathlib import Path
+
+          root = Path("engine/godot_face_motion/visual_evidence")
+          receipt = json.loads((root / "visual-receipt.json").read_text())
+          assert receipt["schema"] == "axm.game-assets.godot-hm08-face-motion-visual.v0.6", receipt
+          assert [pose["name"] for pose in receipt["poses"]] == ["neutral", "blink", "smile", "jaw_open"], receipt
+          assert [item["name"] for item in receipt["diagnostics"]] == [
+              "neutral_derivative_pbr", "smile_derivative_pbr",
+              "neutral_flatlit", "smile_flatlit",
+              "neutral_unshaded", "smile_unshaded"
+          ], receipt
+          eye_evidence = receipt["render_only_eye_landmarks"]
+          assert eye_evidence["source"] == "pinned hm08 eye-landmarks.json", receipt
+          assert eye_evidence["diagnostic_geometry"] == "sclera spheres only", receipt
+          assert receipt["animation_players_disabled"] >= 1, receipt
+          for item in [*receipt["poses"], *receipt["diagnostics"]]:
+              path = root / item["file"]
+              data = path.read_bytes()
+              assert data[:8] == b"\x89PNG\r\n\x1a\n", path
+              width, height = struct.unpack(">II", data[16:24])
+              assert (width, height) == (768, 768), (path, width, height)
+              assert len(data) > 4096, (path, len(data))
+          print("GODOT HM08 FACE MOTION VISUAL FILES PASS", receipt)
+          PY
+
+      - name: Preserve Godot face motion evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-hm08-face-motion-evidence
+          if-no-files-found: warn
+          path: |
+            engine/godot_face_motion/godot-face-motion-import-receipt.json
+            engine/godot_face_motion/generated/**
+            engine/godot_face_motion/visual_evidence/**
