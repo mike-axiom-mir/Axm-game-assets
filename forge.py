@@ -9,9 +9,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
 import shutil
+import stat
 import sys
+import uuid
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +22,8 @@ from typing import Any
 
 VERSION = "0.1.0"
 INIT_OUTPUT_EXISTS = "AXM_FORGE_INIT_OUTPUT_EXISTS"
+INIT_RECOVERY_DIVERGED = "AXM_FORGE_INIT_RECOVERY_DIVERGED"
+MAX_INIT_EVIDENCE_BYTES = 64 * 1024 * 1024
 
 STAGES = [
     ("intake", "deterministic"), ("art_direction", "hybrid"),
@@ -66,7 +71,11 @@ def save(path: str | Path, value: dict[str, Any]) -> None:
     target.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def new_genome(request: dict[str, Any]) -> dict[str, Any]:
+def json_bytes(value: dict[str, Any]) -> bytes:
+    return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+
+def new_genome(request: dict[str, Any], *, created_at: str | None = None) -> dict[str, Any]:
     genome = {
         "genome_version": VERSION,
         "asset": deepcopy(request["asset"]),
@@ -77,7 +86,7 @@ def new_genome(request: dict[str, Any]) -> dict[str, Any]:
         "source_state": {"artifacts": [], "layers": [], "canonical_stage": "intake"},
         "pipeline": {"attempts": [], "status": "initialized"},
         "provenance": {
-            "created_at": utc_now(),
+            "created_at": created_at or utc_now(),
             "request_digest": digest(request),
             "sources": deepcopy(request.get("sources", [])),
         },
@@ -86,14 +95,20 @@ def new_genome(request: dict[str, Any]) -> dict[str, Any]:
     return genome
 
 
-def initialize_genome(request: dict[str, Any], output: str | Path) -> Path:
-    """Create one new Genome output without replacing existing authority."""
-    genome = new_genome(request)
-    intake_receipt = receipt(
+def initial_intake_receipt(genome: dict[str, Any]) -> dict[str, Any]:
+    """Derive the intake commit marker from the exact initialized Genome."""
+    return receipt(
         "intake", "pass", [genome["provenance"]["request_digest"]], [genome["genome_digest"]],
         {"id": "axm-game-assets", "version": VERSION, "mode": "deterministic"},
         ["Genome initialized. No geometry generation claimed."],
+        created_at=genome["provenance"]["created_at"],
     )
+
+
+def initialize_genome(request: dict[str, Any], output: str | Path) -> Path:
+    """Create one new Genome output without replacing existing authority."""
+    genome = new_genome(request)
+    intake_receipt = initial_intake_receipt(genome)
     out = Path(output)
     out.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -108,9 +123,136 @@ def initialize_genome(request: dict[str, Any], output: str | Path) -> Path:
     return out / "genome.json"
 
 
-def receipt(stage: str, status: str, inputs: list[str], outputs: list[str], tool: dict[str, Any], notes: list[str] | None = None) -> dict[str, Any]:
+def _strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, member in pairs:
+        if key in value:
+            raise ForgeStateError(INIT_RECOVERY_DIVERGED, f"duplicate JSON member: {key}")
+        value[key] = member
+    return value
+
+
+def _read_exact_init_json(path: Path) -> tuple[dict[str, Any], bytes]:
+    if path.is_symlink():
+        raise ForgeStateError(INIT_RECOVERY_DIVERGED, f"refusing symlinked recovery evidence: {path}")
+    try:
+        metadata = path.stat()
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ForgeStateError(INIT_RECOVERY_DIVERGED, f"recovery evidence is not a regular file: {path}")
+        if metadata.st_size > MAX_INIT_EVIDENCE_BYTES:
+            raise ForgeStateError(
+                INIT_RECOVERY_DIVERGED,
+                f"recovery evidence exceeds {MAX_INIT_EVIDENCE_BYTES} bytes: {path}",
+            )
+        raw = path.read_bytes()
+        value = json.loads(raw.decode("utf-8", errors="strict"), object_pairs_hook=_strict_object)
+    except ForgeStateError:
+        raise
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ForgeStateError(INIT_RECOVERY_DIVERGED, f"cannot admit recovery evidence {path}: {error}") from error
+    if not isinstance(value, dict):
+        raise ForgeStateError(INIT_RECOVERY_DIVERGED, f"recovery evidence must be one JSON object: {path}")
+    return value, raw
+
+
+def _sync_directory(path: Path) -> bool:
+    try:
+        descriptor = os.open(path, os.O_RDONLY)
+    except OSError:
+        return False
+    try:
+        os.fsync(descriptor)
+        return True
+    except OSError:
+        return False
+    finally:
+        os.close(descriptor)
+
+
+def _publish_create_only_json(path: Path, value: dict[str, Any]) -> bool:
+    """Publish one complete commit marker without replacing another actor's file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    stage = path.parent / f".{path.name}.{os.getpid()}.{uuid.uuid4().hex}.stage"
+    raw = json_bytes(value)
+    descriptor = os.open(stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        view = memoryview(raw)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError("short write while staging recovery receipt")
+            view = view[written:]
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    try:
+        try:
+            os.link(stage, path)
+            created = True
+        except FileExistsError:
+            _, existing_raw = _read_exact_init_json(path)
+            if existing_raw != raw:
+                raise ForgeStateError(
+                    INIT_RECOVERY_DIVERGED,
+                    f"another actor published a different intake receipt: {path}",
+                )
+            created = False
+        _sync_directory(path.parent)
+        return created
+    finally:
+        try:
+            stage.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def recover_genome_initialization(request: dict[str, Any], output: str | Path) -> tuple[str, Path]:
+    """Complete an exact Genome-only initialization without rewriting canonical bytes."""
+    out = Path(output)
+    if out.is_symlink() or not out.is_dir():
+        raise ForgeStateError(INIT_RECOVERY_DIVERGED, f"recovery output must be one real directory: {out}")
+    genome_path = out / "genome.json"
+    receipt_directory = out / "receipts"
+    receipt_path = receipt_directory / "000-intake.json"
+    allowed_files = {genome_path, receipt_path}
+    for entry in out.rglob("*"):
+        if entry.is_symlink():
+            raise ForgeStateError(INIT_RECOVERY_DIVERGED, f"refusing symlinked recovery footprint: {entry}")
+        if entry.is_file() and entry not in allowed_files:
+            if entry.parent == receipt_directory and entry.name.startswith(".000-intake.json.") and entry.name.endswith(".stage"):
+                continue
+            raise ForgeStateError(INIT_RECOVERY_DIVERGED, f"unexpected file in recovery footprint: {entry}")
+    if not genome_path.exists():
+        raise ForgeStateError(INIT_RECOVERY_DIVERGED, f"recoverable Genome is missing: {genome_path}")
+    genome, genome_raw = _read_exact_init_json(genome_path)
+    provenance = genome.get("provenance")
+    created_at = provenance.get("created_at") if isinstance(provenance, dict) else None
+    if not isinstance(created_at, str) or not created_at:
+        raise ForgeStateError(INIT_RECOVERY_DIVERGED, "Genome does not carry a usable creation identity")
+    expected_genome = new_genome(request, created_at=created_at)
+    if genome_raw != json_bytes(expected_genome):
+        raise ForgeStateError(
+            INIT_RECOVERY_DIVERGED,
+            "retained Genome is not the exact initialized state derived from the caller-pinned request",
+        )
+    expected_receipt = initial_intake_receipt(expected_genome)
+    if receipt_path.exists() or receipt_path.is_symlink():
+        _, receipt_raw = _read_exact_init_json(receipt_path)
+        if receipt_raw != json_bytes(expected_receipt):
+            raise ForgeStateError(
+                INIT_RECOVERY_DIVERGED,
+                "existing intake receipt does not exactly match the admitted Genome and request",
+            )
+        return "ALREADY_COMPLETE", genome_path
+    if receipt_directory.exists() and (receipt_directory.is_symlink() or not receipt_directory.is_dir()):
+        raise ForgeStateError(INIT_RECOVERY_DIVERGED, f"unsafe intake receipt directory: {receipt_directory}")
+    created = _publish_create_only_json(receipt_path, expected_receipt)
+    return ("RECOVERED" if created else "ALREADY_COMPLETE"), genome_path
+
+
+def receipt(stage: str, status: str, inputs: list[str], outputs: list[str], tool: dict[str, Any], notes: list[str] | None = None, *, created_at: str | None = None) -> dict[str, Any]:
     value = {
-        "stage": stage, "status": status, "created_at": utc_now(),
+        "stage": stage, "status": status, "created_at": created_at or utc_now(),
         "inputs": inputs, "outputs": outputs, "tool": tool, "notes": notes or [],
     }
     value["receipt_digest"] = digest(value)
@@ -203,6 +345,12 @@ def cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_recover_init(args: argparse.Namespace) -> int:
+    status, genome_path = recover_genome_initialization(load(args.request), args.output)
+    print(status, genome_path)
+    return 0
+
+
 def cmd_plan(args: argparse.Namespace) -> int:
     for index, wave in enumerate(recipe_waves(load(args.recipe))):
         print(f"WAVE {index:02d}  " + ", ".join(wave))
@@ -263,6 +411,7 @@ def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="forge.py")
     sub = root.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("init"); p.add_argument("request"); p.add_argument("output"); p.set_defaults(fn=cmd_init)
+    p = sub.add_parser("recover-init"); p.add_argument("request"); p.add_argument("output"); p.set_defaults(fn=cmd_recover_init)
     p = sub.add_parser("plan"); p.add_argument("recipe"); p.set_defaults(fn=cmd_plan)
     p = sub.add_parser("audit"); p.add_argument("genome"); p.set_defaults(fn=cmd_audit)
     p = sub.add_parser("doctor"); p.set_defaults(fn=cmd_doctor)

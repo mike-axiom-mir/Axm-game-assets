@@ -155,6 +155,20 @@ def exact_genome_only_initialization_can_be_resumed(temp: Path) -> None:
     assert repeated.returncode == 0, (repeated.stdout, repeated.stderr)
     assert "ALREADY_COMPLETE" in repeated.stdout
 
+    concurrent = temp / "concurrent-recovery"
+    concurrent.mkdir()
+    shutil.copyfile(completed / "genome.json", concurrent / "genome.json")
+    command = [sys.executable, str(FORGE), "recover-init", str(request_path), str(concurrent)]
+    processes = [
+        subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        for _ in range(2)
+    ]
+    results = [process.communicate(timeout=15) for process in processes]
+    assert [process.returncode for process in processes] == [0, 0], results
+    statuses = sorted(result[0].split()[0] for result in results)
+    assert statuses == ["ALREADY_COMPLETE", "RECOVERED"], results
+    assert tree_bytes(concurrent) == tree_bytes(completed)
+
     shutil.copytree(interrupted, divergent)
     genome_path = divergent / "genome.json"
     genome = json.loads(genome_path.read_text(encoding="utf-8"))
