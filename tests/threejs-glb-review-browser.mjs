@@ -29,13 +29,23 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const consoleErrors = [];
 const pageErrors = [];
 const externalRequests = [];
+const localBlobRequests = [];
 const failedResponses = [];
 const requestFailures = [];
 page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
 page.on("pageerror", error => pageErrors.push(String(error)));
 page.on("request", request => {
-  const url = new URL(request.url());
-  if (url.hostname !== "127.0.0.1") externalRequests.push(request.url());
+  const raw = request.url();
+  const url = new URL(raw);
+  if (url.protocol === "blob:") {
+    // Three.js/GLTFLoader turns embedded GLB image bytes into browser-local blob
+    // URLs. These are in-memory descendants of the local stage, not network IO.
+    localBlobRequests.push(raw);
+    return;
+  }
+  if (["http:", "https:"].includes(url.protocol) && url.hostname !== "127.0.0.1") {
+    externalRequests.push(raw);
+  }
 });
 page.on("response", response => {
   if (response.status() >= 400) failedResponses.push({ url: response.url(), status: response.status() });
@@ -128,11 +138,11 @@ try {
   assert.deepEqual(externalRequests, []);
   assert.deepEqual(failedResponses, []);
   assert.deepEqual(requestFailures, []);
-  console.log(JSON.stringify({ webgl, desktop, mobile, consoleErrors, pageErrors, externalRequests, failedResponses, requestFailures }, null, 2));
+  console.log(JSON.stringify({ webgl, desktop, mobile, consoleErrors, pageErrors, externalRequests, localBlobRequestCount: localBlobRequests.length, failedResponses, requestFailures }, null, 2));
 } catch (error) {
   const loaderWitness = await page.evaluate(() => window.__AXM_THREE_REVIEW__).catch(() => null);
   console.error("Three.js browser witness failed", error);
-  console.error(JSON.stringify({ loaderWitness, consoleErrors, pageErrors, externalRequests, failedResponses, requestFailures }, null, 2));
+  console.error(JSON.stringify({ loaderWitness, consoleErrors, pageErrors, externalRequests, localBlobRequests, failedResponses, requestFailures }, null, 2));
   await page.screenshot({ path: new URL("threejs-glb-review-failure.png", root).pathname, fullPage: true }).catch(() => {});
   throw error;
 } finally {
