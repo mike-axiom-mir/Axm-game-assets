@@ -45,7 +45,11 @@ def fake_three(root: Path, version: str = "0.180.0") -> None:
     (root / "examples/jsm/controls").mkdir(parents=True)
     (root / "examples/jsm/utils").mkdir(parents=True)
     (root / "package.json").write_text(json.dumps({"name": "three", "version": version}), encoding="utf-8")
-    (root / "build/three.module.js").write_text("export const REVISION='180';\n", encoding="utf-8")
+    (root / "build/three.core.js").write_text("export const REVISION='180';\n", encoding="utf-8")
+    (root / "build/three.module.js").write_text(
+        "import { REVISION as CORE_REVISION } from './three.core.js';\nexport const REVISION=CORE_REVISION;\n",
+        encoding="utf-8",
+    )
     (root / "examples/jsm/loaders/GLTFLoader.js").write_text("export class GLTFLoader {}\n", encoding="utf-8")
     (root / "examples/jsm/controls/OrbitControls.js").write_text("export class OrbitControls {}\n", encoding="utf-8")
     (root / "examples/jsm/utils/BufferGeometryUtils.js").write_text("export function toTrianglesDrawMode(){}\n", encoding="utf-8")
@@ -88,8 +92,12 @@ class ThreeJsGlbReviewTests(unittest.TestCase):
             self.assertFalse(result["authority"]["visual_approval"])
             self.assertEqual((out / "asset.glb").read_bytes(), glb.read_bytes())
             self.assertTrue((out / "vendor/THREE-LICENSE.txt").is_file())
+            self.assertTrue((out / "vendor/three.module.js").is_file())
+            self.assertTrue((out / "vendor/three.core.js").is_file())
             self.assertTrue((out / "vendor/addons/loaders/GLTFLoader.js").is_file())
             self.assertTrue((out / "vendor/addons/utils/BufferGeometryUtils.js").is_file())
+            self.assertIn("three.core.js", (out / "vendor/three.module.js").read_text(encoding="utf-8"))
+            self.assertIn("three.core.js", result["runtime"]["modules"])
             rendered = (out / "index.html").read_text(encoding="utf-8")
             self.assertNotIn("https://", rendered)
             self.assertNotIn("http://", rendered)
