@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Regression contract for create-only canonical Genome initialization."""
+"""Regression contract for create-only Genome init and its read-only HOLD inspection."""
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+import forge
+
 
 ROOT = Path(__file__).resolve().parent
 FORGE = ROOT / "forge.py"
+INSPECTOR = ROOT / "forge_init_inspector.py"
 
 
 def request(asset_id: str) -> dict[str, object]:
@@ -34,6 +38,19 @@ def request(asset_id: str) -> dict[str, object]:
 def run_init(request_path: Path, output: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(FORGE), "init", str(request_path), str(output)],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def run_inspect(output: Path, *, json_mode: bool = False) -> subprocess.CompletedProcess[str]:
+    command = [sys.executable, str(INSPECTOR), str(output)]
+    if json_mode:
+        command.append("--json")
+    return subprocess.run(
+        command,
         cwd=ROOT,
         check=False,
         capture_output=True,
@@ -95,12 +112,101 @@ def concurrent_initializers_have_one_winner(temp: Path) -> None:
     assert "RESULT PASS" in audit.stdout
 
 
+def init_hold_inspection_is_read_only_and_actionable(temp: Path) -> None:
+    available = temp / "available-output"
+    result = run_inspect(available, json_mode=True)
+    assert result.returncode == 0, result.stderr
+    available_report = json.loads(result.stdout)
+    assert available_report["state"] == "AVAILABLE"
+    assert available_report["safe_to_initialize_here"] is True
+    assert not available.exists(), "read-only inspection created an available output path"
+
+    request_path = temp / "inspection-request.json"
+    request_path.write_text(json.dumps(request("inspection")), encoding="utf-8")
+    complete = temp / "complete-output"
+    created = run_init(request_path, complete)
+    assert created.returncode == 0, created.stderr
+    complete_before = tree_bytes(complete)
+
+    human = run_inspect(complete)
+    assert human.returncode == 0, human.stderr
+    assert "FORGE INIT INSPECTION" in human.stdout
+    assert "STATE: ESTABLISHED_INITIALIZATION" in human.stdout
+    assert "SAFE TO RUN INIT HERE: NO" in human.stdout
+    assert "BOUNDARY: READ ONLY" in human.stdout
+    assert tree_bytes(complete) == complete_before, "human inspection changed established state"
+
+    complete_json = run_inspect(complete, json_mode=True)
+    complete_report = json.loads(complete_json.stdout)
+    assert complete_report["state"] == "ESTABLISHED_INITIALIZATION"
+    assert complete_report["facts"]["genome_digest_valid"] is True
+    assert complete_report["facts"]["intake_receipt_digest_valid"] is True
+    assert complete_report["facts"]["request_digest_bound_to_intake"] is True
+    assert complete_report["facts"]["current_genome_is_intake_output"] is True
+    assert all(value is False for key, value in complete_report["authority"].items() if key != "read_only")
+    assert complete_report["authority"]["read_only"] is True
+    assert tree_bytes(complete) == complete_before, "machine inspection changed established state"
+
+    partial = temp / "partial-output"
+    partial.mkdir()
+    shutil.copyfile(complete / "genome.json", partial / "genome.json")
+    partial_before = tree_bytes(partial)
+    partial_result = run_inspect(partial, json_mode=True)
+    partial_report = json.loads(partial_result.stdout)
+    assert partial_report["state"] == "HELD_PARTIAL_INITIALIZATION"
+    assert partial_report["safe_to_initialize_here"] is False
+    assert tree_bytes(partial) == partial_before, "partial inspection repaired or deleted evidence"
+
+    occupied = temp / "occupied-output"
+    occupied.mkdir()
+    occupied_result = run_inspect(occupied, json_mode=True)
+    assert json.loads(occupied_result.stdout)["state"] == "HELD_OCCUPIED"
+    assert tree_bytes(occupied) == {}, "empty occupied directory was mutated"
+
+    non_directory = temp / "occupied-file"
+    non_directory.write_text("preserve me\n", encoding="utf-8")
+    non_directory_before = non_directory.read_bytes()
+    non_directory_result = run_inspect(non_directory, json_mode=True)
+    assert json.loads(non_directory_result.stdout)["state"] == "HELD_NOT_DIRECTORY"
+    assert non_directory.read_bytes() == non_directory_before
+
+    ambiguous = temp / "ambiguous-output"
+    shutil.copytree(complete, ambiguous)
+    receipt_path = ambiguous / "receipts" / "000-intake.json"
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["notes"].append("unsealed mutation")
+    receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    ambiguous_before = tree_bytes(ambiguous)
+    ambiguous_result = run_inspect(ambiguous, json_mode=True)
+    ambiguous_report = json.loads(ambiguous_result.stdout)
+    assert ambiguous_report["state"] == "HELD_AMBIGUOUS_INITIALIZATION"
+    assert ambiguous_report["facts"]["intake_receipt_digest_valid"] is False
+    assert tree_bytes(ambiguous) == ambiguous_before, "ambiguous inspection rewrote suspect evidence"
+
+    evolved = temp / "evolved-output"
+    shutil.copytree(complete, evolved)
+    genome_path = evolved / "genome.json"
+    genome = json.loads(genome_path.read_text(encoding="utf-8"))
+    genome.pop("genome_digest")
+    genome["pipeline"]["status"] = "post-init-test"
+    genome["genome_digest"] = forge.digest(genome)
+    genome_path.write_text(json.dumps(genome, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    evolved_before = tree_bytes(evolved)
+    evolved_result = run_inspect(evolved, json_mode=True)
+    evolved_report = json.loads(evolved_result.stdout)
+    assert evolved_report["state"] == "ESTABLISHED_FORGE_STATE"
+    assert evolved_report["facts"]["genome_digest_valid"] is True
+    assert evolved_report["facts"]["current_genome_is_intake_output"] is False
+    assert tree_bytes(evolved) == evolved_before, "inspection rewrote evolved Forge state"
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory() as directory:
         temp = Path(directory)
         existing_output_is_not_rewritten(temp)
         concurrent_initializers_have_one_winner(temp)
-    print("Forge create-only Genome initialization tests: PASS")
+        init_hold_inspection_is_read_only_and_actionable(temp)
+    print("Forge create-only Genome initialization + HOLD inspection tests: PASS")
 
 
 if __name__ == "__main__":
