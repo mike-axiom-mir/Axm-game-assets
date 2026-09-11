@@ -45,6 +45,16 @@ def run_init(request_path: Path, output: Path) -> subprocess.CompletedProcess[st
     )
 
 
+def run_recover(request_path: Path, output: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(FORGE), "recover-init", str(request_path), str(output)],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
 def run_inspect(output: Path, *, json_mode: bool = False) -> subprocess.CompletedProcess[str]:
     command = [sys.executable, str(INSPECTOR), str(output)]
     if json_mode:
@@ -110,6 +120,53 @@ def concurrent_initializers_have_one_winner(temp: Path) -> None:
     )
     assert audit.returncode == 0, audit.stdout + audit.stderr
     assert "RESULT PASS" in audit.stdout
+
+
+def exact_genome_only_initialization_can_be_resumed(temp: Path) -> None:
+    request_path = temp / "recovery-request.json"
+    other_request_path = temp / "other-request.json"
+    completed = temp / "completed-source"
+    interrupted = temp / "interrupted-output"
+    divergent = temp / "divergent-output"
+    request_path.write_text(json.dumps(request("recovery")), encoding="utf-8")
+    other_request_path.write_text(json.dumps(request("other")), encoding="utf-8")
+
+    created = run_init(request_path, completed)
+    assert created.returncode == 0, created.stderr
+    interrupted.mkdir()
+    shutil.copyfile(completed / "genome.json", interrupted / "genome.json")
+    before = tree_bytes(interrupted)
+    assert set(before) == {"genome.json"}, "fixture must model interruption after Genome publication"
+
+    wrong_request = run_recover(other_request_path, interrupted)
+    assert wrong_request.returncode == 2, (wrong_request.stdout, wrong_request.stderr)
+    assert "HOLD AXM_FORGE_INIT_RECOVERY_DIVERGED" in wrong_request.stderr
+    assert tree_bytes(interrupted) == before, "divergent recovery changed retained evidence"
+
+    recovered = run_recover(request_path, interrupted)
+    assert recovered.returncode == 0, (recovered.stdout, recovered.stderr)
+    assert set(tree_bytes(interrupted)) == {"genome.json", "receipts/000-intake.json"}
+    assert (interrupted / "genome.json").read_bytes() == before["genome.json"]
+    assert (interrupted / "receipts" / "000-intake.json").read_bytes() == (
+        completed / "receipts" / "000-intake.json"
+    ).read_bytes(), "recovery did not reconstruct the exact initialization receipt"
+
+    repeated = run_recover(request_path, interrupted)
+    assert repeated.returncode == 0, (repeated.stdout, repeated.stderr)
+    assert "ALREADY_COMPLETE" in repeated.stdout
+
+    shutil.copytree(interrupted, divergent)
+    genome_path = divergent / "genome.json"
+    genome = json.loads(genome_path.read_text(encoding="utf-8"))
+    genome["asset"]["name"] = "tampered but resealed"
+    genome.pop("genome_digest")
+    genome["genome_digest"] = forge.digest(genome)
+    genome_path.write_text(json.dumps(genome, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    divergent_before = tree_bytes(divergent)
+    rejected = run_recover(request_path, divergent)
+    assert rejected.returncode == 2, (rejected.stdout, rejected.stderr)
+    assert "HOLD AXM_FORGE_INIT_RECOVERY_DIVERGED" in rejected.stderr
+    assert tree_bytes(divergent) == divergent_before, "rejected recovery rewrote divergent state"
 
 
 def init_hold_inspection_is_read_only_and_actionable(temp: Path) -> None:
@@ -205,6 +262,7 @@ def main() -> None:
         temp = Path(directory)
         existing_output_is_not_rewritten(temp)
         concurrent_initializers_have_one_winner(temp)
+        exact_genome_only_initialization_can_be_resumed(temp)
         init_hold_inspection_is_read_only_and_actionable(temp)
     print("Forge create-only Genome initialization + HOLD inspection tests: PASS")
 
