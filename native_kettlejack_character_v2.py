@@ -1,0 +1,559 @@
+#!/usr/bin/env python3
+"""Kettlejack v0.2 visual-rehearsal character build.
+
+This iteration exists because the structurally valid v0.1 package was rendered
+and visually inspected. The render exposed a generic human silhouette, bare
+scalp, weak eye treatment, a tiny backpack, exposed source feet/lower leg and a
+wrench head that did not read clearly enough.
+
+v0.2 keeps the same inspectable Forge-owned substrates and repairs those
+specific visible gaps. The generated concept remains design intent, not hidden
+geometry truth or automatic aesthetic authority.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+from dataclasses import replace
+from pathlib import Path
+from typing import Any, Iterable
+
+from native_animation import AnimationClip, validate_animation_clip
+from native_construction_kit import beam_segment, lathe_profile, pipe_path, rounded_box, torus_ring
+from native_found_object_detail import build_kettle
+from native_geometry import Mesh, bounds, combine, make_uv_sphere, scale, topology_report, translate
+from native_hm08_humanoid_rig import build_hm08_humanoid_skeleton, derive_hm08_rig_landmarks
+from native_hm08_humanoid_skin_v2 import build_hm08_skin_weights_v2
+from native_hm08_undersuit import _load_identity_body, build_hm08_undersuit
+from native_kettlejack_character import (
+    DESIGN_INTENT,
+    METALLIC_FACTORS,
+    _scale_skeleton,
+    _scaled_point,
+    _write_materials,
+    build_kettlejack_clips,
+)
+from native_skin import Skeleton, validate_skeleton
+from native_skinned_multi_gltf import SkinnedMaterialPrimitive, rigid_skin_weights, write_skinned_multi_gltf
+from native_surface_families import write_surface_family
+from native_uv import box_project_world, validate_uv
+
+SCHEMA = "axm.game-assets.kettlejack-character/v0.2"
+ASSET_NAME = "kettlejack_game_character_v0_2"
+TARGET_HEIGHT_M = 1.30
+
+EXTRA_MATERIAL_RECIPES = {
+    "hair": {"kind": "rubber", "base_rgb": (58, 34, 24), "metallic": 0.0},
+    "eye_white": {"kind": "salvage_metal", "base_rgb": (235, 226, 203), "metallic": 0.0},
+    "eye_dark": {"kind": "rubber", "base_rgb": (37, 24, 19), "metallic": 0.0},
+    "orange_glow": {"kind": "salvage_metal", "base_rgb": (235, 104, 25), "metallic": 0.2},
+}
+
+
+def _sha(data: bytes) -> str:
+    return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+def _smooth(edge0: float, edge1: float, value: float) -> float:
+    if edge1 <= edge0:
+        return 0.0
+    t = max(0.0, min(1.0, (value - edge0) / (edge1 - edge0)))
+    return t * t * (3.0 - 2.0 * t)
+
+
+def stylize_body_v2(source: Mesh) -> tuple[Mesh, dict[str, Any]]:
+    """Strengthen Kettlejack's readable proportions without changing topology."""
+    lo, hi = bounds(source)
+    height = hi[1] - lo[1]
+    width = hi[0] - lo[0]
+    center_z = (lo[2] + hi[2]) * 0.5
+    neck_y = lo[1] + height * 0.82
+    vertices = []
+    max_head_width_scale = 1.0
+    max_head_depth_scale = 1.0
+    max_head_vertical_scale = 1.0
+    minimum_arm_span_scale = 1.0
+    for x, y, z in source.vertices:
+        t = (y - lo[1]) / max(height, 1e-12)
+        head = _smooth(0.80, 0.94, t)
+        torso = _smooth(0.48, 0.67, t) * (1.0 - _smooth(0.82, 0.90, t))
+        lower = 1.0 - _smooth(0.40, 0.54, t)
+        lateral = _smooth(width * 0.12, width * 0.42, abs(x))
+        arm_height = _smooth(0.55, 0.64, t) * (1.0 - _smooth(0.82, 0.88, t))
+        arm_gate = lateral * arm_height
+
+        x_scale = (1.0 + 0.43 * head + 0.035 * torso - 0.025 * lower) * (1.0 - 0.11 * arm_gate)
+        z_scale = 1.0 + 0.34 * head + 0.03 * torso
+        y2 = y
+        if y > neck_y:
+            # Enlarge the head vertically around the neck seam. Final target
+            # scaling later returns the full character to exactly 1.30 m.
+            y2 = neck_y + (y - neck_y) * 1.18
+        max_head_width_scale = max(max_head_width_scale, 1.0 + 0.43 * head)
+        max_head_depth_scale = max(max_head_depth_scale, z_scale)
+        max_head_vertical_scale = max(max_head_vertical_scale, 1.18 if y > neck_y else 1.0)
+        minimum_arm_span_scale = min(minimum_arm_span_scale, 1.0 - 0.11 * arm_gate)
+        vertices.append((x * x_scale, y2, center_z + (z - center_z) * z_scale))
+
+    mesh = Mesh("kettlejack_stylized_hm08_source_v2", vertices, list(source.faces))
+    report = topology_report(mesh)
+    if report["invalid_indices"] or report["degenerate_faces"]:
+        raise ValueError(f"v0.2 stylization damaged topology: {report}")
+    return mesh, {
+        "method": "render-driven bounded topology-preserving regional xyz stylization",
+        "source_height_m": height,
+        "maximum_head_width_scale": max_head_width_scale,
+        "maximum_head_depth_scale": max_head_depth_scale,
+        "maximum_head_vertical_scale": max_head_vertical_scale,
+        "minimum_arm_span_scale": minimum_arm_span_scale,
+        "topology": report,
+        "visual_repair_reason": [
+            "v0.1 rendered head read too small/generic for the concept",
+            "v0.1 arm span read too adult-human and reduced the compact silhouette",
+        ],
+        "truth": "Authored response to rendered evidence; not image-reconstructed geometry.",
+    }
+
+
+def _ellipsoid(name: str, center: tuple[float, float, float], radii: tuple[float, float, float], *, segments: int = 20, rings: int = 10) -> Mesh:
+    if any(value <= 0.0 or not math.isfinite(value) for value in radii):
+        raise ValueError("ellipsoid radii must be finite and positive")
+    sphere = make_uv_sphere(1.0, segments=segments, rings=rings, name=name)
+    shaped = scale(sphere, radii, name=name)
+    return translate(shaped, center, name=name)
+
+
+def _head_region(body: Mesh) -> dict[str, float]:
+    lo, hi = bounds(body)
+    height = hi[1] - lo[1]
+    rows = [point for point in body.vertices if point[1] >= lo[1] + height * 0.79]
+    if len(rows) < 100:
+        raise ValueError("head region unexpectedly sparse")
+    xs = [p[0] for p in rows]
+    ys = [p[1] for p in rows]
+    zs = [p[2] for p in rows]
+    return {
+        "min_x": min(xs), "max_x": max(xs),
+        "min_y": min(ys), "max_y": max(ys),
+        "min_z": min(zs), "max_z": max(zs),
+        "width": max(xs)-min(xs), "height": max(ys)-min(ys), "depth": max(zs)-min(zs),
+    }
+
+
+def _extra_materials(root: Path, texture_size: int, outputs: dict[str, dict[str, str]]) -> None:
+    textures = root / "textures"
+    for index, (name, recipe) in enumerate(EXTRA_MATERIAL_RECIPES.items()):
+        manifest = write_surface_family(
+            textures / name,
+            kind=str(recipe["kind"]),
+            size=texture_size,
+            seed=4400 + index * 131,
+            name=f"kettlejack-v2-{name}",
+            base_rgb=recipe["base_rgb"],
+            scale=1.0,
+        )
+        outputs[name] = {
+            "base_color": f"textures/{name}/base_color.png",
+            "normal": f"textures/{name}/normal.png",
+            "orm": f"textures/{name}/orm.png",
+            "manifest": str(manifest["manifest_digest"]),
+        }
+
+
+def _visual_accessories(
+    landmarks: dict[str, tuple[float,float,float]],
+    body: Mesh,
+) -> list[tuple[Mesh, str, str, str]]:
+    """Return mesh, joint, material family, semantic role from visual rehearsal."""
+    lo, hi = bounds(body)
+    headbox = _head_region(body)
+    rows: list[tuple[Mesh,str,str,str]] = []
+    head = landmarks["head"]
+    neck = landmarks["neck"]
+    pelvis = landmarks["pelvis"]
+    chest = landmarks["chest"]
+    left_shoulder = landmarks["left_upper_arm"]
+    right_hand = landmarks["right_hand"]
+    right_shin = landmarks["right_shin"]
+    right_foot = landmarks["right_foot"]
+    left_foot = landmarks["left_foot"]
+
+    # Eyes and pupils: v0.1's bare face + front-mounted goggle rings read as
+    # hollow circles. Give the character actual readable cartoon eye geometry.
+    eye_y = headbox["min_y"] + headbox["height"] * 0.48
+    eye_z = headbox["max_z"] + headbox["depth"] * 0.025
+    eye_dx = headbox["width"] * 0.20
+    eye_r = max(0.030, headbox["width"] * 0.125)
+    for side, sx in (("left", -1.0), ("right", 1.0)):
+        cx = sx * eye_dx
+        rows.append((
+            _ellipsoid(f"kettlejack-v2-eye-{side}", (cx, eye_y, eye_z), (eye_r, eye_r*1.08, eye_r*.72), segments=24, rings=12),
+            "head", "eye_white", "cartoon-eye"
+        ))
+        rows.append((
+            _ellipsoid(f"kettlejack-v2-pupil-{side}", (cx, eye_y-.002, eye_z+eye_r*.56), (eye_r*.42, eye_r*.48, eye_r*.22), segments=18, rings=9),
+            "head", "eye_dark", "cartoon-pupil"
+        ))
+
+    # Brown hair mass and asymmetric clumps. These are rigid head-bound shells,
+    # not a strand simulation claim.
+    hair_y = headbox["max_y"] - headbox["height"] * .09
+    hair_z = (headbox["min_z"] + headbox["max_z"]) * .5 - headbox["depth"]*.06
+    hair_specs = [
+        (-.075, .018, .000, .060, .042, .060),
+        (-.025, .040, .006, .070, .048, .062),
+        (.035, .032, .004, .068, .046, .060),
+        (.082, .010, -.004, .055, .040, .056),
+        (-.105, -.035, -.020, .046, .070, .040),
+        (.105, -.030, -.024, .045, .066, .040),
+        (-.080, -.070, -.040, .045, .075, .040),
+        (.070, -.065, -.045, .044, .072, .040),
+    ]
+    for index, (dx,dy,dz,rx,ry,rz) in enumerate(hair_specs):
+        rows.append((
+            _ellipsoid(f"kettlejack-v2-hair-{index}", (dx, hair_y+dy, hair_z+dz), (rx,ry,rz), segments=16, rings=8),
+            "head", "hair", "messy-hair-clump"
+        ))
+
+    # Forehead goggles + leather-ish band. The eyes remain visible below.
+    goggle_y = eye_y + headbox["height"] * .23
+    goggle_z = headbox["max_z"] + .018
+    for side, sx in (("left",-1.0),("right",1.0)):
+        rows.append((
+            torus_ring((sx*eye_dx, goggle_y, goggle_z), radius=eye_r*.90, tube=max(.008,eye_r*.22), axis="z", major_segments=20, minor_segments=6, name=f"kettlejack-v2-goggle-{side}"),
+            "head", "steel", "forehead-goggle-rim"
+        ))
+    rows.append((
+        beam_segment((-eye_r*.35,goggle_y,goggle_z),(eye_r*.35,goggle_y,goggle_z),width=.012,depth=.012,name="kettlejack-v2-goggle-bridge"),
+        "head","steel","forehead-goggle-bridge"
+    ))
+    band_radius = max(abs(headbox["min_x"]), abs(headbox["max_x"])) * .88
+    rows.append((
+        torus_ring((0.0,goggle_y-.010,(headbox["min_z"]+headbox["max_z"])*.5),radius=band_radius,tube=.009,axis="y",ratio=max(.64,headbox["depth"]/max(headbox["width"],1e-6)),major_segments=28,minor_segments=5,name="kettlejack-v2-goggle-band"),
+        "head","wood","goggle-band"
+    ))
+
+    # Fuller scarf/collar with two readable fabric tails.
+    rows.append((
+        torus_ring((0.0, neck[1]-.018, neck[2]), radius=.105, tube=.032, axis="y", ratio=.75, major_segments=24, minor_segments=7, name="kettlejack-v2-scarf-collar"),
+        "chest", "scarf", "orange-scarf-collar"
+    ))
+    rows.append((
+        beam_segment((-.028,neck[1]-.030,hi[2]+.012),(-.080,chest[1]-.085,hi[2]+.030),width=.050,depth=.018,name="kettlejack-v2-scarf-tail-left"),
+        "chest","scarf","orange-scarf-tail"
+    ))
+    rows.append((
+        beam_segment((.025,neck[1]-.035,hi[2]+.010),(.065,chest[1]-.135,hi[2]+.032),width=.043,depth=.017,name="kettlejack-v2-scarf-tail-right"),
+        "chest","scarf","orange-scarf-tail"
+    ))
+
+    # Tool belt, pouches, front bib and dangling ring break up the body-suit read.
+    rows.append((
+        torus_ring((0.0, pelvis[1]+.038, pelvis[2]), radius=.150, tube=.030, axis="y", ratio=.66, major_segments=24, minor_segments=7, name="kettlejack-v2-tool-belt"),
+        "pelvis", "wood", "tool-belt"
+    ))
+    for index, x in enumerate((-.105, -.035, .055, .125)):
+        rows.append((
+            rounded_box((x,pelvis[1]-.010,hi[2]+.030),(.065,.085,.045),chamfer=.010,name=f"kettlejack-v2-belt-pouch-{index}"),
+            "pelvis","wood","tool-belt-pouch"
+        ))
+    rows.append((
+        torus_ring((.115,pelvis[1]-.072,hi[2]+.052),radius=.030,tube=.007,axis="z",major_segments=16,minor_segments=5,name="kettlejack-v2-belt-ring"),
+        "pelvis","steel","tool-belt-ring"
+    ))
+
+    # Shoulder hubcap deliberately oversized enough to remain readable at game distance.
+    hub = lathe_profile(
+        ((0.0,0.0),(.095,0.0),(.125,.011),(.112,.028),(.068,.040),(0.0,.042)),
+        center=(left_shoulder[0], left_shoulder[1]+.018, hi[2]+.035), axis="z", segments=28,
+        name="kettlejack-v2-hubcap-shoulder",
+    )
+    rows.append((hub, "left_upper_arm", "ivory_metal", "hubcap-shoulder"))
+
+    # Larger readable kettle pack with support frame, orange vent, gauge and exhaust.
+    kettle_center = (0.0, chest[1]-.075, lo[2]-.115)
+    kettle = build_kettle(name="kettlejack-v2-kettle-pack", center=kettle_center, size=1.15)
+    family_map = {"salvage_metal":"ivory_metal", "steel":"steel", "wood":"wood"}
+    for part in kettle.parts:
+        rows.append((part.mesh, "chest", family_map.get(part.material_family, "steel"), f"kettle-pack:{part.semantic_role}"))
+    for x in (-.115,.115):
+        rows.append((
+            beam_segment((x,pelvis[1]+.03,lo[2]-.085),(x,neck[1]-.035,lo[2]-.085),width=.025,depth=.022,name="kettlejack-v2-pack-frame"),
+            "chest","steel","kettle-pack-frame"
+        ))
+    rows.append((
+        rounded_box((0.0,chest[1]-.10,lo[2]-.235),(.115,.155,.035),chamfer=.012,name="kettlejack-v2-pack-glow-vent"),
+        "chest","orange_glow","kettle-pack-glow-vent"
+    ))
+    rows.append((
+        torus_ring((.095,chest[1]+.035,lo[2]-.245),radius=.034,tube=.008,axis="z",major_segments=18,minor_segments=5,name="kettlejack-v2-pack-gauge"),
+        "chest","steel","kettle-pack-gauge"
+    ))
+    rows.append((
+        pipe_path(((.12,chest[1]+.08,lo[2]-.16),(.18,neck[1]+.02,lo[2]-.16),(.17,neck[1]+.11,lo[2]-.12)),radius=.021,sides=8,name="kettlejack-v2-pack-exhaust"),
+        "chest","steel","kettle-pack-exhaust"
+    ))
+
+    # Mechanical right leg: cover the source shin/foot instead of leaving a human
+    # lower leg visibly running through a decorative spring.
+    shin_x, shin_y, shin_z = right_shin
+    foot_x, foot_y, foot_z = right_foot
+    rows.append((
+        beam_segment((shin_x,shin_y-.015,shin_z),(foot_x,foot_y+.070,foot_z),width=.105,depth=.095,name="kettlejack-v2-mech-shin-shell"),
+        "right_shin","steel","mechanical-leg-main-casing"
+    ))
+    for index in range(6):
+        t=(index+1)/7.0
+        center=(shin_x+(foot_x-shin_x)*t+.050, shin_y+(foot_y-shin_y)*t, shin_z+(foot_z-shin_z)*t)
+        rows.append((
+            torus_ring(center,radius=.050,tube=.009,axis="y",major_segments=18,minor_segments=6,name=f"kettlejack-v2-mech-spring-{index}"),
+            "right_shin","yellow_metal","mechanical-leg-spring"
+        ))
+    rows.append((
+        rounded_box((foot_x,.070,foot_z+.070),(.220,.140,.340),chamfer=.035,name="kettlejack-v2-mech-foot"),
+        "right_foot","yellow_metal","mechanical-foot-shell"
+    ))
+    rows.append((
+        rounded_box((foot_x,foot_y+.075,foot_z+.010),(.145,.180,.190),chamfer=.030,name="kettlejack-v2-mech-ankle"),
+        "right_foot","steel","mechanical-ankle-casing"
+    ))
+
+    # Left work boot gets both a foot shell and ankle upper so the source toes do
+    # not protrude underneath a floating black block.
+    rows.append((
+        rounded_box((left_foot[0],.070,left_foot[2]+.075),(.235,.140,.355),chamfer=.038,name="kettlejack-v2-work-boot-foot"),
+        "left_foot","rubber","heavy-work-boot-foot"
+    ))
+    rows.append((
+        rounded_box((left_foot[0],left_foot[1]+.080,left_foot[2]+.010),(.180,.200,.220),chamfer=.032,name="kettlejack-v2-work-boot-upper"),
+        "left_foot","wood","heavy-work-boot-upper"
+    ))
+
+    # Open-jaw wrench silhouette. v0.1's circular hub + two arms read like a fork.
+    wx, _wy, wz = right_hand
+    shaft_bottom = .045
+    shaft_top = min(hi[1]+.115, 1.43)
+    tool_z = wz + .075
+    rows.append((
+        pipe_path(((wx,shaft_bottom,tool_z),(wx,shaft_top,tool_z)),radius=.027,sides=10,name="kettlejack-v2-wrench-shaft"),
+        "right_hand","rust_red","wrench-staff-shaft"
+    ))
+    for ring_index, y in enumerate((.23,.30,.37)):
+        rows.append((
+            torus_ring((wx,y,tool_z),radius=.034,tube=.006,axis="y",major_segments=14,minor_segments=5,name=f"kettlejack-v2-wrench-wrap-{ring_index}"),
+            "right_hand","scarf","wrench-grip-wrap"
+        ))
+    jaw_base_y = shaft_top-.005
+    rows.append((
+        rounded_box((wx,jaw_base_y+.022,tool_z),(.085,.090,.055),chamfer=.015,name="kettlejack-v2-wrench-neck"),
+        "right_hand","steel","wrench-head-neck"
+    ))
+    rows.append((
+        beam_segment((wx-.028,jaw_base_y+.055,tool_z),(wx-.135,jaw_base_y+.155,tool_z),width=.052,depth=.048,name="kettlejack-v2-wrench-left-jaw"),
+        "right_hand","rust_red","wrench-open-jaw"
+    ))
+    rows.append((
+        beam_segment((wx+.028,jaw_base_y+.055,tool_z),(wx+.135,jaw_base_y+.155,tool_z),width=.052,depth=.048,name="kettlejack-v2-wrench-right-jaw"),
+        "right_hand","rust_red","wrench-open-jaw"
+    ))
+    rows.append((
+        beam_segment((wx-.135,jaw_base_y+.155,tool_z),(wx-.090,jaw_base_y+.188,tool_z),width=.046,depth=.046,name="kettlejack-v2-wrench-left-tip"),
+        "right_hand","steel","wrench-jaw-tip"
+    ))
+    rows.append((
+        beam_segment((wx+.135,jaw_base_y+.155,tool_z),(wx+.090,jaw_base_y+.188,tool_z),width=.046,depth=.046,name="kettlejack-v2-wrench-right-tip"),
+        "right_hand","steel","wrench-jaw-tip"
+    ))
+    # Small bell/charm under the head for personality/readability.
+    rows.append((
+        torus_ring((wx-.072,jaw_base_y-.005,tool_z),radius=.018,tube=.005,axis="z",major_segments=14,minor_segments=5,name="kettlejack-v2-wrench-bell-ring"),
+        "right_hand","steel","wrench-bell-ring"
+    ))
+    rows.append((
+        lathe_profile(((0,0),(.022,0),(.032,.025),(.018,.045),(0,.050)),center=(wx-.072,jaw_base_y-.070,tool_z),axis="y",segments=16,name="kettlejack-v2-wrench-bell"),
+        "right_hand","yellow_metal","wrench-bell"
+    ))
+    return rows
+
+
+def _group_accessories(rows: Iterable[tuple[Mesh,str,str,str]]):
+    grouped: dict[tuple[str,str], dict[str, Any]] = {}
+    for mesh, joint, family, role in rows:
+        key=(joint,family)
+        bucket=grouped.setdefault(key,{"meshes":[],"roles":[]})
+        bucket["meshes"].append(mesh)
+        bucket["roles"].append(role)
+    result=[]
+    for (joint,family), bucket in sorted(grouped.items()):
+        mesh=combine(bucket["meshes"],name=f"kettlejack-v2-{joint}-{family}")
+        result.append((mesh,joint,family,"+".join(sorted(set(bucket["roles"])))))
+    return result
+
+
+def write_kettlejack_v2_package(
+    output: str | Path,
+    *,
+    texture_size: int = 64,
+    target_height_m: float = TARGET_HEIGHT_M,
+) -> dict[str, Any]:
+    root=Path(output)
+    root.mkdir(parents=True,exist_ok=True)
+    if any(root.iterdir()):
+        raise FileExistsError(f"Kettlejack v0.2 output must start empty: {root}")
+    if not 1.15 <= target_height_m <= 1.60:
+        raise ValueError("Kettlejack target height must stay within [1.15,1.60] m")
+
+    source_body, body_uv, target_state = _load_identity_body()
+    styled, stylization = stylize_body_v2(source_body)
+    if validate_uv(styled, body_uv)["status"] != "pass":
+        raise ValueError("stylized body UV state invalid")
+
+    skeleton, rig_evidence, name_to_index = build_hm08_humanoid_skeleton(styled)
+    landmarks = derive_hm08_rig_landmarks(styled)
+    body_weights, skin_evidence = build_hm08_skin_weights_v2(styled, skeleton, landmarks, name_to_index)
+
+    undersuit, undersuit_uv, undersuit_evidence = build_hm08_undersuit(styled, body_uv, offset_m=.0045)
+    undersuit_weights, undersuit_skin_evidence = build_hm08_skin_weights_v2(undersuit, skeleton, landmarks, name_to_index)
+
+    lo, hi=bounds(styled)
+    source_height=hi[1]-lo[1]
+    factor=target_height_m/source_height
+    scaled_body=scale(styled,factor,name="kettlejack-v2-body")
+    scaled_undersuit=scale(undersuit,factor,name="kettlejack-v2-outfit")
+    scaled_lo,_scaled_hi=bounds(scaled_body)
+    ground_offset=-scaled_lo[1]
+    body=translate(scaled_body,(0.0,ground_offset,0.0),name="kettlejack-v2-body")
+    outfit=translate(scaled_undersuit,(0.0,ground_offset,0.0),name="kettlejack-v2-outfit")
+    scaled_skeleton=_scale_skeleton(skeleton,factor,ground_offset)
+    scaled_landmarks={name:_scaled_point(point,factor,ground_offset) for name,point in landmarks.items()}
+    grounded_lo,grounded_hi=bounds(body)
+    actual_height=grounded_hi[1]-grounded_lo[1]
+    if abs(actual_height-target_height_m)>1e-9 or abs(grounded_lo[1])>1e-9:
+        raise ValueError("target scale/grounding drifted")
+
+    materials=_write_materials(root,texture_size)
+    _extra_materials(root,texture_size,materials)
+    metallic={**METALLIC_FACTORS, **{name:float(recipe["metallic"]) for name,recipe in EXTRA_MATERIAL_RECIPES.items()}}
+
+    primitives=[
+        SkinnedMaterialPrimitive(
+            body,body_uv,body_weights,"Kettlejack_v2_Skin",
+            materials["skin"]["base_color"],materials["skin"]["normal"],materials["skin"]["orm"],
+            metallic_factor=0.0,roughness_factor=1.0,semantic_role="body-and-face",
+        ),
+        SkinnedMaterialPrimitive(
+            outfit,undersuit_uv,undersuit_weights,"Kettlejack_v2_Patched_Outfit",
+            materials["outfit"]["base_color"],materials["outfit"]["normal"],materials["outfit"]["orm"],
+            metallic_factor=0.0,roughness_factor=1.0,double_sided=True,semantic_role="patched-work-clothes",
+        ),
+    ]
+
+    accessory_rows=_visual_accessories(scaled_landmarks,body)
+    grouped=_group_accessories(accessory_rows)
+    accessory_evidence=[]
+    for mesh,joint_name,family,role in grouped:
+        uv=box_project_world(mesh,world_units_per_tile=.12)
+        uv_report=validate_uv(mesh,uv)
+        topology=topology_report(mesh)
+        if uv_report["status"]!="pass" or topology["invalid_indices"] or topology["degenerate_faces"]:
+            raise ValueError(f"v0.2 accessory {role} invalid: uv={uv_report} topology={topology}")
+        joint=name_to_index[joint_name]
+        primitives.append(SkinnedMaterialPrimitive(
+            mesh,uv,rigid_skin_weights(mesh,joint),f"Kettlejack_v2_{family}_{joint_name}",
+            materials[family]["base_color"],materials[family]["normal"],materials[family]["orm"],
+            metallic_factor=metallic[family],roughness_factor=1.0,semantic_role=role,
+        ))
+        accessory_evidence.append({
+            "mesh":mesh.name,"joint":joint_name,"joint_index":joint,"material_family":family,
+            "semantic_role":role,"topology":topology,"uv":uv_report,
+        })
+
+    clips=build_kettlejack_clips(name_to_index)
+    clip_evidence=[]
+    for clip in clips:
+        report=validate_animation_clip(clip,scaled_skeleton)
+        if report["status"]!="pass":
+            raise ValueError(f"Kettlejack v0.2 clip {clip.name} invalid: {report}")
+        clip_evidence.append({"name":clip.name,**report})
+
+    delivery=write_skinned_multi_gltf(primitives,scaled_skeleton,root,clips,name=ASSET_NAME)
+    required_semantics=("cartoon-eye","messy-hair","scarf","tool-belt","goggle","hubcap","kettle-pack","mechanical-leg","work-boot","wrench-open-jaw")
+    package: dict[str, Any]={
+        "schema":SCHEMA,
+        "asset_id":"kettlejack",
+        "asset_name":"Kettlejack",
+        "candidate_role":"render-rehearsed_animated_game_character_proving_asset",
+        "design_intent":DESIGN_INTENT,
+        "height_m":actual_height,
+        "ground_y_m":grounded_lo[1],
+        "source":{"substrate":"seed_data/hm08_full_body_v0.1","identity_target_state":target_state,"canonical_source_mutated":False},
+        "stylization":stylization,
+        "rig":rig_evidence,
+        "skin":skin_evidence,
+        "outfit":{"construction":undersuit_evidence,"skin":undersuit_skin_evidence,"offset_m":.0045},
+        "clips":clip_evidence,
+        "accessories":accessory_evidence,
+        "materials":materials,
+        "delivery":delivery,
+        "visual_rehearsal":{
+            "trigger":"software-rendered v0.1 contact sheet",
+            "repaired_gaps":[
+                "generic head/body silhouette","missing readable eyes","bare scalp","goggles obscuring face",
+                "tiny/simple backpack","exposed source feet/lower leg","weak wrench-head silhouette","flat outfit read"
+            ],
+            "render_review_required_after_build":True,
+        },
+        "acceptance":{
+            "target_height_grounded":abs(actual_height-target_height_m)<=1e-9 and abs(grounded_lo[1])<=1e-9,
+            "skeleton_valid":validate_skeleton(scaled_skeleton)["status"]=="pass",
+            "five_authored_clips":len(clips)==5,
+            "multi_material_character":delivery["primitive_count"]>=12,
+            "structural_gltf":delivery["validation"]["status"]=="pass",
+            "required_visual_semantics_present":all(any(needle in row["semantic_role"] for row in accessory_evidence) for needle in required_semantics),
+        },
+        "truth":{
+            "real_3d_geometry":True,"real_skeleton":True,"real_skin_weights":True,"real_animation_tracks":True,
+            "real_multi_material_gltf":True,"render_review_required":True,"concept_pixel_faithful":False,
+            "visual_match_proven":False,"production_deformation_proven":False,"facial_animation_proven":False,
+            "automatic_genome_mutation":False,"automatic_release":False,"automatic_canon":False,
+            "notes":[
+                "v0.2 is explicitly a render-driven repair iteration rather than another structure-only acceptance pass.",
+                "Eyes, hair and equipment are inspectable geometry bound to the shared skeleton; no hidden image-to-mesh inference is claimed.",
+                "A passing build is not automatically visually good; retained review renders are the next evidence plane."
+            ],
+        },
+    }
+    if not all(package["acceptance"].values()):
+        raise ValueError(f"Kettlejack v0.2 acceptance failed: {package['acceptance']}")
+
+    files={}
+    for path in sorted(root.rglob("*")):
+        if path.is_file() and path.name!="kettlejack-v2-package.json":
+            files[path.relative_to(root).as_posix()]={"bytes":path.stat().st_size,"sha256":_sha(path.read_bytes())}
+    package["files"]=files
+    payload=(json.dumps(package,indent=2,sort_keys=True)+"\n").encode("utf-8")
+    (root/"kettlejack-v2-package.json").write_bytes(payload)
+    package["package_sha256"]=_sha(payload)
+    return package
+
+
+def main() -> int:
+    import argparse
+    parser=argparse.ArgumentParser(description="Build Kettlejack v0.2 render-rehearsal game character")
+    parser.add_argument("output")
+    parser.add_argument("--texture-size",type=int,default=64)
+    parser.add_argument("--height",type=float,default=TARGET_HEIGHT_M)
+    args=parser.parse_args()
+    package=write_kettlejack_v2_package(args.output,texture_size=args.texture_size,target_height_m=args.height)
+    print(json.dumps({
+        "schema":package["schema"],"asset_id":package["asset_id"],"height_m":package["height_m"],
+        "gltf_sha256":package["delivery"]["gltf_sha256"],"triangles":package["delivery"]["triangles"],
+        "primitives":package["delivery"]["primitive_count"],"clips":[row["name"] for row in package["clips"]],
+        "acceptance":package["acceptance"],"package_sha256":package["package_sha256"]
+    },sort_keys=True))
+    return 0
+
+
+if __name__=="__main__":
+    raise SystemExit(main())
