@@ -1,4 +1,9 @@
-"""Render retained visual evidence from a fresh Kettlejack GLB import."""
+"""Render retained visual evidence from a fresh Kettlejack GLB import.
+
+The glTF importer can create a mesh used only as a pose-bone custom shape. It
+must not participate in character framing. We exclude only mesh objects that an
+imported pose bone actually references as ``custom_shape``.
+"""
 from __future__ import annotations
 
 import argparse
@@ -31,11 +36,33 @@ def action(name):
     return rows[0]
 
 
+def character_meshes(arms):
+    custom_shapes = {
+        bone.custom_shape
+        for arm in arms
+        for bone in arm.pose.bones
+        if bone.custom_shape is not None
+    }
+    return [obj for obj in bpy.context.scene.objects if obj.type == "MESH" and obj not in custom_shapes]
+
+
+def set_action(arm, act):
+    arm.animation_data_create()
+    arm.animation_data.action = act
+    if getattr(act, "slots", None):
+        try:
+            arm.animation_data.action_slot = act.slots[0]
+        except Exception:
+            pass
+
+
 def world_bounds(objects):
     points=[]
     for obj in objects:
         if obj.type == "MESH":
             points += [obj.matrix_world @ Vector(c) for c in obj.bound_box]
+    if not points:
+        raise ValueError("no character mesh bounds")
     lo=Vector(tuple(min(p[i] for p in points) for i in range(3)))
     hi=Vector(tuple(max(p[i] for p in points) for i in range(3)))
     return lo,hi
@@ -96,8 +123,9 @@ def main():
     manifest=json.loads((directory/"character-manifest.json").read_text())
     clear();bpy.ops.import_scene.gltf(filepath=str(directory/manifest["exports"]["glb"]["path"]))
     armatures=[o for o in bpy.context.scene.objects if o.type=="ARMATURE"]
-    meshes=[o for o in bpy.context.scene.objects if o.type=="MESH"]
-    if len(armatures)!=1 or not meshes: raise ValueError("fresh render import missing rig/mesh")
+    meshes=character_meshes(armatures)
+    if len(armatures)!=1 or len(meshes)!=1:
+        raise ValueError(f"fresh render import expected one rig/character mesh, got {len(armatures)}/{len(meshes)}")
     arm=armatures[0];arm.animation_data_create();cam=studio(resolution)
     lo,hi=world_bounds(meshes);center=(lo+hi)*.5;height=hi.z-lo.z
     target=(center.x,center.y,lo.z+height*.53)
@@ -110,23 +138,29 @@ def main():
         ("side",(distance,0,lo.z+height*.58)),
         ("back",(0,distance,lo.z+height*.58)),
     ]
-    idle=action("Idle");arm.animation_data.action=idle;bpy.context.scene.frame_set(int(idle.frame_range[0]));bpy.context.view_layer.update()
+    idle=action("Idle");set_action(arm,idle);bpy.context.scene.frame_set(int(idle.frame_range[0]));bpy.context.view_layer.update()
     proof=directory/"proof";proof.mkdir(exist_ok=True)
     for name,location in static:
         path=proof/f"{name}.png";render(path,cam,location,target);views.append({"name":name,"clip":"Idle","frame":float(idle.frame_range[0]),"path":str(path.relative_to(directory))})
 
     motion=[("idle","Idle",.50),("run","Run",.25),("jump","Jump",.50),("wrench_swing","Wrench_Swing",.55),("victory","Victory",.50)]
     for view_name,clip_name,fraction in motion:
-        act=action(clip_name);arm.animation_data.action=act
+        act=action(clip_name);set_action(arm,act)
         start,end=act.frame_range;frame=int(round(start+(end-start)*fraction));bpy.context.scene.frame_set(frame);bpy.context.view_layer.update()
+        # Motion can change bounds substantially (especially jump and staff swing),
+        # so reframe from the actual sampled pose rather than bind-pose bounds.
+        pose_lo,pose_hi=world_bounds(meshes)
+        pose_center=(pose_lo+pose_hi)*.5;pose_height=pose_hi.z-pose_lo.z
+        pose_target=(pose_center.x,pose_center.y,pose_lo.z+pose_height*.53)
+        pose_distance=max(2.35,pose_height*2.15)
         path=proof/f"{view_name}.png"
-        render(path,cam,(distance*.62,-distance*.86,lo.z+height*.62),target)
+        render(path,cam,(pose_distance*.62,-pose_distance*.86,pose_lo.z+pose_height*.62),pose_target)
         views.append({"name":view_name,"clip":clip_name,"frame":frame,"path":str(path.relative_to(directory))})
 
     receipt={
-        "schema":"axm.game-assets.kettlejack-foundry-render/v0.1","status":"PASS","fresh_import":True,
+        "schema":"axm.game-assets.kettlejack-foundry-render/v0.2","status":"PASS","fresh_import":True,
         "renderer":"Blender EEVEE Next via bpy 4.3","resolution":[resolution,resolution],"views":views,
-        "truth":"These are retained pixels rendered from a freshly imported exported GLB. They are visual evidence for review, not automatic aesthetic acceptance or game-engine certification."
+        "truth":"These are retained pixels rendered from a freshly imported exported GLB. Importer-only custom-shape helpers are excluded from framing by actual pose-bone references. They are visual evidence for review, not automatic aesthetic acceptance or game-engine certification."
     }
     (directory/"render-receipt.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
     print(json.dumps(receipt,sort_keys=True))
