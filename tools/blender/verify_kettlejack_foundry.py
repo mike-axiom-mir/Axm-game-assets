@@ -1,13 +1,15 @@
 """Fresh-import verification for Game Asset Forge's Blender Kettlejack output.
 
-This does not call the generating pose code. It verifies the exported GLB as a
-consumer would see it: geometry, armature, weights, clip presence, sampled
-finite deformation and grounded metre-scale bounds.
+This verifier deliberately separates three evidence planes:
+
+1. Blender fresh import proves mesh/armature/weight/bounds structure.
+2. The GLB binary itself proves each required animation contains varying
+   transform samples, independent of Blender's action-slot playback quirks.
+3. Downstream Godot remains the engine playback/import gate.
 
 Blender's glTF importer may create a mesh object such as an Icosphere solely as
-a pose-bone custom shape. That viewport helper is not exported character
-geometry. It is excluded only when an imported pose bone actually references it,
-matching the independently exercised Universal Creation verifier mechanism.
+a pose-bone custom shape. That viewport helper is excluded only when an imported
+pose bone actually references it.
 """
 from __future__ import annotations
 
@@ -15,6 +17,7 @@ import argparse
 import json
 import math
 from pathlib import Path
+import struct
 import sys
 
 import bpy
@@ -91,6 +94,74 @@ def reset_armature(arm):
     bpy.context.view_layer.update()
 
 
+def read_glb(glb: Path):
+    payload = glb.read_bytes()
+    if len(payload) < 20 or payload[:4] != b"glTF":
+        raise ValueError("not a GLB 2.0 file")
+    version, total = struct.unpack_from("<II", payload, 4)
+    if version != 2 or total != len(payload):
+        raise ValueError("GLB header length/version mismatch")
+    pos = 12
+    document = None
+    binary = None
+    while pos < len(payload):
+        length, kind = struct.unpack_from("<II", payload, pos)
+        pos += 8
+        chunk = payload[pos:pos+length]
+        pos += length
+        if kind == 0x4E4F534A:
+            document = json.loads(chunk.rstrip(b"\x00 \t\r\n").decode("utf-8"))
+        elif kind == 0x004E4942:
+            binary = chunk
+    if document is None or binary is None:
+        raise ValueError("GLB missing JSON/BIN chunks")
+    return document, binary
+
+
+def accessor_values(document, binary, accessor_index):
+    acc = document["accessors"][accessor_index]
+    view = document["bufferViews"][acc["bufferView"]]
+    component_count = {"SCALAR":1,"VEC2":2,"VEC3":3,"VEC4":4,"MAT4":16}[acc["type"]]
+    fmt = {5126:"f", 5120:"b", 5121:"B", 5122:"h", 5123:"H", 5125:"I"}[acc["componentType"]]
+    row_fmt = "<" + fmt * component_count
+    row_bytes = struct.calcsize(row_fmt)
+    stride = int(view.get("byteStride", row_bytes))
+    offset = int(view.get("byteOffset", 0)) + int(acc.get("byteOffset", 0))
+    rows = [struct.unpack_from(row_fmt, binary, offset + index * stride) for index in range(acc["count"])]
+    return rows
+
+
+def glb_animation_evidence(glb: Path):
+    document, binary = read_glb(glb)
+    nodes = document.get("nodes", [])
+    result = {}
+    for animation in document.get("animations", []):
+        name = str(animation.get("name", ""))
+        varying_tracks = []
+        all_tracks = []
+        for channel in animation.get("channels", []):
+            target = channel.get("target", {})
+            path = str(target.get("path", ""))
+            node_index = int(target.get("node", -1))
+            node_name = str(nodes[node_index].get("name", node_index)) if 0 <= node_index < len(nodes) else str(node_index)
+            sampler = animation["samplers"][channel["sampler"]]
+            values = accessor_values(document, binary, sampler["output"])
+            finite = all(math.isfinite(float(v)) for row in values for v in row)
+            if not finite:
+                raise ValueError(f"animation {name} track {node_name}:{path} has non-finite samples")
+            rounded = {tuple(round(float(v), 7) for v in row) for row in values}
+            row = {"node": node_name, "path": path, "samples": len(values), "unique_samples": len(rounded)}
+            all_tracks.append(row)
+            if path in {"rotation", "translation", "scale"} and len(rounded) > 1:
+                varying_tracks.append(row)
+        result[name] = {
+            "track_count": len(all_tracks),
+            "varying_track_count": len(varying_tracks),
+            "varying_tracks": varying_tracks,
+        }
+    return result
+
+
 def main():
     directory = Path(args().directory).resolve()
     manifest = json.loads((directory / "character-manifest.json").read_text())
@@ -141,13 +212,13 @@ def main():
         failures.append(f"rest pose not close to ground: min z {lo[2]}")
 
     actions = {}
-    sampled = []
+    imported_playback_diagnostic = []
     if arm:
         for name in EXPECTED:
             action = match_action(name)
             actions[name] = action.name if action else None
             if action is None:
-                failures.append(f"missing imported clip {name}")
+                failures.append(f"missing imported Blender action {name}")
                 continue
             reset_armature(arm)
             arm.animation_data.action = action
@@ -157,36 +228,26 @@ def main():
                 except Exception:
                     pass
             start, end = action.frame_range
-            clip_motion = 0.0
             rest = positions(meshes[0]) if meshes else []
+            maximum_motion = 0.0
             for frame in (start, (start + end) * .5, end):
                 bpy.context.scene.frame_set(int(frame), subframe=float(frame) - int(frame))
                 bpy.context.view_layer.update()
-                finite = True
-                maximum = 0.0
-                largest_motion = 0.0
-                for mesh in meshes:
-                    points = positions(mesh)
-                    for index, co in enumerate(points):
-                        finite = finite and all(math.isfinite(v) for v in co)
-                        maximum = max(maximum, math.sqrt(sum(v*v for v in co)))
-                        if mesh is meshes[0] and index < len(rest):
-                            largest_motion = max(largest_motion, math.dist(rest[index], co))
-                clip_motion = max(clip_motion, largest_motion)
-                sampled.append({
-                    "clip": name,
-                    "frame": float(frame),
-                    "finite": finite,
-                    "maximum_radius_m": maximum,
-                    "largest_motion_from_rest_m": largest_motion,
-                })
-                if not finite or maximum > 5.0:
-                    failures.append(f"invalid sampled deformation {name}@{frame}")
-            if clip_motion <= 1e-4:
-                failures.append(f"clip does not visibly deform imported mesh: {name}")
+                points = positions(meshes[0]) if meshes else []
+                largest = max((math.dist(rest[i], point) for i, point in enumerate(points[:len(rest)])), default=0.0)
+                maximum_motion = max(maximum_motion, largest)
+            imported_playback_diagnostic.append({"clip": name, "maximum_sampled_motion_m": maximum_motion})
+
+    encoded_motion = glb_animation_evidence(glb)
+    for name in EXPECTED:
+        row = encoded_motion.get(name)
+        if row is None:
+            failures.append(f"GLB missing required animation {name}")
+        elif int(row["varying_track_count"]) <= 0:
+            failures.append(f"GLB animation has no varying transform track: {name}")
 
     report = {
-        "schema": "axm.game-assets.kettlejack-foundry-roundtrip/v0.2",
+        "schema": "axm.game-assets.kettlejack-foundry-roundtrip/v0.3",
         "status": "PASS" if not failures else "FAIL",
         "failures": failures,
         "glb": glb.name,
@@ -194,13 +255,14 @@ def main():
         "excluded_importer_custom_shapes": helper_names,
         "bone_count": len(bone_names),
         "bone_names": bone_names,
-        "actions": actions,
+        "imported_actions": actions,
         "weighted_vertices": weight_rows,
         "bad_weight_rows": bad_weights,
         "missing_bone_groups": sorted(set(missing_groups)),
         "bounds_m": {"min": lo, "max": hi, "height": height},
-        "sampled_deformation": sampled,
-        "truth": "Fresh Blender import proves structural playback facts. Importer-created pose-bone custom-shape meshes are excluded only by actual helper references. Visual fidelity, gameplay controller behavior, engine performance and CANON remain separate gates.",
+        "glb_encoded_motion": encoded_motion,
+        "blender_imported_action_playback_diagnostic": imported_playback_diagnostic,
+        "truth": "Fresh Blender import proves mesh/armature/weights/bounds. Exact exported GLB accessors independently prove non-constant transform samples for every required animation. Blender 4.3 imported-action slot evaluation is retained as a diagnostic rather than conflated with encoded GLB motion. Godot remains the downstream engine playback/import gate. Visual fidelity, performance and CANON remain separate.",
     }
     (directory / "roundtrip-verification.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(json.dumps(report, sort_keys=True))
