@@ -1,0 +1,16 @@
+# Kettlejack v0.2 retained-render findings
+
+The automatic Godot review loop is now useful: it rendered front, three-quarter, side, back, idle, run, jump, wrench swing and victory views from the actual generated glTF.
+
+The v0.2 captures are materially better than v0.1: source feet are covered, the backpack is readable, hair exists, the mechanical leg reads, the character has explicit eye geometry, and the asset is no longer just a bare humanoid with floating donor parts.
+
+The same captures also reject any claim that the visual target is finished. Remaining visible gaps:
+
+1. Eyes/goggles currently read too much like a mask; eyes protrude and the goggles need clearer forehead separation.
+2. The body still reads too thin and skin-tight for the concept's layered workshop clothing.
+3. The wrench is still visually closer to a staff/fork than the concept's heavy adjustable-wrench silhouette.
+4. Idle/run/jump/victory poses are too conservative. The animation clips exist and import, but their silhouette change is not strong enough.
+5. Face identity remains weak because there is no authored nose/mouth/brow expression layer.
+6. Backpack/frame readability improved but is still mechanically simple.
+
+These findings should drive v0.3. They are visual-observer notes, not automatic CANON decisions.
