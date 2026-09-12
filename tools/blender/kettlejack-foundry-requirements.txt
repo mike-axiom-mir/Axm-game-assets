@@ -1,0 +1,5 @@
+# Optional Game Asset Forge character authoring runtime.
+# Pinned to the same exercised authoring stack as the Universal Creation donor.
+bpy==4.3.0
+numpy==1.26.4
+Pillow==12.3.0
