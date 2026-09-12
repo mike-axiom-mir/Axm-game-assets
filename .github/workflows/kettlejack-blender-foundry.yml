@@ -1,0 +1,121 @@
+name: kettlejack-blender-foundry
+
+on:
+  push:
+    paths:
+      - "tools/blender/axm_kettlejack_foundry.py"
+      - "tools/blender/verify_kettlejack_foundry.py"
+      - "tools/blender/render_kettlejack_foundry.py"
+      - "tools/blender/kettlejack-foundry-requirements.txt"
+      - "engine/godot_face/smoke_kettlejack_blender.gd"
+      - ".github/workflows/kettlejack-blender-foundry.yml"
+  pull_request:
+    paths:
+      - "tools/blender/axm_kettlejack_foundry.py"
+      - "tools/blender/verify_kettlejack_foundry.py"
+      - "tools/blender/render_kettlejack_foundry.py"
+      - "tools/blender/kettlejack-foundry-requirements.txt"
+      - "engine/godot_face/smoke_kettlejack_blender.gd"
+      - ".github/workflows/kettlejack-blender-foundry.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-verify-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: tools/blender/kettlejack-foundry-requirements.txt
+
+      - name: Install pinned authoring runtime
+        run: python -m pip install -r tools/blender/kettlejack-foundry-requirements.txt
+
+      - name: Build Kettlejack with Blender foundry
+        run: |
+          rm -rf engine/godot_face/generated_blender
+          python tools/blender/axm_kettlejack_foundry.py -- --output engine/godot_face/generated_blender
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('engine/godot_face/generated_blender')
+          m=json.loads((root/'character-manifest.json').read_text())
+          assert m['schema']=='axm.game-assets.kettlejack-blender-foundry/v0.1'
+          assert len(m['bones'])>=20
+          assert [c['name'] for c in m['clips']]==['Idle','Run','Jump','Wrench_Swing','Victory']
+          assert m['exports']['glb']['bytes']>10000
+          assert 1.15 <= m['bounds_blender_m']['height'] <= 1.45, m['bounds_blender_m']
+          print('KETTLEJACK BLENDER BUILD PASS',m['bounds_blender_m'],m['exports']['glb'])
+          PY
+
+      - name: Independently reimport and verify GLB
+        run: python tools/blender/verify_kettlejack_foundry.py -- --directory engine/godot_face/generated_blender
+
+      - name: Render fresh-import review evidence
+        run: python tools/blender/render_kettlejack_foundry.py -- --directory engine/godot_face/generated_blender --resolution 640
+
+      - name: Build review contact sheet
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          root=Path('engine/godot_face/generated_blender')
+          names=['front','three_quarter','side','back','idle','run','jump','wrench_swing','victory']
+          thumb=360
+          sheet=Image.new('RGB',(thumb*3,thumb*3),(10,12,16))
+          draw=ImageDraw.Draw(sheet)
+          for i,name in enumerate(names):
+              image=Image.open(root/'proof'/f'{name}.png').convert('RGB')
+              image.thumbnail((thumb,thumb))
+              x=(i%3)*thumb+(thumb-image.width)//2
+              y=(i//3)*thumb+(thumb-image.height)//2
+              sheet.paste(image,(x,y))
+              draw.rectangle(((i%3)*thumb,(i//3)*thumb,(i%3+1)*thumb,(i//3+1)*thumb),outline=(55,60,70),width=2)
+              draw.text(((i%3)*thumb+10,(i//3+1)*thumb-24),name,fill=(235,235,235))
+          sheet.save(root/'kettlejack-contact-sheet.png')
+          PY
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" --output .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Import final GLB in Godot
+        run: |
+          rm -f engine/godot_face/godot-kettlejack-blender-receipt.json
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --headless \
+            --path engine/godot_face \
+            --script smoke_kettlejack_blender.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('engine/godot_face/godot-kettlejack-blender-receipt.json').read_text())
+          assert r['status']=='pass',r
+          assert r['max_bone_count']>=20,r
+          assert set(['Idle','Run','Jump','Wrench_Swing','Victory']).issubset(r['clips']),r
+          print('KETTLEJACK BLENDER GODOT PASS',r)
+          PY
+
+      - name: Preserve source, GLB, verification and pixels
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kettlejack-blender-foundry-v0.1
+          if-no-files-found: error
+          path: |
+            engine/godot_face/generated_blender/**
+            engine/godot_face/godot-kettlejack-blender-receipt.json
