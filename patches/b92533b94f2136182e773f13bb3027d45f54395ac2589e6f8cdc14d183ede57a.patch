@@ -1,0 +1,2101 @@
+diff --git a/docs/CODE_MULTIPLIER_TRANSPLANTS.md b/docs/CODE_MULTIPLIER_TRANSPLANTS.md
+new file mode 100644
+index 0000000..be56ef6
+--- /dev/null
++++ b/docs/CODE_MULTIPLIER_TRANSPLANTS.md
+@@ -0,0 +1,217 @@
++# AXM code-multiplier transplants — Game Asset Forge
++
++This lane reuses working mechanisms from other AXM repositories by **porting the
++mechanism into Game Asset Forge's native Python body**. It does not add hidden
++runtime dependencies on those repositories and it does not transfer canonical
++asset authority away from Game Asset Forge.
++
++The first two transplants are deliberately small and evidence-oriented:
++
++1. Material / Surface Fabric's payload + pixel-signal diagnostics.
++2. FrameState's stable, caller-pinned evidence verification pattern.
++
++They strengthen the Forge immediately while the broader Universal Creation 3D
++path continues to grow.
++
++## 1. Native material payload + signal audit
++
++Source mechanisms studied and ported:
++
++- `mike-axiom-mir/axm-material-surface-fabric/payload-audit-core.js`
++- `mike-axiom-mir/axm-material-surface-fabric/signal-audit-core.js`
++- `mike-axiom-mir/axm-material-surface-fabric/tools/png-pixels.js`
++
++Game Asset implementation:
++
++- `native_material_signal_audit.py`
++- `native_material_signal_audit_test.py`
++
++The port remains Python-standard-library-only. It does not shell out to Node and
++does not import Material / Surface Fabric.
++
++### Request
++
++The tool audits one **explicitly declared material family**. It never guesses
++material semantics from filenames.
++
++```json
++{
++  "schema": "axm.game-assets.material-audit-request/v0.1",
++  "family_id": "painted-workshop-panel",
++  "entries": [
++    {
++      "id": "panel-base",
++      "channel": "base-color",
++      "path": "materials/panel-base.png"
++    },
++    {
++      "id": "panel-normal",
++      "channel": "normal",
++      "path": "materials/panel-normal.png"
++    },
++    {
++      "id": "panel-roughness",
++      "channel": "roughness",
++      "path": "materials/panel-roughness.png"
++    }
++  ]
++}
++```
++
++Run:
++
++```bash
++python native_material_signal_audit.py material-audit-request.json \
++  --output build/panel-material-audit.json
++```
++
++Relative payload paths are resolved against the request file's directory.
++Payload paths may not escape that directory or cross symlinks.
++
++### What it checks
++
++For PNG/JPEG/WebP it performs bounded container checks. PNG additionally has a
++native 8-bit, non-interlaced pixel decoder for grayscale, RGB, indexed,
++grayscale-alpha and RGBA images.
++
++For PNGs it can record:
++
++- RGBA mean and standard deviation;
++- grayscale share;
++- visible/partial alpha share;
++- coarse colour-bin diversity;
++- horizontal edge-energy signal;
++- tangent-normal mean vector length;
++- tangent-normal broad valid-length share;
++- mean tangent-normal Z.
++
++Warnings currently include:
++
++- `near-flat-signal`
++- `scalar-channel-color-leak`
++- `normal-map-near-grayscale`
++- `normal-positive-z-weak`
++- `normal-vector-length-irregular`
++- `low-signal-diversity`
++- `fully-transparent-signal`
++- `duplicate-payload-across-channels:*`
++
++A warning is a diagnostic, **not a quality verdict**. A roughness map may be
++technically suspicious without proving an asset is aesthetically poor, and a
++clean audit never means the material is beautiful, physically calibrated, PBR
++certified or AAA.
++
++Unsupported-but-structurally-valid image encodings stay visible as
++`STRUCTURE_ONLY`; broken or unsafe evidence becomes `HOLD`.
++
++## 2. Native caller-pinned evidence bundle verifier
++
++Source mechanism studied and generalized:
++
++- `mike-axiom-mir/axm-framestate/src/axm_framestate/render_verify.py`
++
++Game Asset implementation:
++
++- `native_evidence_verify.py`
++- `native_evidence_verify_test.py`
++
++The useful FrameState idea is stronger than simply hashing a directory. Evidence
++is accepted only when the caller supplies the exact manifest digest expected,
++the manifest's own digest still matches its content, and every declared file
++still has the exact hash/length claimed.
++
++The verifier also retains FrameState's stable-file pattern:
++
++1. `lstat` before opening;
++2. `fstat` on the opened file;
++3. stream/hash the bytes;
++4. `fstat` again before close;
++5. `lstat` after;
++6. reject if device/inode/size/mtime/ctime changed at any point.
++
++This closes an important evidence race without turning the verifier into an
++asset-quality authority.
++
++### Manifest
++
++```json
++{
++  "schema": "axm.game-assets.evidence-bundle/v0.1",
++  "bundle_id": "workshop-turntable-v1",
++  "files": [
++    {
++      "path": "renders/front.png",
++      "sha256": "sha256:<64 lowercase hex>",
++      "bytes": 12345,
++      "role": "front-view"
++    }
++  ],
++  "manifest_digest": "sha256:<digest of manifest without this field>"
++}
++```
++
++Verify:
++
++```bash
++python native_evidence_verify.py build/workshop-evidence \
++  evidence-manifest.json \
++  --expected-manifest-digest sha256:<caller-pin> \
++  --output build/workshop-evidence-verification.json
++```
++
++The verifier is read-only. Its optional receipt output is create-only.
++
++### What PASS means
++
++PASS means the caller-pinned manifest and every declared regular, non-symlink
++in-tree file had the exact bytes claimed at verification time.
++
++PASS does **not** mean:
++
++- the images look good;
++- the GLB is game-ready;
++- the evidence was produced by the tool named in metadata;
++- authorship/license claims are true;
++- the asset is accepted;
++- the asset may release, merge or enter CANON.
++
++## Why these were transplanted first
++
++Game Asset Forge already has strong geometry, rig, material-generation, engine
++and visual-evidence mechanisms. The missing multiplier was not another giant
++generator. It was stronger reusable inspection around the growing output volume.
++
++Material signal audit helps answer:
++
++> Are the material bytes/signals obviously broken or suspicious?
++
++The evidence verifier helps answer:
++
++> Are these still exactly the bytes we reviewed and pinned?
++
++Those questions are prerequisites for trustworthy high-detail asset iteration.
++
++## Next donor mechanisms worth adapting
++
++FrameState also has two useful mechanisms that should be evaluated in a later
++bounded lane rather than copied blindly:
++
++- crash-resumable/checkpointed long render work;
++- rehearsal loops that accept a bounded repair only when target evidence improves
++  without increasing protected regressions.
++
++Those are not claimed by this change.
++
++## Roots
++
++**Truth** — technical signal, exact byte identity and aesthetic judgment remain
++different evidence planes.
++
++**Agency / non-domination** — neither tool installs, promotes, rewrites a Genome,
++merges, releases or canonizes an asset.
++
++**Continuity** — exact payload SHA-256, manifest pins, reports and receipts keep
++the reviewed state traceable.
++
++**Wisdom before speed** — suspicious or unsupported evidence stays warning/HOLD;
++the machine does not convert structural success into an art-quality claim.
+diff --git a/native_evidence_verify.py b/native_evidence_verify.py
+new file mode 100644
+index 0000000..4ebea4f
+--- /dev/null
++++ b/native_evidence_verify.py
+@@ -0,0 +1,425 @@
++#!/usr/bin/env python3
++"""Read-only verification for Game Asset evidence bundles.
++
++The stable-file / caller-pin mechanism is adapted from AXM FrameState's
++``src/axm_framestate/render_verify.py``. This Game Asset Forge version is a
++stdlib-only native port over a generic evidence manifest. It imports no
++FrameState code and acquires no merge, visual-approval, release, or CANON
++authority.
++
++The verifier exists to answer a narrow question: do the caller-pinned manifest
++and every manifest-declared evidence file still have the exact bytes claimed,
++without symlink/path escape or an observed change during verification?
++"""
++
++from __future__ import annotations
++
++import argparse
++import copy
++import hashlib
++import json
++import os
++from pathlib import Path, PurePosixPath
++import re
++import stat
++import sys
++from typing import Any
++
++MANIFEST_SCHEMA = "axm.game-assets.evidence-bundle/v0.1"
++RECEIPT_SCHEMA = "axm.game-assets.evidence-verification/v0.1"
++DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
++MAX_MANIFEST_BYTES = 16 * 1024 * 1024
++MAX_FILES = 4096
++MAX_TOTAL_BYTES = 8 * 1024 * 1024 * 1024
++
++
++class EvidenceVerificationError(ValueError):
++    pass
++
++
++def canonical_json(value: Any) -> bytes:
++    return json.dumps(
++        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
++    ).encode("utf-8")
++
++
++def digest_bytes(data: bytes) -> str:
++    return "sha256:" + hashlib.sha256(data).hexdigest()
++
++
++def digest_value(value: Any) -> str:
++    return digest_bytes(canonical_json(value))
++
++
++def _strict_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
++    result: dict[str, Any] = {}
++    for key, value in pairs:
++        if key in result:
++            raise EvidenceVerificationError(f"duplicate JSON key: {key}")
++        result[key] = value
++    return result
++
++
++def _reject_constant(value: str) -> None:
++    raise EvidenceVerificationError(f"non-finite JSON number: {value}")
++
++
++def _require_digest(value: Any, label: str) -> str:
++    if not isinstance(value, str) or not DIGEST_RE.fullmatch(value):
++        raise EvidenceVerificationError(f"{label} must be sha256:<64 lowercase hex>")
++    return value
++
++
++def _real_directory(path: Path, label: str) -> Path:
++    try:
++        info = path.lstat()
++    except OSError as exc:
++        raise EvidenceVerificationError(f"{label} directory is missing: {path}") from exc
++    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
++        raise EvidenceVerificationError(f"{label} must be a non-symlink directory: {path}")
++    return path.resolve()
++
++
++def _stable_identity(path: Path) -> tuple[int, int, int, int, int]:
++    try:
++        info = path.lstat()
++    except OSError as exc:
++        raise EvidenceVerificationError(f"missing evidence file: {path}") from exc
++    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
++        raise EvidenceVerificationError(
++            f"evidence file must be regular and non-symlink: {path}"
++        )
++    return (
++        info.st_dev,
++        info.st_ino,
++        info.st_size,
++        info.st_mtime_ns,
++        info.st_ctime_ns,
++    )
++
++
++def _stat_identity(info: os.stat_result) -> tuple[int, int, int, int, int]:
++    return (
++        info.st_dev,
++        info.st_ino,
++        info.st_size,
++        info.st_mtime_ns,
++        info.st_ctime_ns,
++    )
++
++
++def _confirm_stable(
++    path: Path,
++    expected: tuple[int, int, int, int, int],
++    opened: os.stat_result,
++    closed: os.stat_result,
++) -> None:
++    try:
++        after = path.lstat()
++    except OSError as exc:
++        raise EvidenceVerificationError(
++            f"evidence file changed while verifying: {path}"
++        ) from exc
++    if (
++        stat.S_ISLNK(after.st_mode)
++        or not stat.S_ISREG(after.st_mode)
++        or _stat_identity(opened) != expected
++        or _stat_identity(closed) != expected
++        or _stat_identity(after) != expected
++    ):
++        raise EvidenceVerificationError(
++            f"evidence file changed while verifying: {path}"
++        )
++
++
++def _read_stable(path: Path, *, limit: int | None = None) -> bytes:
++    expected = _stable_identity(path)
++    if limit is not None and expected[2] > limit:
++        raise EvidenceVerificationError(
++            f"evidence file exceeds {limit} byte read limit: {path}"
++        )
++    try:
++        with path.open("rb") as handle:
++            opened = os.fstat(handle.fileno())
++            data = handle.read() if limit is None else handle.read(limit + 1)
++            closed = os.fstat(handle.fileno())
++    except OSError as exc:
++        raise EvidenceVerificationError(f"cannot read evidence file: {path}") from exc
++    if limit is not None and len(data) > limit:
++        raise EvidenceVerificationError(
++            f"evidence file exceeds {limit} byte read limit: {path}"
++        )
++    _confirm_stable(path, expected, opened, closed)
++    return data
++
++
++def _hash_stable(path: Path) -> tuple[str, int]:
++    expected = _stable_identity(path)
++    hashed = hashlib.sha256()
++    try:
++        with path.open("rb") as handle:
++            opened = os.fstat(handle.fileno())
++            while True:
++                chunk = handle.read(1024 * 1024)
++                if not chunk:
++                    break
++                hashed.update(chunk)
++            closed = os.fstat(handle.fileno())
++    except OSError as exc:
++        raise EvidenceVerificationError(f"cannot hash evidence file: {path}") from exc
++    _confirm_stable(path, expected, opened, closed)
++    return "sha256:" + hashed.hexdigest(), expected[2]
++
++
++def _safe_relative(value: Any, label: str) -> PurePosixPath:
++    if not isinstance(value, str) or not value or "\\" in value:
++        raise EvidenceVerificationError(f"{label} must be one relative POSIX path")
++    raw = value.split("/")
++    parsed = PurePosixPath(value)
++    if (
++        parsed.is_absolute()
++        or parsed.as_posix() != value
++        or any(part in {"", ".", ".."} for part in raw)
++    ):
++        raise EvidenceVerificationError(f"{label} is unsafe: {value!r}")
++    return parsed
++
++
++def _member_path(root: Path, relative: Any, label: str) -> Path:
++    rel = _safe_relative(relative, label)
++    current = root
++    for part in rel.parts:
++        current = current / part
++        try:
++            if current.is_symlink():
++                raise EvidenceVerificationError(
++                    f"{label} crosses symlink: {relative!r}"
++                )
++        except OSError as exc:
++            raise EvidenceVerificationError(
++                f"cannot inspect {label}: {relative!r}"
++            ) from exc
++    try:
++        current.resolve(strict=True).relative_to(root)
++    except (OSError, ValueError) as exc:
++        raise EvidenceVerificationError(
++            f"{label} escapes or is missing from bundle root: {relative!r}"
++        ) from exc
++    return current
++
++
++def _load_manifest(path: Path) -> tuple[dict[str, Any], bytes]:
++    raw = _read_stable(path, limit=MAX_MANIFEST_BYTES)
++    try:
++        text = raw.decode("utf-8", errors="strict")
++        value = json.loads(
++            text,
++            object_pairs_hook=_strict_pairs,
++            parse_constant=_reject_constant,
++        )
++    except EvidenceVerificationError:
++        raise
++    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
++        raise EvidenceVerificationError("manifest is invalid UTF-8 JSON") from exc
++    if not isinstance(value, dict):
++        raise EvidenceVerificationError("manifest must contain one JSON object")
++    return value, raw
++
++
++def manifest_digest(manifest: dict[str, Any]) -> str:
++    core = copy.deepcopy(manifest)
++    core.pop("manifest_digest", None)
++    return digest_value(core)
++
++
++def verify_evidence_bundle(
++    root: str | Path,
++    manifest_path: str | Path,
++    *,
++    expected_manifest_digest: str,
++) -> dict[str, Any]:
++    """Verify exact caller-pinned evidence bytes without mutating the bundle."""
++    root_path = _real_directory(Path(root), "bundle root")
++    manifest_file = Path(manifest_path)
++    if not manifest_file.is_absolute():
++        manifest_file = root_path / manifest_file
++    try:
++        manifest_file.resolve(strict=True).relative_to(root_path)
++    except (OSError, ValueError) as exc:
++        raise EvidenceVerificationError(
++            "manifest must be an existing file inside bundle root"
++        ) from exc
++    for parent in [manifest_file, *manifest_file.parents]:
++        if parent == root_path:
++            break
++        if parent.is_symlink():
++            raise EvidenceVerificationError("manifest path crosses symlink")
++    manifest, manifest_bytes = _load_manifest(manifest_file)
++
++    if manifest.get("schema") != MANIFEST_SCHEMA:
++        raise EvidenceVerificationError(
++            f"manifest schema must be {MANIFEST_SCHEMA}"
++        )
++    bundle_id = manifest.get("bundle_id")
++    if not isinstance(bundle_id, str) or not bundle_id.strip():
++        raise EvidenceVerificationError("manifest bundle_id must be non-empty")
++    recorded = _require_digest(
++        manifest.get("manifest_digest"), "manifest manifest_digest"
++    )
++    calculated = manifest_digest(manifest)
++    if recorded != calculated:
++        raise EvidenceVerificationError(
++            "manifest_digest does not match manifest content"
++        )
++    caller_pin = _require_digest(
++        expected_manifest_digest, "caller expected manifest digest"
++    )
++    if caller_pin != recorded:
++        raise EvidenceVerificationError(
++            "caller expected manifest digest does not match bundle"
++        )
++
++    files = manifest.get("files")
++    if not isinstance(files, list) or not files:
++        raise EvidenceVerificationError("manifest files must be a non-empty list")
++    if len(files) > MAX_FILES:
++        raise EvidenceVerificationError(
++            f"manifest declares more than {MAX_FILES} files"
++        )
++
++    seen: set[str] = set()
++    observed: list[dict[str, Any]] = []
++    total = 0
++    for index, entry in enumerate(files):
++        if not isinstance(entry, dict):
++            raise EvidenceVerificationError(
++                f"manifest files[{index}] must be an object"
++            )
++        relative = entry.get("path")
++        parsed = _safe_relative(relative, f"files[{index}].path")
++        normalized = parsed.as_posix()
++        if normalized in seen:
++            raise EvidenceVerificationError(
++                f"duplicate manifest file path: {normalized}"
++            )
++        seen.add(normalized)
++        expected_sha = _require_digest(
++            entry.get("sha256"), f"files[{index}].sha256"
++        )
++        declared_bytes = entry.get("bytes")
++        if (
++            not isinstance(declared_bytes, int)
++            or isinstance(declared_bytes, bool)
++            or declared_bytes < 0
++        ):
++            raise EvidenceVerificationError(
++                f"files[{index}].bytes must be a nonnegative integer"
++            )
++        path = _member_path(root_path, normalized, f"files[{index}].path")
++        actual_sha, actual_bytes = _hash_stable(path)
++        total += actual_bytes
++        if total > MAX_TOTAL_BYTES:
++            raise EvidenceVerificationError(
++                f"bundle exceeds {MAX_TOTAL_BYTES} verified-byte budget"
++            )
++        if actual_bytes != declared_bytes:
++            raise EvidenceVerificationError(
++                f"byte count mismatch for {normalized}"
++            )
++        if actual_sha != expected_sha:
++            raise EvidenceVerificationError(
++                f"SHA-256 mismatch for {normalized}"
++            )
++        observed.append(
++            {
++                "path": normalized,
++                "sha256": actual_sha,
++                "bytes": actual_bytes,
++                "role": entry.get("role"),
++            }
++        )
++
++    receipt: dict[str, Any] = {
++        "schema": RECEIPT_SCHEMA,
++        "status": "PASS",
++        "bundle_id": bundle_id,
++        "manifest": {
++            "path": manifest_file.relative_to(root_path).as_posix(),
++            "sha256": digest_bytes(manifest_bytes),
++            "manifest_digest": recorded,
++        },
++        "files": observed,
++        "summary": {
++            "file_count": len(observed),
++            "verified_bytes": total,
++        },
++        "authority": {
++            "visual_approval": False,
++            "canonical_mutation": False,
++            "automatic_install": False,
++            "release": False,
++            "merge": False,
++            "canon": False,
++        },
++        "truth_boundary": {
++            "proves": [
++                "the caller-pinned manifest content identity",
++                "the exact SHA-256 and byte length of every manifest-declared file at verification time",
++                "the checked paths were non-symlink regular files inside the bundle root",
++            ],
++            "does_not_prove": [
++                "visual quality",
++                "semantic correctness",
++                "engine compatibility",
++                "authorship or license fitness",
++                "that evidence was produced by the claimed tool merely because a manifest says so",
++            ],
++        },
++        "provenance": {
++            "mechanism_source": (
++                "mike-axiom-mir/axm-framestate "
++                "src/axm_framestate/render_verify.py"
++            ),
++            "implementation": "AXM Game Asset Forge native genericized Python port",
++        },
++    }
++    receipt["receipt_digest"] = digest_value(receipt)
++    return receipt
++
++
++def _write_create_only(path: Path, receipt: dict[str, Any]) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    try:
++        with path.open("x", encoding="utf-8", newline="\n") as handle:
++            json.dump(receipt, handle, indent=2, sort_keys=True, ensure_ascii=False)
++            handle.write("\n")
++    except FileExistsError as exc:
++        raise EvidenceVerificationError(f"output already exists: {path}") from exc
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(
++        description="Verify one caller-pinned Game Asset evidence bundle"
++    )
++    parser.add_argument("root", type=Path)
++    parser.add_argument("manifest", type=Path)
++    parser.add_argument("--expected-manifest-digest", required=True)
++    parser.add_argument("--output", type=Path)
++    args = parser.parse_args(argv)
++    try:
++        receipt = verify_evidence_bundle(
++            args.root,
++            args.manifest,
++            expected_manifest_digest=args.expected_manifest_digest,
++        )
++        if args.output:
++            _write_create_only(args.output.resolve(), receipt)
++    except EvidenceVerificationError as exc:
++        print(str(exc), file=sys.stderr)
++        return 2
++    print(json.dumps(receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/native_evidence_verify_test.py b/native_evidence_verify_test.py
+new file mode 100644
+index 0000000..59f9629
+--- /dev/null
++++ b/native_evidence_verify_test.py
+@@ -0,0 +1,241 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++from pathlib import Path
++import subprocess
++import sys
++import tempfile
++import unittest
++
++from native_evidence_verify import (
++    EvidenceVerificationError,
++    MANIFEST_SCHEMA,
++    manifest_digest,
++    verify_evidence_bundle,
++)
++
++
++def sha(data: bytes) -> str:
++    return "sha256:" + hashlib.sha256(data).hexdigest()
++
++
++def make_bundle(root: Path, files: dict[str, bytes], bundle_id: str = "fixture") -> tuple[Path, dict]:
++    rows = []
++    for relative, data in files.items():
++        path = root / relative
++        path.parent.mkdir(parents=True, exist_ok=True)
++        path.write_bytes(data)
++        rows.append(
++            {
++                "path": relative,
++                "sha256": sha(data),
++                "bytes": len(data),
++                "role": "fixture",
++            }
++        )
++    manifest = {
++        "schema": MANIFEST_SCHEMA,
++        "bundle_id": bundle_id,
++        "files": rows,
++    }
++    manifest["manifest_digest"] = manifest_digest(manifest)
++    path = root / "evidence-manifest.json"
++    path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
++    return path, manifest
++
++
++class EvidenceVerifyTests(unittest.TestCase):
++    def test_exact_bundle_passes(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            manifest_path, manifest = make_bundle(
++                root,
++                {
++                    "proof/front.png": b"not-an-image-but-exact-evidence",
++                    "reports/check.json": b'{"status":"pass"}\n',
++                },
++            )
++            receipt = verify_evidence_bundle(
++                root,
++                manifest_path,
++                expected_manifest_digest=manifest["manifest_digest"],
++            )
++            self.assertEqual(receipt["status"], "PASS")
++            self.assertEqual(receipt["summary"]["file_count"], 2)
++            self.assertTrue(receipt["receipt_digest"].startswith("sha256:"))
++            self.assertFalse(receipt["authority"]["canon"])
++
++    def test_tampered_artifact_is_rejected(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            manifest_path, manifest = make_bundle(root, {"proof.bin": b"original"})
++            (root / "proof.bin").write_bytes(b"changed")
++            with self.assertRaisesRegex(EvidenceVerificationError, "mismatch"):
++                verify_evidence_bundle(
++                    root,
++                    manifest_path,
++                    expected_manifest_digest=manifest["manifest_digest"],
++                )
++
++    def test_manifest_content_drift_is_rejected(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            manifest_path, manifest = make_bundle(root, {"proof.bin": b"original"})
++            changed = json.loads(manifest_path.read_text(encoding="utf-8"))
++            changed["bundle_id"] = "changed"
++            manifest_path.write_text(
++                json.dumps(changed, indent=2, sort_keys=True) + "\n",
++                encoding="utf-8",
++            )
++            with self.assertRaisesRegex(EvidenceVerificationError, "manifest_digest"):
++                verify_evidence_bundle(
++                    root,
++                    manifest_path,
++                    expected_manifest_digest=manifest["manifest_digest"],
++                )
++
++    def test_wrong_caller_pin_is_rejected(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            manifest_path, _ = make_bundle(root, {"proof.bin": b"original"})
++            with self.assertRaisesRegex(EvidenceVerificationError, "caller expected"):
++                verify_evidence_bundle(
++                    root,
++                    manifest_path,
++                    expected_manifest_digest="sha256:" + "0" * 64,
++                )
++
++    def test_path_escape_is_rejected(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            outside = root.parent / f"{root.name}-outside.bin"
++            outside.write_bytes(b"outside")
++            try:
++                manifest = {
++                    "schema": MANIFEST_SCHEMA,
++                    "bundle_id": "escape",
++                    "files": [
++                        {
++                            "path": "../" + outside.name,
++                            "sha256": sha(b"outside"),
++                            "bytes": len(b"outside"),
++                        }
++                    ],
++                }
++                manifest["manifest_digest"] = manifest_digest(manifest)
++                manifest_path = root / "evidence-manifest.json"
++                manifest_path.write_text(
++                    json.dumps(manifest, indent=2, sort_keys=True) + "\n",
++                    encoding="utf-8",
++                )
++                with self.assertRaisesRegex(EvidenceVerificationError, "unsafe"):
++                    verify_evidence_bundle(
++                        root,
++                        manifest_path,
++                        expected_manifest_digest=manifest["manifest_digest"],
++                    )
++            finally:
++                outside.unlink(missing_ok=True)
++
++    @unittest.skipUnless(hasattr(os, "symlink"), "symlink unsupported")
++    def test_symlink_artifact_is_rejected(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            real = root / "real.bin"
++            real.write_bytes(b"same")
++            link = root / "link.bin"
++            try:
++                os.symlink(real.name, link)
++            except (OSError, NotImplementedError):
++                self.skipTest("symlink creation unavailable")
++            manifest = {
++                "schema": MANIFEST_SCHEMA,
++                "bundle_id": "link",
++                "files": [
++                    {"path": "link.bin", "sha256": sha(b"same"), "bytes": 4}
++                ],
++            }
++            manifest["manifest_digest"] = manifest_digest(manifest)
++            manifest_path = root / "evidence-manifest.json"
++            manifest_path.write_text(
++                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
++                encoding="utf-8",
++            )
++            with self.assertRaisesRegex(EvidenceVerificationError, "symlink"):
++                verify_evidence_bundle(
++                    root,
++                    manifest_path,
++                    expected_manifest_digest=manifest["manifest_digest"],
++                )
++
++    def test_duplicate_manifest_path_is_rejected(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            (root / "a.bin").write_bytes(b"a")
++            manifest = {
++                "schema": MANIFEST_SCHEMA,
++                "bundle_id": "dup",
++                "files": [
++                    {"path": "a.bin", "sha256": sha(b"a"), "bytes": 1},
++                    {"path": "a.bin", "sha256": sha(b"a"), "bytes": 1},
++                ],
++            }
++            manifest["manifest_digest"] = manifest_digest(manifest)
++            manifest_path = root / "evidence-manifest.json"
++            manifest_path.write_text(
++                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
++                encoding="utf-8",
++            )
++            with self.assertRaisesRegex(EvidenceVerificationError, "duplicate manifest"):
++                verify_evidence_bundle(
++                    root,
++                    manifest_path,
++                    expected_manifest_digest=manifest["manifest_digest"],
++                )
++
++    def test_duplicate_json_key_is_rejected(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            manifest_path = root / "evidence-manifest.json"
++            manifest_path.write_text(
++                '{"schema":"axm.game-assets.evidence-bundle/v0.1",'
++                '"bundle_id":"a","bundle_id":"b","files":[],"manifest_digest":"sha256:'
++                + "0" * 64
++                + '"}\n',
++                encoding="utf-8",
++            )
++            with self.assertRaisesRegex(EvidenceVerificationError, "duplicate JSON key"):
++                verify_evidence_bundle(
++                    root,
++                    manifest_path,
++                    expected_manifest_digest="sha256:" + "0" * 64,
++                )
++
++    def test_cli_receipt_output_is_create_only(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            manifest_path, manifest = make_bundle(root, {"proof.bin": b"original"})
++            out = root / "receipt.json"
++            script = Path(__file__).resolve().parent / "native_evidence_verify.py"
++            args = [
++                sys.executable,
++                str(script),
++                str(root),
++                str(manifest_path),
++                "--expected-manifest-digest",
++                manifest["manifest_digest"],
++                "--output",
++                str(out),
++            ]
++            first = subprocess.run(args, capture_output=True, text=True, check=False)
++            second = subprocess.run(args, capture_output=True, text=True, check=False)
++            self.assertEqual(first.returncode, 0, first.stderr)
++            self.assertEqual(second.returncode, 2)
++            self.assertIn("already exists", second.stderr)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/native_material_signal_audit.py b/native_material_signal_audit.py
+new file mode 100644
+index 0000000..aaceae2
+--- /dev/null
++++ b/native_material_signal_audit.py
+@@ -0,0 +1,567 @@
++#!/usr/bin/env python3
++"""Dependency-free Game Asset material payload + signal audit.
++
++Mechanisms adapted from AXM Material / Surface Fabric v0.18.5-v0.18.6:
++- payload-audit-core.js
++- signal-audit-core.js
++- tools/png-pixels.js
++
++This is an AXM-native port into Game Asset Forge, not a runtime dependency on
++Material / Surface Fabric. It deliberately separates byte/container health and
++bounded pixel-signal warnings from aesthetic or physical-material judgment.
++"""
++
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import math
++from pathlib import Path, PurePosixPath
++import stat
++import struct
++import sys
++import zlib
++from typing import Any
++
++REQUEST_SCHEMA = "axm.game-assets.material-audit-request/v0.1"
++REPORT_SCHEMA = "axm.game-assets.material-signal-audit/v0.1"
++MAX_FILE_BYTES = 64 * 1024 * 1024
++MAX_PIXELS = 32 * 1024 * 1024
++MAX_DIMENSION = 8192
++MAX_SAMPLES = 100_000
++PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
++KNOWN_CHANNELS = {
++    "base-color", "normal", "roughness", "metallic", "ambient-occlusion",
++    "height", "displacement", "emissive", "opacity", "color-mask",
++    "decal", "microdetail", "unassigned",
++}
++SCALAR_CHANNELS = {
++    "roughness", "metallic", "ambient-occlusion", "height",
++    "displacement", "opacity",
++}
++
++
++class MaterialAuditError(ValueError):
++    pass
++
++
++def _canonical(value: Any) -> bytes:
++    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
++
++
++def _sha256(data: bytes) -> str:
++    return "sha256:" + hashlib.sha256(data).hexdigest()
++
++
++def _strict_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
++    out: dict[str, Any] = {}
++    for key, value in pairs:
++        if key in out:
++            raise MaterialAuditError(f"duplicate JSON key: {key}")
++        out[key] = value
++    return out
++
++
++def _load_json(path: Path) -> dict[str, Any]:
++    try:
++        value = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_strict_pairs)
++    except MaterialAuditError:
++        raise
++    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
++        raise MaterialAuditError(f"invalid request JSON: {exc}") from exc
++    if not isinstance(value, dict):
++        raise MaterialAuditError("request must contain one JSON object")
++    return value
++
++
++def _safe_relative(value: Any, label: str) -> PurePosixPath:
++    if not isinstance(value, str) or not value or "\\" in value:
++        raise MaterialAuditError(f"{label} must be a safe relative POSIX path")
++    parts = value.split("/")
++    path = PurePosixPath(value)
++    if path.is_absolute() or path.as_posix() != value or any(p in {"", ".", ".."} for p in parts):
++        raise MaterialAuditError(f"{label} is unsafe: {value!r}")
++    return path
++
++
++def _read_regular(root: Path, relative: Any) -> tuple[bytes, Path]:
++    rel = _safe_relative(relative, "entry.path")
++    path = root.joinpath(*rel.parts)
++    current = root
++    for part in rel.parts:
++        current = current / part
++        if current.is_symlink():
++            raise MaterialAuditError(f"entry.path crosses symlink: {relative!r}")
++    try:
++        resolved = path.resolve(strict=True)
++        resolved.relative_to(root)
++        info = path.lstat()
++    except (OSError, ValueError) as exc:
++        raise MaterialAuditError(f"cannot resolve material payload {relative!r}") from exc
++    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
++        raise MaterialAuditError(f"material payload is not a regular file: {relative!r}")
++    if info.st_size > MAX_FILE_BYTES:
++        raise MaterialAuditError(f"material payload exceeds {MAX_FILE_BYTES} bytes: {relative!r}")
++    return path.read_bytes(), path
++
++
++def _chunks(data: bytes) -> list[tuple[str, bytes]]:
++    if len(data) < 33 or data[:8] != PNG_SIGNATURE:
++        raise MaterialAuditError("not a PNG file")
++    out: list[tuple[str, bytes]] = []
++    offset = 8
++    saw_iend = False
++    while offset + 12 <= len(data):
++        length = struct.unpack_from(">I", data, offset)[0]
++        type_bytes = data[offset + 4:offset + 8]
++        try:
++            kind = type_bytes.decode("ascii")
++        except UnicodeDecodeError as exc:
++            raise MaterialAuditError("PNG chunk type is not ASCII") from exc
++        start = offset + 8
++        end = start + length
++        if end + 4 > len(data):
++            raise MaterialAuditError(f"truncated PNG chunk: {kind or 'unknown'}")
++        payload = data[start:end]
++        expected_crc = zlib.crc32(type_bytes + payload) & 0xFFFFFFFF
++        observed_crc = struct.unpack_from(">I", data, end)[0]
++        if expected_crc != observed_crc:
++            raise MaterialAuditError(f"PNG CRC mismatch in {kind}")
++        out.append((kind, payload))
++        offset = end + 4
++        if kind == "IEND":
++            saw_iend = True
++            break
++    if not saw_iend or offset != len(data):
++        raise MaterialAuditError("PNG is missing a terminal IEND or has trailing bytes")
++    return out
++
++
++def _paeth(a: int, b: int, c: int) -> int:
++    p = a + b - c
++    pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
++    return a if pa <= pb and pa <= pc else b if pb <= pc else c
++
++
++def decode_png_rgba(data: bytes) -> tuple[int, int, bytes]:
++    chunks = _chunks(data)
++    ihdrs = [payload for kind, payload in chunks if kind == "IHDR"]
++    if len(ihdrs) != 1 or len(ihdrs[0]) != 13 or chunks[0][0] != "IHDR":
++        raise MaterialAuditError("PNG IHDR is missing, duplicated, malformed, or not first")
++    ihdr = ihdrs[0]
++    width, height = struct.unpack_from(">II", ihdr, 0)
++    bit_depth, color_type, compression, filter_method, interlace = ihdr[8:13]
++    if not width or not height or width > MAX_DIMENSION or height > MAX_DIMENSION:
++        raise MaterialAuditError(f"unsupported PNG dimensions {width}x{height}")
++    if width * height > MAX_PIXELS:
++        raise MaterialAuditError("PNG exceeds pixel audit budget")
++    channels_by_type = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}
++    if bit_depth != 8 or color_type not in channels_by_type:
++        raise MaterialAuditError(f"pixel audit supports 8-bit PNG color types 0/2/3/4/6; got {bit_depth}/{color_type}")
++    if compression != 0 or filter_method != 0 or interlace != 0:
++        raise MaterialAuditError("pixel audit supports standard non-interlaced PNG only")
++    channels = channels_by_type[color_type]
++    stride = width * channels
++    idat = b"".join(payload for kind, payload in chunks if kind == "IDAT")
++    if not idat:
++        raise MaterialAuditError("PNG contains no IDAT data")
++    try:
++        inflated = zlib.decompress(idat)
++    except zlib.error as exc:
++        raise MaterialAuditError("PNG IDAT decompression failed") from exc
++    if len(inflated) != height * (stride + 1):
++        raise MaterialAuditError("unexpected decompressed PNG scanline size")
++
++    raw = bytearray(width * height * channels)
++    source = 0
++    for y in range(height):
++        filter_kind = inflated[source]
++        source += 1
++        row_start = y * stride
++        for x in range(stride):
++            value = inflated[source]
++            source += 1
++            left = raw[row_start + x - channels] if x >= channels else 0
++            up = raw[row_start - stride + x] if y > 0 else 0
++            up_left = raw[row_start - stride + x - channels] if y > 0 and x >= channels else 0
++            if filter_kind == 0:
++                out = value
++            elif filter_kind == 1:
++                out = (value + left) & 255
++            elif filter_kind == 2:
++                out = (value + up) & 255
++            elif filter_kind == 3:
++                out = (value + ((left + up) // 2)) & 255
++            elif filter_kind == 4:
++                out = (value + _paeth(left, up, up_left)) & 255
++            else:
++                raise MaterialAuditError(f"unsupported PNG filter {filter_kind}")
++            raw[row_start + x] = out
++
++    palette = next((payload for kind, payload in chunks if kind == "PLTE"), None)
++    transparency = next((payload for kind, payload in chunks if kind == "tRNS"), None)
++    if color_type == 3 and (not palette or len(palette) % 3):
++        raise MaterialAuditError("palette PNG requires a valid PLTE chunk")
++
++    rgba = bytearray(width * height * 4)
++    for pixel in range(width * height):
++        src = pixel * channels
++        dst = pixel * 4
++        if color_type == 0:
++            gray = raw[src]
++            rgba[dst:dst + 4] = bytes((gray, gray, gray, 255))
++        elif color_type == 2:
++            rgba[dst:dst + 4] = bytes((raw[src], raw[src + 1], raw[src + 2], 255))
++        elif color_type == 3:
++            index = raw[src]
++            p = index * 3
++            if palette is None or p + 2 >= len(palette):
++                raise MaterialAuditError(f"palette index {index} is outside PLTE")
++            alpha = transparency[index] if transparency is not None and index < len(transparency) else 255
++            rgba[dst:dst + 4] = bytes((palette[p], palette[p + 1], palette[p + 2], alpha))
++        elif color_type == 4:
++            gray = raw[src]
++            rgba[dst:dst + 4] = bytes((gray, gray, gray, raw[src + 1]))
++        else:
++            rgba[dst:dst + 4] = raw[src:src + 4]
++    return width, height, bytes(rgba)
++
++
++def inspect_image(data: bytes) -> dict[str, Any]:
++    if data.startswith(PNG_SIGNATURE):
++        chunks = _chunks(data)
++        ihdrs = [payload for kind, payload in chunks if kind == "IHDR"]
++        if len(ihdrs) != 1 or len(ihdrs[0]) != 13 or chunks[0][0] != "IHDR":
++            raise MaterialAuditError("PNG IHDR is missing, duplicated, malformed, or not first")
++        ihdr = ihdrs[0]
++        width, height = struct.unpack_from(">II", ihdr, 0)
++        bit_depth, color_type, compression, filter_method, interlace = ihdr[8:13]
++        if not width or not height or width > MAX_DIMENSION or height > MAX_DIMENSION:
++            raise MaterialAuditError(f"unsupported PNG dimensions {width}x{height}")
++        if width * height > MAX_PIXELS:
++            raise MaterialAuditError("PNG exceeds pixel audit budget")
++        if compression != 0 or filter_method != 0:
++            raise MaterialAuditError("PNG uses unsupported compression/filter method")
++        return {
++            "mime": "image/png",
++            "width": width,
++            "height": height,
++            "bit_depth": bit_depth,
++            "color_type": color_type,
++            "interlace": interlace,
++            "pixel_decoder": (
++                "rgba8-noninterlaced"
++                if bit_depth == 8 and color_type in {0, 2, 3, 4, 6} and interlace == 0
++                else None
++            ),
++        }
++
++    if len(data) >= 3 and data[:3] == b"\xff\xd8\xff":
++        if len(data) < 4 or data[-2:] != b"\xff\xd9":
++            raise MaterialAuditError("JPEG is missing terminal EOI")
++        width = height = None
++        offset = 2
++        sof = {0xC0,0xC1,0xC2,0xC3,0xC5,0xC6,0xC7,0xC9,0xCA,0xCB,0xCD,0xCE,0xCF}
++        while offset < len(data):
++            while offset < len(data) and data[offset] != 0xFF:
++                offset += 1
++            while offset < len(data) and data[offset] == 0xFF:
++                offset += 1
++            if offset >= len(data):
++                break
++            marker = data[offset]
++            offset += 1
++            if marker in {0xD9, 0xDA}:
++                break
++            if marker == 0x01 or 0xD0 <= marker <= 0xD7:
++                continue
++            if offset + 2 > len(data):
++                raise MaterialAuditError("JPEG segment length is truncated")
++            length = struct.unpack_from(">H", data, offset)[0]
++            if length < 2 or offset + length > len(data):
++                raise MaterialAuditError("JPEG segment length is invalid")
++            if marker in sof and length >= 8:
++                height = struct.unpack_from(">H", data, offset + 3)[0]
++                width = struct.unpack_from(">H", data, offset + 5)[0]
++                break
++            offset += length
++        if not width or not height:
++            raise MaterialAuditError("JPEG dimensions could not be established")
++        if width > MAX_DIMENSION or height > MAX_DIMENSION or width * height > MAX_PIXELS:
++            raise MaterialAuditError(f"JPEG exceeds audit dimensions/pixel budget: {width}x{height}")
++        return {"mime": "image/jpeg", "width": width, "height": height, "pixel_decoder": None}
++
++    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
++        declared = struct.unpack_from("<I", data, 4)[0] + 8
++        if declared != len(data):
++            raise MaterialAuditError("WebP RIFF size mismatch")
++        width = height = None
++        primary = None
++        offset = 12
++        while offset + 8 <= len(data):
++            kind = data[offset:offset + 4]
++            length = struct.unpack_from("<I", data, offset + 4)[0]
++            start = offset + 8
++            end = start + length
++            if end > len(data):
++                raise MaterialAuditError("WebP chunk exceeds file length")
++            payload = data[start:end]
++            if kind == b"VP8X" and len(payload) >= 10:
++                primary = "VP8X"
++                width = 1 + int.from_bytes(payload[4:7], "little")
++                height = 1 + int.from_bytes(payload[7:10], "little")
++            elif kind == b"VP8 " and len(payload) >= 10 and width is None:
++                primary = "VP8"
++                if payload[3:6] != b"\x9d\x01\x2a":
++                    raise MaterialAuditError("WebP VP8 frame signature mismatch")
++                width = struct.unpack_from("<H", payload, 6)[0] & 0x3FFF
++                height = struct.unpack_from("<H", payload, 8)[0] & 0x3FFF
++            elif kind == b"VP8L" and len(payload) >= 5 and width is None:
++                primary = "VP8L"
++                if payload[0] != 0x2F:
++                    raise MaterialAuditError("WebP VP8L signature mismatch")
++                b1, b2, b3, b4 = payload[1:5]
++                width = 1 + b1 + ((b2 & 0x3F) << 8)
++                height = 1 + (b2 >> 6) + (b3 << 2) + ((b4 & 0x0F) << 10)
++            offset = end + (length & 1)
++        if offset != len(data):
++            raise MaterialAuditError("WebP chunk layout mismatch")
++        if not width or not height:
++            raise MaterialAuditError("WebP dimensions could not be established")
++        if width > MAX_DIMENSION or height > MAX_DIMENSION or width * height > MAX_PIXELS:
++            raise MaterialAuditError(f"WebP exceeds audit dimensions/pixel budget: {width}x{height}")
++        return {
++            "mime": "image/webp",
++            "width": width,
++            "height": height,
++            "primary_chunk": primary,
++            "pixel_decoder": None,
++        }
++
++    raise MaterialAuditError("unknown image signature")
++
++
++def signal_stats(rgba: bytes, width: int, height: int, channel: str) -> dict[str, Any]:
++    pixels = width * height
++    step = max(1, pixels // MAX_SAMPLES)
++    sums = [0.0, 0.0, 0.0, 0.0]
++    squares = [0.0, 0.0, 0.0, 0.0]
++    gray = visible = partial_alpha = 0
++    coarse: set[int] = set()
++    edge_total = 0.0
++    edge_count = 0
++    normal_length_sum = normal_z_sum = 0.0
++    normal_length_valid = 0
++    samples = 0
++    for pixel in range(0, pixels, step):
++        off = pixel * 4
++        r, g, b, a = rgba[off:off + 4]
++        values = (r, g, b, a)
++        for i, value in enumerate(values):
++            sums[i] += value
++            squares[i] += value * value
++        gray += int(max(r, g, b) - min(r, g, b) <= 2)
++        visible += int(a > 16)
++        partial_alpha += int(0 < a < 255)
++        coarse.add(((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3))
++        x = pixel % width
++        if x + 1 < width:
++            nr, ng, nb = rgba[off + 4:off + 7]
++            l0 = 0.2126 * r + 0.7152 * g + 0.0722 * b
++            l1 = 0.2126 * nr + 0.7152 * ng + 0.0722 * nb
++            edge_total += abs(l1 - l0) / 255.0
++            edge_count += 1
++        if channel == "normal":
++            nx, ny, nz = r / 127.5 - 1.0, g / 127.5 - 1.0, b / 127.5 - 1.0
++            length = math.sqrt(nx * nx + ny * ny + nz * nz)
++            normal_length_sum += length
++            normal_z_sum += nz
++            normal_length_valid += int(0.5 <= length <= 1.5)
++        samples += 1
++
++    means = [value / max(1, samples) for value in sums]
++    std = [math.sqrt(max(0.0, squares[i] / max(1, samples) - means[i] ** 2)) for i in range(4)]
++    result: dict[str, Any] = {
++        "samples": samples,
++        "width": width,
++        "height": height,
++        "mean": {k: round(v, 6) for k, v in zip(("r", "g", "b", "a"), means)},
++        "std": {k: round(v, 6) for k, v in zip(("r", "g", "b", "a"), std)},
++        "grayscale_share": round(gray / max(1, samples), 6),
++        "visible_alpha_share": round(visible / max(1, samples), 6),
++        "partial_alpha_share": round(partial_alpha / max(1, samples), 6),
++        "coarse_color_bins": len(coarse),
++        "edge_energy": round(edge_total / max(1, edge_count), 6),
++    }
++    if channel == "normal":
++        result["normal"] = {
++            "mean_vector_length": round(normal_length_sum / max(1, samples), 6),
++            "valid_length_share": round(normal_length_valid / max(1, samples), 6),
++            "mean_z": round(normal_z_sum / max(1, samples), 6),
++        }
++    return result
++
++
++def signal_warnings(channel: str, stats: dict[str, Any]) -> list[str]:
++    warnings: list[str] = []
++    rgb_std = [float(stats["std"][key]) for key in ("r", "g", "b")]
++    if max(rgb_std) < 1.5 and float(stats["std"]["a"]) < 1.5:
++        warnings.append("near-flat-signal")
++    if channel in SCALAR_CHANNELS and float(stats["grayscale_share"]) < 0.95:
++        warnings.append("scalar-channel-color-leak")
++    if channel == "normal":
++        normal = stats.get("normal", {})
++        if float(stats["grayscale_share"]) > 0.95:
++            warnings.append("normal-map-near-grayscale")
++        if float(normal.get("mean_z", 0.0)) < 0.15:
++            warnings.append("normal-positive-z-weak")
++        if float(normal.get("valid_length_share", 0.0)) < 0.75:
++            warnings.append("normal-vector-length-irregular")
++    if channel == "base-color" and int(stats["coarse_color_bins"]) <= 4 and int(stats["samples"]) > 16:
++        warnings.append("low-signal-diversity")
++    if float(stats["visible_alpha_share"]) == 0.0:
++        warnings.append("fully-transparent-signal")
++    return sorted(set(warnings))
++
++
++def audit_material_request(request: dict[str, Any], root: Path) -> dict[str, Any]:
++    if request.get("schema") != REQUEST_SCHEMA:
++        raise MaterialAuditError(f"request schema must be {REQUEST_SCHEMA}")
++    family_id = request.get("family_id")
++    if not isinstance(family_id, str) or not family_id.strip():
++        raise MaterialAuditError("family_id must be non-empty")
++    entries = request.get("entries")
++    if not isinstance(entries, list) or not entries:
++        raise MaterialAuditError("entries must be a non-empty list")
++
++    seen_ids: set[str] = set()
++    rows: list[dict[str, Any]] = []
++    digest_groups: dict[str, list[tuple[str, str]]] = {}
++    for entry in entries:
++        if not isinstance(entry, dict):
++            raise MaterialAuditError("each entry must be an object")
++        entry_id = entry.get("id")
++        channel = entry.get("channel")
++        if not isinstance(entry_id, str) or not entry_id.strip() or entry_id in seen_ids:
++            raise MaterialAuditError("entry ids must be unique non-empty strings")
++        seen_ids.add(entry_id)
++        if channel not in KNOWN_CHANNELS:
++            raise MaterialAuditError(f"entry {entry_id!r} has unsupported channel {channel!r}")
++        try:
++            data, _ = _read_regular(root, entry.get("path"))
++            image = inspect_image(data)
++            digest = _sha256(data)
++            row: dict[str, Any] = {
++                "id": entry_id,
++                "channel": channel,
++                "path": entry["path"],
++                "status": "OBSERVED",
++                "sha256": digest,
++                "bytes": len(data),
++                "image": image,
++                "warnings": [],
++            }
++            digest_groups.setdefault(digest, []).append((entry_id, channel))
++            if image["mime"] == "image/png" and image.get("pixel_decoder"):
++                width, height, rgba = decode_png_rgba(data)
++                stats = signal_stats(rgba, width, height, channel)
++                row["signal"] = stats
++                row["warnings"] = signal_warnings(channel, stats)
++                if row["warnings"]:
++                    row["status"] = "OBSERVED_WITH_WARNINGS"
++            else:
++                row["status"] = "STRUCTURE_ONLY"
++                row["signal"] = None
++                row["warnings"] = ["pixel-signal-unobserved"]
++        except MaterialAuditError as exc:
++            row = {
++                "id": entry_id,
++                "channel": channel,
++                "path": entry.get("path"),
++                "status": "HOLD",
++                "error": str(exc),
++                "warnings": [],
++            }
++        rows.append(row)
++
++    family_warnings: list[str] = []
++    for grouped in digest_groups.values():
++        channels = sorted({channel for _, channel in grouped})
++        if len(channels) > 1:
++            family_warnings.append("duplicate-payload-across-channels:" + ",".join(channels))
++
++    held = sum(row["status"] == "HOLD" for row in rows)
++    unobserved = sum(row["status"] == "STRUCTURE_ONLY" for row in rows)
++    warned = sum(bool(row.get("warnings")) for row in rows)
++    status = "HOLD" if held else "PASS_WITH_WARNINGS" if warned or unobserved or family_warnings else "PASS"
++    report: dict[str, Any] = {
++        "schema": REPORT_SCHEMA,
++        "family_id": family_id,
++        "status": status,
++        "entries": rows,
++        "family_warnings": sorted(set(family_warnings)),
++        "summary": {
++            "entries": len(rows),
++            "held_entries": held,
++            "structure_only_entries": unobserved,
++            "warned_entries": warned,
++        },
++        "truth_boundary": {
++            "proves": [
++                "bounded file/container identity for observed payloads",
++                "bounded PNG pixel-signal statistics when the native decoder supports the PNG",
++                "specific technical warning heuristics",
++            ],
++            "does_not_prove": [
++                "aesthetic quality",
++                "art-direction fit",
++                "physical/PBR correctness",
++                "engine parity",
++                "AAA quality",
++                "canonical adoption",
++            ],
++            "automatic_canon": False,
++        },
++        "provenance": {
++            "mechanism_sources": [
++                "mike-axiom-mir/axm-material-surface-fabric@v0.18.5 payload audit",
++                "mike-axiom-mir/axm-material-surface-fabric@v0.18.6 signal audit",
++            ],
++            "implementation": "AXM Game Asset Forge native Python port",
++        },
++    }
++    report["report_digest"] = _sha256(_canonical(report))
++    return report
++
++
++def _write_create_only(path: Path, report: dict[str, Any]) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    try:
++        with path.open("x", encoding="utf-8", newline="\n") as handle:
++            json.dump(report, handle, indent=2, sort_keys=True, ensure_ascii=False)
++            handle.write("\n")
++    except FileExistsError as exc:
++        raise MaterialAuditError(f"output already exists: {path}") from exc
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description="Audit one explicit Game Asset material family without aesthetic overclaim")
++    parser.add_argument("request", type=Path)
++    parser.add_argument("--output", type=Path)
++    args = parser.parse_args(argv)
++    try:
++        request_path = args.request.resolve()
++        request = _load_json(request_path)
++        report = audit_material_request(request, request_path.parent)
++        if args.output:
++            _write_create_only(args.output.resolve(), report)
++    except MaterialAuditError as exc:
++        print(str(exc), file=sys.stderr)
++        return 2
++    print(json.dumps(report, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/native_material_signal_audit_test.py b/native_material_signal_audit_test.py
+new file mode 100644
+index 0000000..78a83c0
+--- /dev/null
++++ b/native_material_signal_audit_test.py
+@@ -0,0 +1,253 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import binascii
++import json
++import os
++from pathlib import Path
++import struct
++import subprocess
++import sys
++import tempfile
++import unittest
++import zlib
++
++from native_material_signal_audit import (
++    REQUEST_SCHEMA,
++    audit_material_request,
++    decode_png_rgba,
++)
++
++
++def _chunk(kind: bytes, payload: bytes) -> bytes:
++    return (
++        struct.pack(">I", len(payload))
++        + kind
++        + payload
++        + struct.pack(">I", binascii.crc32(kind + payload) & 0xFFFFFFFF)
++    )
++
++
++def png_rgba(width: int, height: int, pixel_fn) -> bytes:
++    raw = bytearray()
++    for y in range(height):
++        raw.append(0)
++        for x in range(width):
++            raw.extend(pixel_fn(x, y))
++    return (
++        b"\x89PNG\r\n\x1a\n"
++        + _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
++        + _chunk(b"IDAT", zlib.compress(bytes(raw), 9))
++        + _chunk(b"IEND", b"")
++    )
++
++
++def request(entries, family_id="fixture"):
++    return {"schema": REQUEST_SCHEMA, "family_id": family_id, "entries": entries}
++
++
++class MaterialSignalAuditTests(unittest.TestCase):
++    def write(self, root: Path, name: str, data: bytes) -> None:
++        (root / name).write_bytes(data)
++
++    def test_clean_pbr_family_passes(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            base = png_rgba(
++                8, 8,
++                lambda x, y: (
++                    40 + x * 14,
++                    62 + y * 10,
++                    90 + ((x + y) % 5) * 12,
++                    255,
++                ),
++            )
++            rough = png_rgba(
++                8, 8,
++                lambda x, y: (
++                    (60 + x * 17 + y * 5) % 220 + 20,
++                    (60 + x * 17 + y * 5) % 220 + 20,
++                    (60 + x * 17 + y * 5) % 220 + 20,
++                    255,
++                ),
++            )
++
++            def normal(x: int, y: int) -> tuple[int, int, int, int]:
++                nx = (x - 3.5) / 18.0
++                ny = (y - 3.5) / 18.0
++                nz = max(0.0, 1.0 - nx * nx - ny * ny) ** 0.5
++                encode = lambda v: max(0, min(255, round((v * 0.5 + 0.5) * 255)))
++                return encode(nx), encode(ny), encode(nz), 255
++
++            normal_png = png_rgba(8, 8, normal)
++            self.write(root, "base.png", base)
++            self.write(root, "rough.png", rough)
++            self.write(root, "normal.png", normal_png)
++            report = audit_material_request(
++                request(
++                    [
++                        {"id": "base", "channel": "base-color", "path": "base.png"},
++                        {"id": "rough", "channel": "roughness", "path": "rough.png"},
++                        {"id": "normal", "channel": "normal", "path": "normal.png"},
++                    ]
++                ),
++                root,
++            )
++            self.assertEqual(report["status"], "PASS")
++            self.assertEqual(report["family_warnings"], [])
++            self.assertTrue(report["report_digest"].startswith("sha256:"))
++            normal_row = next(row for row in report["entries"] if row["id"] == "normal")
++            self.assertGreater(normal_row["signal"]["normal"]["mean_z"], 0.8)
++            self.assertGreaterEqual(normal_row["signal"]["normal"]["valid_length_share"], 0.99)
++
++    def test_colored_scalar_map_is_warned_not_rejected(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            data = png_rgba(8, 8, lambda x, y: (20 + x * 20, 30 + y * 10, 180, 255))
++            self.write(root, "rough.png", data)
++            report = audit_material_request(
++                request([{"id": "rough", "channel": "roughness", "path": "rough.png"}]),
++                root,
++            )
++            self.assertEqual(report["status"], "PASS_WITH_WARNINGS")
++            self.assertIn("scalar-channel-color-leak", report["entries"][0]["warnings"])
++
++    def test_duplicate_payload_across_channels_is_visible(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            data = png_rgba(8, 8, lambda x, y: (30 + x * 12, 40 + y * 12, 50 + (x + y) * 8, 255))
++            self.write(root, "same.png", data)
++            self.write(root, "also-same.png", data)
++            report = audit_material_request(
++                request(
++                    [
++                        {"id": "a", "channel": "base-color", "path": "same.png"},
++                        {"id": "b", "channel": "roughness", "path": "also-same.png"},
++                    ]
++                ),
++                root,
++            )
++            self.assertEqual(report["status"], "PASS_WITH_WARNINGS")
++            self.assertIn(
++                "duplicate-payload-across-channels:base-color,roughness",
++                report["family_warnings"],
++            )
++
++    def test_fully_transparent_signal_is_warned(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            data = png_rgba(8, 8, lambda x, y: (x * 20, y * 20, 100, 0))
++            self.write(root, "opacity.png", data)
++            report = audit_material_request(
++                request([{"id": "alpha", "channel": "opacity", "path": "opacity.png"}]),
++                root,
++            )
++            self.assertIn("fully-transparent-signal", report["entries"][0]["warnings"])
++
++    def test_corrupt_png_crc_becomes_hold(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            data = bytearray(png_rgba(2, 2, lambda x, y: (20, 20, 20, 255)))
++            idat = data.index(b"IDAT")
++            data[idat + 5] ^= 0x01
++            self.write(root, "broken.png", bytes(data))
++            report = audit_material_request(
++                request([{"id": "broken", "channel": "base-color", "path": "broken.png"}]),
++                root,
++            )
++            self.assertEqual(report["status"], "HOLD")
++            self.assertEqual(report["entries"][0]["status"], "HOLD")
++            self.assertIn("CRC mismatch", report["entries"][0]["error"])
++
++    def test_path_escape_becomes_hold(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            outside = root.parent / f"{root.name}-outside.png"
++            outside.write_bytes(png_rgba(1, 1, lambda x, y: (1, 2, 3, 255)))
++            try:
++                report = audit_material_request(
++                    request([{"id": "escape", "channel": "base-color", "path": "../" + outside.name}]),
++                    root,
++                )
++                self.assertEqual(report["status"], "HOLD")
++                self.assertIn("unsafe", report["entries"][0]["error"])
++            finally:
++                outside.unlink(missing_ok=True)
++
++    @unittest.skipUnless(hasattr(os, "symlink"), "symlink unsupported")
++    def test_symlink_payload_becomes_hold(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            real = root / "real.png"
++            real.write_bytes(png_rgba(1, 1, lambda x, y: (1, 2, 3, 255)))
++            link = root / "link.png"
++            try:
++                os.symlink(real.name, link)
++            except (OSError, NotImplementedError):
++                self.skipTest("symlink creation unavailable")
++            report = audit_material_request(
++                request([{"id": "link", "channel": "base-color", "path": "link.png"}]),
++                root,
++            )
++            self.assertEqual(report["status"], "HOLD")
++            self.assertIn("symlink", report["entries"][0]["error"])
++
++    def test_png_filter_decoder_round_trip(self) -> None:
++        data = png_rgba(3, 2, lambda x, y: (x * 20, y * 30, 70, 255))
++        width, height, rgba = decode_png_rgba(data)
++        self.assertEqual((width, height), (3, 2))
++        self.assertEqual(rgba[:4], bytes((0, 0, 70, 255)))
++        self.assertEqual(rgba[-4:], bytes((40, 30, 70, 255)))
++
++    def test_duplicate_request_key_is_rejected_by_cli(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            req = root / "request.json"
++            req.write_text(
++                '{"schema":"axm.game-assets.material-audit-request/v0.1",'
++                '"family_id":"a","family_id":"b","entries":[]}\n',
++                encoding="utf-8",
++            )
++            completed = subprocess.run(
++                [sys.executable, "native_material_signal_audit.py", str(req)],
++                cwd=Path(__file__).resolve().parent,
++                capture_output=True,
++                text=True,
++                check=False,
++            )
++            self.assertEqual(completed.returncode, 2)
++            self.assertIn("duplicate JSON key", completed.stderr)
++
++    def test_cli_output_is_create_only(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            self.write(root, "base.png", png_rgba(8, 8, lambda x, y: (x * 20, y * 20, 50, 255)))
++            req = root / "request.json"
++            req.write_text(
++                json.dumps(
++                    request([{"id": "base", "channel": "base-color", "path": "base.png"}])
++                )
++                + "\n",
++                encoding="utf-8",
++            )
++            out = root / "report.json"
++            script = Path(__file__).resolve().parent / "native_material_signal_audit.py"
++            first = subprocess.run(
++                [sys.executable, str(script), str(req), "--output", str(out)],
++                capture_output=True,
++                text=True,
++                check=False,
++            )
++            second = subprocess.run(
++                [sys.executable, str(script), str(req), "--output", str(out)],
++                capture_output=True,
++                text=True,
++                check=False,
++            )
++            self.assertEqual(first.returncode, 0, first.stderr)
++            self.assertEqual(second.returncode, 2)
++            self.assertIn("already exists", second.stderr)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/native_pbr_signal_review.py b/native_pbr_signal_review.py
+new file mode 100644
+index 0000000..57aaf3c
+--- /dev/null
++++ b/native_pbr_signal_review.py
+@@ -0,0 +1,221 @@
++#!/usr/bin/env python3
++"""Audit one native_pbr.py material family using the transplanted signal organ.
++
++This adapter is intentionally narrow. It maps semantic map keys declared by the
++Game Asset Forge native PBR manifest; it never infers material meaning from
++filenames. Packed ORM remains one `unassigned` payload with its packing meaning
++preserved separately rather than being misreported as three independent maps.
++"""
++
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++from pathlib import Path
++import re
++import sys
++from typing import Any
++
++from native_material_signal_audit import (
++    MaterialAuditError,
++    REQUEST_SCHEMA,
++    audit_material_request,
++)
++
++REVIEW_SCHEMA = "axm.game-assets.native-pbr-signal-review/v0.1"
++SUPPORTED_PBR_SCHEMA = "axm.game-assets.native-pbr.v0.2"
++DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
++MAP_CHANNELS = {
++    "base_color": "base-color",
++    "normal": "normal",
++    "roughness": "roughness",
++    "metallic": "metallic",
++    "height": "height",
++    "ao": "ambient-occlusion",
++    "orm": "unassigned",
++}
++REQUIRED_MAPS = frozenset(MAP_CHANNELS)
++
++
++class NativePbrSignalReviewError(ValueError):
++    pass
++
++
++def _strict_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
++    out: dict[str, Any] = {}
++    for key, value in pairs:
++        if key in out:
++            raise NativePbrSignalReviewError(f"duplicate JSON key: {key}")
++        out[key] = value
++    return out
++
++
++def _load_manifest(path: Path) -> tuple[dict[str, Any], bytes]:
++    try:
++        raw = path.read_bytes()
++        value = json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_pairs)
++    except NativePbrSignalReviewError:
++        raise
++    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
++        raise NativePbrSignalReviewError(f"cannot read native PBR manifest: {exc}") from exc
++    if not isinstance(value, dict):
++        raise NativePbrSignalReviewError("native PBR manifest must be one JSON object")
++    return value, raw
++
++
++def _sha256(data: bytes) -> str:
++    return "sha256:" + hashlib.sha256(data).hexdigest()
++
++
++def build_audit_request(manifest: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
++    if manifest.get("schema") != SUPPORTED_PBR_SCHEMA:
++        raise NativePbrSignalReviewError(
++            f"native PBR schema must be {SUPPORTED_PBR_SCHEMA}"
++        )
++    maps = manifest.get("maps")
++    if not isinstance(maps, dict):
++        raise NativePbrSignalReviewError("native PBR maps must be an object")
++    missing = sorted(REQUIRED_MAPS - set(maps))
++    if missing:
++        raise NativePbrSignalReviewError(
++            "native PBR manifest is missing maps: " + ", ".join(missing)
++        )
++
++    entries = []
++    for map_id in sorted(REQUIRED_MAPS):
++        record = maps.get(map_id)
++        if not isinstance(record, dict):
++            raise NativePbrSignalReviewError(f"native PBR map {map_id!r} must be an object")
++        file_name = record.get("file")
++        declared_sha = record.get("sha256")
++        if not isinstance(file_name, str) or not file_name:
++            raise NativePbrSignalReviewError(f"native PBR map {map_id!r} has no file")
++        if not isinstance(declared_sha, str) or not DIGEST_RE.fullmatch(declared_sha):
++            raise NativePbrSignalReviewError(
++                f"native PBR map {map_id!r} has no valid sha256"
++            )
++        entries.append(
++            {
++                "id": map_id,
++                "channel": MAP_CHANNELS[map_id],
++                "path": file_name,
++            }
++        )
++    held_maps = sorted(set(maps) - REQUIRED_MAPS)
++    return {
++        "schema": REQUEST_SCHEMA,
++        "family_id": f"native-pbr/{manifest.get('kind', 'unknown')}/{manifest.get('seed', 'unknown')}",
++        "entries": entries,
++    }, held_maps
++
++
++def review_native_pbr(manifest_path: str | Path) -> dict[str, Any]:
++    path = Path(manifest_path).resolve()
++    manifest, raw = _load_manifest(path)
++    request, held_maps = build_audit_request(manifest)
++    try:
++        audit = audit_material_request(request, path.parent)
++    except MaterialAuditError as exc:
++        raise NativePbrSignalReviewError(str(exc)) from exc
++
++    manifest_maps = manifest["maps"]
++    mismatches = []
++    for row in audit["entries"]:
++        map_id = row["id"]
++        if row.get("status") == "HOLD":
++            continue
++        declared = manifest_maps[map_id]["sha256"]
++        if row.get("sha256") != declared:
++            mismatches.append(
++                {
++                    "map_id": map_id,
++                    "declared_sha256": declared,
++                    "observed_sha256": row.get("sha256"),
++                }
++            )
++
++    status = audit["status"]
++    if mismatches:
++        status = "HOLD"
++    elif held_maps and status == "PASS":
++        status = "PASS_WITH_WARNINGS"
++
++    review: dict[str, Any] = {
++        "schema": REVIEW_SCHEMA,
++        "status": status,
++        "native_pbr": {
++            "schema": manifest.get("schema"),
++            "kind": manifest.get("kind"),
++            "seed": manifest.get("seed"),
++            "manifest_path": path.name,
++            "manifest_file_sha256": _sha256(raw),
++        },
++        "audit": audit,
++        "manifest_hash_mismatches": mismatches,
++        "held_unknown_map_keys": held_maps,
++        "packed_map_truth": {
++            "map_id": "orm",
++            "audit_channel": "unassigned",
++            "declared_packing": {
++                "r": "ambient-occlusion",
++                "g": "roughness",
++                "b": "metallic",
++            },
++            "note": (
++                "Packed ORM is audited as one payload. This adapter does not pretend "
++                "the packed image is three independently materialized channel files."
++            ),
++        },
++        "authority": {
++            "canonical_mutation": False,
++            "visual_approval": False,
++            "automatic_promotion": False,
++            "merge": False,
++            "canon": False,
++        },
++        "truth_boundary": {
++            "producer_semantics_are_explicit": True,
++            "filename_semantics_inferred": False,
++            "signal_pass_is_aesthetic_quality": False,
++            "signal_pass_is_physical_pbr_certification": False,
++        },
++    }
++    review["review_digest"] = _sha256(
++        json.dumps(
++            review, sort_keys=True, separators=(",", ":"), ensure_ascii=False
++        ).encode("utf-8")
++    )
++    return review
++
++
++def _write_create_only(path: Path, value: dict[str, Any]) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    try:
++        with path.open("x", encoding="utf-8", newline="\n") as handle:
++            json.dump(value, handle, indent=2, sort_keys=True, ensure_ascii=False)
++            handle.write("\n")
++    except FileExistsError as exc:
++        raise NativePbrSignalReviewError(f"output already exists: {path}") from exc
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(
++        description="Run the native material signal audit against one native_pbr material.json"
++    )
++    parser.add_argument("manifest", type=Path)
++    parser.add_argument("--output", type=Path)
++    args = parser.parse_args(argv)
++    try:
++        review = review_native_pbr(args.manifest)
++        if args.output:
++            _write_create_only(args.output.resolve(), review)
++    except NativePbrSignalReviewError as exc:
++        print(str(exc), file=sys.stderr)
++        return 2
++    print(json.dumps(review, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/native_pbr_signal_review_test.py b/native_pbr_signal_review_test.py
+new file mode 100644
+index 0000000..3a21875
+--- /dev/null
++++ b/native_pbr_signal_review_test.py
+@@ -0,0 +1,135 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import binascii
++import hashlib
++import json
++from pathlib import Path
++import struct
++import tempfile
++import unittest
++import zlib
++
++from native_pbr_signal_review import (
++    SUPPORTED_PBR_SCHEMA,
++    review_native_pbr,
++)
++
++
++def _chunk(kind: bytes, payload: bytes) -> bytes:
++    return (
++        struct.pack(">I", len(payload))
++        + kind
++        + payload
++        + struct.pack(">I", binascii.crc32(kind + payload) & 0xFFFFFFFF)
++    )
++
++
++def png_rgba(width: int, height: int, pixel_fn) -> bytes:
++    raw = bytearray()
++    for y in range(height):
++        raw.append(0)
++        for x in range(width):
++            raw.extend(pixel_fn(x, y))
++    return (
++        b"\x89PNG\r\n\x1a\n"
++        + _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
++        + _chunk(b"IDAT", zlib.compress(bytes(raw), 9))
++        + _chunk(b"IEND", b"")
++    )
++
++
++def sha(data: bytes) -> str:
++    return "sha256:" + hashlib.sha256(data).hexdigest()
++
++
++def make_native_pbr_fixture(root: Path, *, extra: bool = False) -> Path:
++    maps = {}
++
++    def add(name: str, pixel_fn):
++        data = png_rgba(8, 8, pixel_fn)
++        filename = f"{name}.png"
++        (root / filename).write_bytes(data)
++        maps[name] = {"file": filename, "sha256": sha(data), "channels": 4}
++
++    add("base_color", lambda x, y: (30 + x * 17, 45 + y * 13, 70 + ((x + y) % 5) * 18, 255))
++
++    def normal(x, y):
++        nx = (x - 3.5) / 18.0
++        ny = (y - 3.5) / 18.0
++        nz = max(0.0, 1.0 - nx * nx - ny * ny) ** 0.5
++        enc = lambda v: max(0, min(255, round((v * 0.5 + 0.5) * 255)))
++        return enc(nx), enc(ny), enc(nz), 255
++
++    add("normal", normal)
++    add("roughness", lambda x, y: ((70 + x * 11 + y * 5),) * 3 + (255,))
++    add("metallic", lambda x, y: ((20 + x * 15 + y * 3),) * 3 + (255,))
++    add("height", lambda x, y: ((80 + x * 7 + y * 9),) * 3 + (255,))
++    add("ao", lambda x, y: ((150 + x * 6 + y * 4),) * 3 + (255,))
++    add("orm", lambda x, y: (150 + x * 6, 70 + y * 9, 20 + (x + y) * 7, 255))
++    if extra:
++        add("future_map", lambda x, y: (x * 20, y * 20, 100, 255))
++
++    manifest = {
++        "schema": SUPPORTED_PBR_SCHEMA,
++        "kind": "painted_metal",
++        "seed": 7,
++        "size": [8, 8],
++        "maps": maps,
++        "truth": {"deterministic": True, "physically_measured": False},
++    }
++    path = root / "material.json"
++    path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
++    return path
++
++
++class NativePbrSignalReviewTests(unittest.TestCase):
++    def test_semantic_native_pbr_maps_are_audited(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            path = make_native_pbr_fixture(root)
++            review = review_native_pbr(path)
++            self.assertIn(review["status"], {"PASS", "PASS_WITH_WARNINGS"})
++            self.assertEqual(review["manifest_hash_mismatches"], [])
++            rows = {row["id"]: row for row in review["audit"]["entries"]}
++            self.assertEqual(rows["base_color"]["channel"], "base-color")
++            self.assertEqual(rows["ao"]["channel"], "ambient-occlusion")
++            self.assertEqual(rows["orm"]["channel"], "unassigned")
++            self.assertFalse(review["truth_boundary"]["filename_semantics_inferred"])
++
++    def test_manifest_hash_drift_holds_review(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            path = make_native_pbr_fixture(root)
++            (root / "roughness.png").write_bytes(
++                png_rgba(8, 8, lambda x, y: ((20 + x * 20),) * 3 + (255,))
++            )
++            review = review_native_pbr(path)
++            self.assertEqual(review["status"], "HOLD")
++            self.assertEqual(review["manifest_hash_mismatches"][0]["map_id"], "roughness")
++
++    def test_unknown_future_map_is_preserved_as_hold_direction(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            path = make_native_pbr_fixture(root, extra=True)
++            review = review_native_pbr(path)
++            self.assertEqual(review["held_unknown_map_keys"], ["future_map"])
++            self.assertEqual(review["status"], "PASS_WITH_WARNINGS")
++
++    def test_actual_native_pbr_generator_round_trip(self) -> None:
++        from native_pbr import write_painted_metal
++
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            write_painted_metal(root, size=16, seed=17)
++            review = review_native_pbr(root / "material.json")
++            self.assertNotEqual(review["status"], "HOLD")
++            self.assertEqual(review["manifest_hash_mismatches"], [])
++            self.assertEqual(
++                {row["id"] for row in review["audit"]["entries"]},
++                {"base_color", "normal", "roughness", "metallic", "height", "ao", "orm"},
++            )
++
++
++if __name__ == "__main__":
++    unittest.main()

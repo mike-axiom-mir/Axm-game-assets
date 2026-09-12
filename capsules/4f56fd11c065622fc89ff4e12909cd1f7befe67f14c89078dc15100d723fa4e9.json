@@ -1,0 +1,133 @@
+{
+  "capsule_id": "4f56fd11c065622fc89ff4e12909cd1f7befe67f14c89078dc15100d723fa4e9",
+  "evidence": {
+    "files": [
+      {
+        "additions": 83,
+        "binary": false,
+        "content_sha256": "7572690baa08a0db9746b74939c25aecc1959f6012f7f5176afbdd24c7ce0b35",
+        "deletions": 0,
+        "path": "docs/NATIVE_RIGID_ASSEMBLY.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Native rigid assembly donor",
+          "Gap this closes",
+          "Contract",
+          "Independent verification",
+          "Relationship to skeletal animation",
+          "Current truth boundary"
+        ]
+      },
+      {
+        "additions": 605,
+        "binary": false,
+        "content_sha256": "9dc2fa91d9b8b7840b7e1d27dc8159940bd8056dd4afb7988a603b297d9d89b7",
+        "deletions": 0,
+        "path": "native_rigid_assembly.py",
+        "status": "A",
+        "symbols": [
+          "RigidAssemblyError",
+          "RigidComponent",
+          "RigidMotion",
+          "RigidSocket",
+          "RigidAssembly",
+          "_canonical",
+          "_digest",
+          "_finite3",
+          "_normalize",
+          "_validate_assembly",
+          "_localize",
+          "_assembly_state",
+          "compile_rigid_assembly_gltf",
+          "_read_float_accessor",
+          "validate_rigid_assembly_delivery",
+          "write_rigid_assembly_gltf"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 134,
+        "binary": false,
+        "content_sha256": "a178f68fcdf352ac196ecbfec23805066ac626d89fe6b4087ae1fbdaaacdc0bf",
+        "deletions": 0,
+        "path": "native_rigid_assembly_test.py",
+        "status": "A",
+        "symbols": [
+          "primitive",
+          "fixture",
+          "NativeRigidAssemblyTests"
+        ],
+        "topics": []
+      }
+    ],
+    "patch_sha256": "5a37a68a7d8980dbf204b96459ac35cedb7dcd3d32b0c211bff1e3a53a860b0e"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 6,
+    "kinds": [
+      "code",
+      "knowledge",
+      "test-change"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "accessor",
+      "animation",
+      "assembly",
+      "asset-forge",
+      "axm",
+      "boundary",
+      "canonical",
+      "closes",
+      "compile",
+      "component",
+      "contract",
+      "contracts",
+      "creation",
+      "current",
+      "delivery",
+      "digest",
+      "donor",
+      "error",
+      "finite3",
+      "fixture",
+      "float",
+      "game-assets",
+      "gap",
+      "gltf",
+      "independent",
+      "localize",
+      "merge",
+      "motion",
+      "native",
+      "normalize",
+      "primitive",
+      "read",
+      "relationship",
+      "rigid",
+      "skeletal",
+      "socket",
+      "standalone",
+      "state",
+      "this",
+      "truth",
+      "universal",
+      "validate",
+      "verification",
+      "write"
+    ]
+  },
+  "source": {
+    "base": "7a6eb9053939bfe09348e12e1058d54259f3c665",
+    "commit_subject": "Merge PR #29: Universal Creation rigid assembly contracts",
+    "head": "7d0f92689dd1a8033ab4b69399796985340b7e27",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

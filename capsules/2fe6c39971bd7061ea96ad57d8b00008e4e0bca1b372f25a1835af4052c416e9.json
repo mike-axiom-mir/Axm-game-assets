@@ -1,0 +1,92 @@
+{
+  "capsule_id": "2fe6c39971bd7061ea96ad57d8b00008e4e0bca1b372f25a1835af4052c416e9",
+  "evidence": {
+    "files": [
+      {
+        "additions": 218,
+        "binary": false,
+        "content_sha256": "89dc91db63248d136e2bb0a9bdc5db05653321cedde995a3be80ab1d8b9655c7",
+        "deletions": 0,
+        "path": "docs/UNIVERSAL_CREATION_INGRESS.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Universal Creation \u2192 Game Asset Forge 3D ingress",
+          "Why this bridge exists",
+          "Current provider boundary",
+          "What the bridge verifies",
+          "What it deliberately does not verify",
+          "Use",
+          "Detailed environment assets are now a first-class proving direction",
+          "Relationship to the Game Asset Genome",
+          "Failure behavior",
+          "Next useful layer"
+        ]
+      }
+    ],
+    "patch_sha256": "819731cb31f3fba4f80706e8ed919c40ba4aba95aaed27b85b8aacfae89ad21c"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 1,
+    "kinds": [
+      "knowledge"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "add",
+      "are",
+      "asset",
+      "asset-forge",
+      "axm",
+      "behavior",
+      "boundary",
+      "bridge",
+      "class",
+      "creation",
+      "current",
+      "deliberately",
+      "detailed",
+      "direction",
+      "does",
+      "environment",
+      "exists",
+      "failure",
+      "first",
+      "forge",
+      "game",
+      "game-assets",
+      "genome",
+      "ingress",
+      "layer",
+      "next",
+      "not",
+      "now",
+      "only",
+      "proposal",
+      "provider",
+      "proving",
+      "relationship",
+      "standalone",
+      "this",
+      "universal",
+      "use",
+      "useful",
+      "verifies",
+      "verify",
+      "what",
+      "why"
+    ]
+  },
+  "source": {
+    "base": "d6a930251e4a99f1f98365b8d01fc968025b1fd9",
+    "commit_subject": "Add proposal-only Universal Creation 3D ingress (#23)",
+    "head": "29d2fc6a4530957780e263f6ffc73e0e57695ff0",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

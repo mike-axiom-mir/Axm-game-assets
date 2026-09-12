@@ -1,0 +1,56 @@
+{
+  "capsule_id": "b762333c4b6810ed776fa8b1b56b23b9bbe5b433f1cab15be6db7f27bd290d99",
+  "evidence": {
+    "files": [
+      {
+        "additions": 40,
+        "binary": false,
+        "content_sha256": "9befae318c33228fcf2294d9841b7ac3c10b410ce94dfe52af5c30356087a19c",
+        "deletions": 0,
+        "path": "docs/KETTLEJACK_VISUAL_REHEARSAL.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Kettlejack visual rehearsal",
+          "Review views",
+          "Truth boundary"
+        ]
+      }
+    ],
+    "patch_sha256": "ddb6906dbbe90de9e2f6c3fca9e3c9cbc5b888197d29d97e86495bd8dbd934e9"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 1,
+    "kinds": [
+      "knowledge"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "asset-forge",
+      "axm",
+      "boundary",
+      "document",
+      "game-assets",
+      "gate",
+      "kettlejack",
+      "rehearsal",
+      "review",
+      "standalone",
+      "truth",
+      "views",
+      "visual"
+    ]
+  },
+  "source": {
+    "base": "aaae29c81422366610e6c0ed75e2af6794b100f6",
+    "commit_subject": "Document Kettlejack visual rehearsal gate",
+    "head": "ee292dc2d6df253ee2bf69401536909dc38ef8ab",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

@@ -1,0 +1,991 @@
+{
+  "capsule_id": "d5437179096ce5d9b35f4977d2fee3770153aae8b1e8aa032cc2e1caedbcb9cb",
+  "evidence": {
+    "files": [
+      {
+        "additions": 61,
+        "binary": false,
+        "content_sha256": "6d16105f7d27dcc48c0b6d098b26ce8dff647b1b117bdea2d819d95af4a4fc54",
+        "deletions": 0,
+        "path": ".axm/beacon.json",
+        "status": "A",
+        "symbols": [],
+        "topics": []
+      },
+      {
+        "additions": 84,
+        "binary": false,
+        "content_sha256": "4606e156501bf326921e210a55f9f509fafddac6b9f2cb2c8ff857099d1d6bd9",
+        "deletions": 0,
+        "path": ".axm/beacon/beacon.py",
+        "status": "A",
+        "symbols": [
+          "cmd_publish",
+          "cmd_scan",
+          "cmd_verify",
+          "cmd_fetch",
+          "build_parser",
+          "main"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 382,
+        "binary": false,
+        "content_sha256": "49f3a401cf5cc0f2aa855a20f45fd55dcb139fd12030823469073042de7a2717",
+        "deletions": 0,
+        "path": ".axm/beacon/core.py",
+        "status": "A",
+        "symbols": [
+          "BeaconError",
+          "DiffFile",
+          "canonical_json",
+          "sha256_text",
+          "sha256_bytes",
+          "run_git",
+          "ensure_git_repo",
+          "resolve_ref",
+          "load_config",
+          "infer_repo_slug",
+          "_matches_any",
+          "path_allowed",
+          "parse_changed_lines",
+          "collect_diff_files",
+          "read_file_at_ref",
+          "intersects_changed",
+          "extract_symbols",
+          "extract_knowledge_topics",
+          "tokenize",
+          "classify_changes",
+          "build_capsule",
+          "capsule_summary",
+          "verify_capsule",
+          "publish"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 109,
+        "binary": false,
+        "content_sha256": "81d0077ed6501d51bff8242cbc1fb60f202f9fd0f75936c826e1af5ece9c553c",
+        "deletions": 0,
+        "path": ".axm/beacon/network.py",
+        "status": "A",
+        "symbols": [
+          "_request_json",
+          "discover_github_repos",
+          "fetch_peer_indexes",
+          "load_local_indexes",
+          "rank_candidates",
+          "scan",
+          "fetch_capsule"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 61,
+        "binary": false,
+        "content_sha256": "ce6f09a7535fc1446ab755a399437c6684187053059b0f6ff921699a67b2fbbe",
+        "deletions": 0,
+        "path": ".github/workflows/axm-beacon-publish.yml",
+        "status": "A",
+        "symbols": [],
+        "topics": []
+      },
+      {
+        "additions": 36,
+        "binary": false,
+        "content_sha256": "d7f4febc5b34e268d5615d8a2dab9c84448a3ace8995ad2735d028ddf98d9cd9",
+        "deletions": 0,
+        "path": ".github/workflows/axm-beacon-test.yml",
+        "status": "A",
+        "symbols": [],
+        "topics": []
+      },
+      {
+        "additions": 42,
+        "binary": false,
+        "content_sha256": "cf959090bb47cfdc1af73bc5139971a2a5387b5f6c54dfa9534a602f65e595f1",
+        "deletions": 0,
+        "path": "docs/AXM_BEACON_ADOPTION.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Game Asset Forge Organ Beacon",
+          "Local commands",
+          "Export boundary",
+          "Authority boundary"
+        ]
+      },
+      {
+        "additions": 36,
+        "binary": false,
+        "content_sha256": "0e406a9100c7bba5d338057b5827864da01ad2818eb7f0f0109dfd159dc61951",
+        "deletions": 0,
+        "path": "docs/FORGE_INIT_HOLD_INSPECTION.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Forge initialization HOLD inspection",
+          "States",
+          "Authority boundary"
+        ]
+      },
+      {
+        "additions": 12,
+        "binary": false,
+        "content_sha256": "f7b353fbfb88d55462b160c88ff534fb41b637c8042588db3bd1471480e062d3",
+        "deletions": 0,
+        "path": "docs/RUN3_ACCEPTANCE.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Run 3 acceptance gates"
+        ]
+      },
+      {
+        "additions": 51,
+        "binary": false,
+        "content_sha256": "5e435e5ef1c25d712880e4e5c790f9c4b0f57b1cc6cdab4e12ea7cd3722ea2f7",
+        "deletions": 0,
+        "path": "docs/RUN3_ARMOR_ACCEPTANCE.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Run 3 \u2014 Sentinel armor silhouette and fit",
+          "Mission",
+          "Required semantic components",
+          "Geometry / fit gates",
+          "Visual gates",
+          "Truth boundary",
+          "Concurrency boundary"
+        ]
+      },
+      {
+        "additions": 13,
+        "binary": false,
+        "content_sha256": "d171a05ceb6ef217a32d0a5a17600bbb7ad043d16b7d4befb116b47576b1d8d2",
+        "deletions": 0,
+        "path": "docs/RUN3_CONTACT_DEFORMATION.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Game Asset Forge Run 3 \u2014 contact and deformation"
+        ]
+      },
+      {
+        "additions": 53,
+        "binary": false,
+        "content_sha256": "976a0911a3762c9db199991c58349a426d79a783bac99aa06ce823755a0e7e97",
+        "deletions": 0,
+        "path": "docs/RUN3_FACE_MOTION_ACCEPTANCE.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Run 3 \u2014 hm08 face motion",
+          "Mission",
+          "Required motion channels",
+          "Hard gates",
+          "Truth boundary",
+          "Concurrency boundary"
+        ]
+      },
+      {
+        "additions": 1,
+        "binary": false,
+        "content_sha256": "dc69e2f188d2bd14e474a5b072687ad0abb071694612879ce462f0a788007ab3",
+        "deletions": 0,
+        "path": "docs/RUN3_PR_NOTE.md",
+        "status": "A",
+        "symbols": [],
+        "topics": []
+      },
+      {
+        "additions": 13,
+        "binary": false,
+        "content_sha256": "691b6e27d2b6a00473afac8472640f29e8998fbfc952e92ce27a4a05e75643a7",
+        "deletions": 0,
+        "path": "docs/RUN3_STATUS.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Run 3 status"
+        ]
+      },
+      {
+        "additions": 98,
+        "binary": false,
+        "content_sha256": "602c79ddf054c2bae9184d8bf8f49b3b7ac1bf8fb870f0c92c21fab98bbb2918",
+        "deletions": 0,
+        "path": "docs/THREEJS_GLB_REVIEW.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Three.js verified GLB review stage",
+          "Why this is separate from the diagnostic review board",
+          "Build",
+          "Local/offline runtime boundary",
+          "Human loop",
+          "Truth ceiling"
+        ]
+      },
+      {
+        "additions": 75,
+        "binary": false,
+        "content_sha256": "9b1e8ef2727d063865c1acc85247e807ee6e32a60a24a4a4f018d636098b3d2b",
+        "deletions": 0,
+        "path": "docs/VERIFIED_GLB_DELIVERY.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Verified rigid GLB delivery v0.1",
+          "Why this exists",
+          "Flow",
+          "Deterministic derivation",
+          "Truth boundary"
+        ]
+      },
+      {
+        "additions": 65,
+        "binary": false,
+        "content_sha256": "dafe46eb4d2c78a2dc1e14bc259bf06bc7712efdaa3f1aa84a592fa0e61701a6",
+        "deletions": 0,
+        "path": "docs/WALMI_ASSET_BRIDGE.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Optional WALMI inner-asset bridge",
+          "Boundary",
+          "Local use",
+          "Interoperability evidence"
+        ]
+      },
+      {
+        "additions": 212,
+        "binary": false,
+        "content_sha256": "4e5d0841913ffd6102f54c45945cd7959cd1eda43c89e44ebfc49578ea086260",
+        "deletions": 15,
+        "path": "forge.py",
+        "status": "M",
+        "symbols": [
+          "ForgeStateError",
+          "utc_now",
+          "digest",
+          "verify_embedded_digest",
+          "load",
+          "save",
+          "json_bytes",
+          "new_genome",
+          "initial_intake_receipt",
+          "initialize_genome",
+          "_strict_object",
+          "_read_exact_init_json",
+          "_sync_directory",
+          "_publish_create_only_json",
+          "recover_genome_initialization",
+          "receipt",
+          "audit",
+          "cmd_init",
+          "cmd_recover_init",
+          "cmd_self_test",
+          "parser"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 58,
+        "binary": false,
+        "content_sha256": "e0368655cec0770625baf8af222d86355c2f241afeb828519fa3b6fb38c066a0",
+        "deletions": 3,
+        "path": "native_character_gltf.py",
+        "status": "M",
+        "symbols": [
+          "_pack_u16_vec4",
+          "_normalized_vec3",
+          "compile_character_gltf",
+          "write_character_gltf"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 20,
+        "binary": false,
+        "content_sha256": "add05dc6d3a710e7ee01bc3f720f08a4f2cc0544af9d975210e8267f781e628d",
+        "deletions": 3,
+        "path": "native_character_gltf_test.py",
+        "status": "M",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 124,
+        "binary": false,
+        "content_sha256": "4cd36d853e8dde6a7337e09fadb4709e3b79168b42a643a59b44f490e358b0cb",
+        "deletions": 0,
+        "path": "native_dual_quaternion_skin.py",
+        "status": "A",
+        "symbols": [
+          "_qmul",
+          "_qconj",
+          "_qdot",
+          "_qscale",
+          "_qadd",
+          "_rotate",
+          "_global_rt",
+          "_rigid_skin_dq",
+          "_blend_dq",
+          "_dq_transform",
+          "dual_quaternion_skin_vertices",
+          "dual_quaternion_skin_mesh"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 42,
+        "binary": false,
+        "content_sha256": "9bf6bf926dfb2d27bbaa40700a47f1d8ee0c2974c116522fcdee8fdd0ebbb7a7",
+        "deletions": 0,
+        "path": "native_dual_quaternion_skin_test.py",
+        "status": "A",
+        "symbols": [
+          "qz",
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 345,
+        "binary": false,
+        "content_sha256": "b073d7b3529942bb44e0ab61be6edbb3fdf1b6d4314b67fa23791183fa55136c",
+        "deletions": 0,
+        "path": "native_glb_delivery.py",
+        "status": "A",
+        "symbols": [
+          "GlbDeliveryError",
+          "_sha256_bytes",
+          "_canonical_json",
+          "_strict_json",
+          "_safe_relative",
+          "_declared_file",
+          "_pad4",
+          "_append_aligned",
+          "_parse_glb",
+          "validate_glb_delivery",
+          "_bind_rts_request",
+          "build_verified_glb_delivery",
+          "parser",
+          "main"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 122,
+        "binary": false,
+        "content_sha256": "48f81e006fca53208fd7a20ccadb73c34968924976373fbcab73e4c71219a192",
+        "deletions": 0,
+        "path": "native_glb_delivery_test.py",
+        "status": "A",
+        "symbols": [
+          "sha256_bytes",
+          "expect_rejected",
+          "write_request",
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 403,
+        "binary": false,
+        "content_sha256": "f5125eeb6effb189355c8470485671b7880c21aa4a411781b9e4d89a527e3323",
+        "deletions": 0,
+        "path": "native_hm08_face_motion.py",
+        "status": "A",
+        "symbols": [
+          "_sha",
+          "_load_neutral_identity",
+          "_masked_region",
+          "_scale_sparse_target",
+          "_max_displacement_m",
+          "_coverage_ratio",
+          "build_hm08_face_motion_targets",
+          "build_hm08_face_motion_clips",
+          "build_hm08_face_motion_state",
+          "write_hm08_face_motion_receipt"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 235,
+        "binary": false,
+        "content_sha256": "ca687ba17d6b6f1a742a70876723fc5c67a653b6a869304d8cbaff1b13b902b5",
+        "deletions": 0,
+        "path": "native_hm08_face_motion_gltf.py",
+        "status": "A",
+        "symbols": [
+          "_head_only_skin",
+          "_add_deformation_normals",
+          "write_hm08_face_motion_gltf"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 94,
+        "binary": false,
+        "content_sha256": "55f223d2c18a786bec92288c9379d0c76dafb67332446e190639aae5ff12bfdf",
+        "deletions": 0,
+        "path": "native_hm08_face_motion_gltf_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 125,
+        "binary": false,
+        "content_sha256": "0d19fb3289946e8443e9f5798708b3d7f0db60253c6e79e544ff533feac72202",
+        "deletions": 0,
+        "path": "native_hm08_face_motion_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 208,
+        "binary": false,
+        "content_sha256": "68f0425c7244a7a9f9ea4df8c6321468a06ede956408b11215db904f50b59d65",
+        "deletions": 0,
+        "path": "native_hm08_finger_pose_corrective.py",
+        "status": "A",
+        "symbols": [
+          "_clamp",
+          "_smooth01",
+          "_line_radial",
+          "_joint_frame",
+          "_dominant_digit_by_vertex",
+          "_finger_aabb_penetration",
+          "build_finger_pose_corrective",
+          "build_preferred_finger_pose_corrective"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 94,
+        "binary": false,
+        "content_sha256": "effb189ee13c3ec8a8333aa78d97d59bc9641b8f87e1b9fcfb63cf12d50744d0",
+        "deletions": 0,
+        "path": "native_hm08_finger_pose_corrective_package.py",
+        "status": "A",
+        "symbols": [
+          "_sha",
+          "_transform_mesh",
+          "build_hm08_finger_pose_corrective_package"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 30,
+        "binary": false,
+        "content_sha256": "dc12da3db6bc3f9c5c661664a9ff7736c7f57bf56223f7a746925f0f80a5faac",
+        "deletions": 0,
+        "path": "native_hm08_finger_pose_corrective_package_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 34,
+        "binary": false,
+        "content_sha256": "8e64e9d13e57064af84a1ff7397a5172662d924baeab05391dc0c4208b1bbf4f",
+        "deletions": 0,
+        "path": "native_hm08_finger_pose_corrective_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 176,
+        "binary": false,
+        "content_sha256": "0ea07451ef02d6cb02ace2c9f34d0fb25585e764f3d65831470fa9e71a00b274",
+        "deletions": 0,
+        "path": "native_hm08_finger_pose_corrective_v2.py",
+        "status": "A",
+        "symbols": [
+          "build_pointwise_finger_pose_corrective",
+          "build_preferred_pointwise_finger_pose_corrective"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 37,
+        "binary": false,
+        "content_sha256": "7070b19e8fc845b30cf2fe99d806ab798e5dff6e575fc6bd0ee502ae0b549da9",
+        "deletions": 0,
+        "path": "native_hm08_finger_pose_corrective_v2_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 160,
+        "binary": false,
+        "content_sha256": "f62d3001a61c6f4178ab624cdd7a2c3f964efac212d0a709143a5ee98271b48c",
+        "deletions": 0,
+        "path": "native_hm08_finger_weights_v2.py",
+        "status": "A",
+        "symbols": [
+          "build_hm08_finger_skin_weights_v2"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 35,
+        "binary": false,
+        "content_sha256": "8fe63ab9833c2319ed4b1f396c301140cc4850d988de7d64f98c42208b764fc2",
+        "deletions": 0,
+        "path": "native_hm08_finger_weights_v2_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 306,
+        "binary": false,
+        "content_sha256": "b38995fb14272dcc68f10e77256f3dd91436c662fc6403eb72cdbbefb2347367",
+        "deletions": 0,
+        "path": "native_hm08_rifle_finger_grip.py",
+        "status": "A",
+        "symbols": [
+          "_quat",
+          "_axis_angle",
+          "_global_rotations",
+          "_local_to_weapon_world",
+          "_world_to_weapon_local",
+          "_aabb_sdf",
+          "_finger_points",
+          "_surface_score",
+          "_arm_pose_on_finger_skeleton",
+          "_curl_profiles",
+          "build_finger_grip_rifle_contact_pose",
+          "build_preferred_finger_grip_rifle_contact_pose"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 30,
+        "binary": false,
+        "content_sha256": "8e271eba6b34028d1ff7337eedfed7d06a6ea6301a69d61048a23f5f76be1096",
+        "deletions": 0,
+        "path": "native_hm08_rifle_finger_grip_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 249,
+        "binary": false,
+        "content_sha256": "5dcfc91288b8ea43b2c6a8e197f3892657f9455364fda3a80d9168eb36341fa1",
+        "deletions": 0,
+        "path": "native_hm08_rifle_finger_grip_v2.py",
+        "status": "A",
+        "symbols": [
+          "_penetration",
+          "_candidate_key",
+          "build_penetration_bounded_finger_grip",
+          "build_preferred_penetration_bounded_finger_grip"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 30,
+        "binary": false,
+        "content_sha256": "03d197e1bcd351bb2f5ade41c0a614d80481d3a8359edb7e9747b5eea05e3505",
+        "deletions": 0,
+        "path": "native_hm08_rifle_finger_grip_v2_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 183,
+        "binary": false,
+        "content_sha256": "3044081ba0c74e9b7923a4d846eaf791d403035894f1538dafc390fdd3420501",
+        "deletions": 0,
+        "path": "native_hm08_rifle_grip_dqs.py",
+        "status": "A",
+        "symbols": [
+          "_reconstruct_v07_skeleton",
+          "_segment_endpoints",
+          "build_grip_dqs_pose",
+          "build_preferred_grip_dqs_pose"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 100,
+        "binary": false,
+        "content_sha256": "e4d102ba132c8f1e9ac51e917be2bf5e3bcd09cad148cd27f2e4319ccd7c0407",
+        "deletions": 0,
+        "path": "native_hm08_rifle_grip_dqs_package.py",
+        "status": "A",
+        "symbols": [
+          "_sha",
+          "_transform_mesh",
+          "build_hm08_rifle_grip_dqs_package"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 24,
+        "binary": false,
+        "content_sha256": "a7ebee632436f4803d7558a666ec45ae67c0c95db862380a81a51bb3390ff58d",
+        "deletions": 0,
+        "path": "native_hm08_rifle_grip_dqs_package_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 32,
+        "binary": false,
+        "content_sha256": "27de1606f830197539a1aa58aef2f07ea34b1b3dddeddb11f7dfbd87fd0df215",
+        "deletions": 0,
+        "path": "native_hm08_rifle_grip_dqs_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 103,
+        "binary": false,
+        "content_sha256": "aea48b7e6fab4e9f035b39d34f921d810dc26dc0ab2e5099bf7bd1bf9ec96aed",
+        "deletions": 0,
+        "path": "native_hm08_rifle_grip_surface_package.py",
+        "status": "A",
+        "symbols": [
+          "_sha",
+          "_transform_mesh",
+          "build_hm08_rifle_grip_surface_package"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 24,
+        "binary": false,
+        "content_sha256": "bc48494cb9560695bcac83e3bab5f24aa781aae479f6e6c658346cfbe975b4a1",
+        "deletions": 0,
+        "path": "native_hm08_rifle_grip_surface_package_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 354,
+        "binary": false,
+        "content_sha256": "13dcc77b326bd832f9c8d67ffffdeee432ea4c9d667459543c437138f36dab2f",
+        "deletions": 0,
+        "path": "native_hm08_rifle_grip_surface_pose.py",
+        "status": "A",
+        "symbols": [
+          "_set_arm_pose",
+          "_apply_arm_rows",
+          "_component_surface_candidates",
+          "_finger_surface_summary",
+          "build_grip_surface_finger_pose",
+          "build_preferred_grip_surface_finger_pose"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 33,
+        "binary": false,
+        "content_sha256": "398fbc93ef08853ba86871ac97ee04e6cde678a01c8482e29183d3e03ce54f4d",
+        "deletions": 0,
+        "path": "native_hm08_rifle_grip_surface_pose_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 156,
+        "binary": false,
+        "content_sha256": "6e333ed628bee41286f849cd5ff4bf509250688fff4c1830809b629738dc9ea7",
+        "deletions": 7,
+        "path": "native_pipeline.py",
+        "status": "M",
+        "symbols": [
+          "PackageVerificationError",
+          "_now",
+          "_sha256_file",
+          "_strict_json",
+          "_package_path",
+          "verify_rigid_package",
+          "_receipt",
+          "build_rigid_package",
+          "parser"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 92,
+        "binary": false,
+        "content_sha256": "3a934cc8c10e4d1fe80c6bf56d368f5f9e123d9e01786a6b446b3d6408f67b01",
+        "deletions": 1,
+        "path": "native_pipeline_test.py",
+        "status": "M",
+        "symbols": [
+          "expect_rejected",
+          "manifest_digest",
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 101,
+        "binary": false,
+        "content_sha256": "7e0ec5c42e2c2df37d8f1dad995790b8974d62f115226e62511d48d4443c708b",
+        "deletions": 4,
+        "path": "native_preview.py",
+        "status": "M",
+        "symbols": [
+          "render",
+          "_review_board_html",
+          "write_preview"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 37,
+        "binary": false,
+        "content_sha256": "8f66c5bfdd3dbe360d64446c5aee4d1c9b4ce0fd01cd0beccb2ca1cb3ebb32b7",
+        "deletions": 2,
+        "path": "native_preview_test.py",
+        "status": "M",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 495,
+        "binary": false,
+        "content_sha256": "cf8108de8a5e7ce76e9c8ab16b4d95e96b040b6647ea4329fd738689fb3938b0",
+        "deletions": 0,
+        "path": "native_sentinel_armor.py",
+        "status": "A",
+        "symbols": [
+          "ArmorComponent",
+          "_sha",
+          "_rotate_xyz",
+          "_translate",
+          "_tapered_panel",
+          "_band_points",
+          "_mean",
+          "_projected_body_points",
+          "_clearance",
+          "_place_front",
+          "_place_back",
+          "_arm_axis",
+          "_leg_center",
+          "build_sentinel_armor",
+          "write_sentinel_armor_package"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 98,
+        "binary": false,
+        "content_sha256": "1af99a08c1a2fe04469f475f04c37c723907939435d2c70710aa088ba1028618",
+        "deletions": 0,
+        "path": "native_sentinel_armor_test.py",
+        "status": "A",
+        "symbols": [
+          "_component_map",
+          "_bounds",
+          "_mirror_pair",
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 18,
+        "binary": false,
+        "content_sha256": "eaadbc66465761573dcf95a523f568f0e63c866a7e6bcabce04dbb5df6276d6f",
+        "deletions": 0,
+        "path": "tests/fixtures/axm_beacon_reference_index.json",
+        "status": "A",
+        "symbols": [],
+        "topics": []
+      },
+      {
+        "additions": 150,
+        "binary": false,
+        "content_sha256": "0d073886a599888ad047662775873e56efbc1ac43096456abcce29e79e9bfef3",
+        "deletions": 0,
+        "path": "tests/test_asset_beacon.py",
+        "status": "A",
+        "symbols": [
+          "git",
+          "_Response",
+          "AssetForgeBeaconTests"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 232,
+        "binary": false,
+        "content_sha256": "e7af3457fe185f2da88388060f3c4ba4ac9a455c70bbf18247c36120b33753fa",
+        "deletions": 0,
+        "path": "tools/verify_third_party_provenance.py",
+        "status": "A",
+        "symbols": [
+          "ProvenanceError",
+          "reject",
+          "_strict_object",
+          "read_json",
+          "safe_file",
+          "require_sha1",
+          "require_text",
+          "_get_dict",
+          "verify_makehuman_entry",
+          "verify_repository",
+          "main"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 186,
+        "binary": false,
+        "content_sha256": "03bf5968fdc36d0f1384914beeb6b127bd85306095a1781233e63b3ed64c0870",
+        "deletions": 0,
+        "path": "tools/verify_third_party_provenance_test.py",
+        "status": "A",
+        "symbols": [
+          "write_json",
+          "ledger_payload",
+          "seed_manifest_payload",
+          "make_fixture",
+          "run_verifier",
+          "require_rejected",
+          "run"
+        ],
+        "topics": []
+      }
+    ],
+    "patch_sha256": "914958cacaad66bb8a28fa7fc103b3796c61e88b1cb79a2e5a62508fc64c39be"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 9,
+    "kinds": [
+      "code",
+      "configuration",
+      "knowledge",
+      "organ-capability",
+      "protocol-state",
+      "test-change"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "aabb",
+      "acceptance",
+      "add",
+      "adoption",
+      "aligned",
+      "allowed",
+      "angle",
+      "any",
+      "append",
+      "apply",
+      "arm",
+      "armor",
+      "asset",
+      "asset-forge",
+      "audit",
+      "authority",
+      "axis",
+      "axm",
+      "back",
+      "band",
+      "beacon",
+      "bind",
+      "blend",
+      "board",
+      "body",
+      "boundary",
+      "bounded",
+      "bounds",
+      "bridge",
+      "build",
+      "bytes",
+      "candidate",
+      "candidates",
+      "canonical",
+      "capsule",
+      "ceiling",
+      "center",
+      "changed",
+      "changes",
+      "channels",
+      "character",
+      "clamp",
+      "classify",
+      "clearance",
+      "clips",
+      "cmd",
+      "collect",
+      "commands",
+      "compile",
+      "component",
+      "components",
+      "concurrency",
+      "contact",
+      "corrective",
+      "coverage",
+      "create",
+      "curl",
+      "day",
+      "declared",
+      "deformation",
+      "delivery",
+      "derivation",
+      "deterministic",
+      "diagnostic"
+    ]
+  },
+  "source": {
+    "base": "ec6abc19b00365f40a0b1ec48eff760d75283e1f",
+    "commit_subject": "Integrate AXM Game Assets growth-day lanes (#22)",
+    "head": "d6a930251e4a99f1f98365b8d01fc968025b1fd9",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

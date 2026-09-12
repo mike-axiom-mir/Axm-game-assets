@@ -1,0 +1,1758 @@
+diff --git a/docs/NATIVE_PBR_REHEARSAL.md b/docs/NATIVE_PBR_REHEARSAL.md
+new file mode 100644
+index 0000000..a3340c3
+--- /dev/null
++++ b/docs/NATIVE_PBR_REHEARSAL.md
+@@ -0,0 +1,69 @@
++# Native PBR rehearsal v0.1
++
++`native_pbr_rehearsal.py` adapts one useful FrameState mechanism into Game Asset Forge:
++
++`produce -> measure -> propose one bounded repair -> produce again -> accept only when the named evidence improves without protected regressions`
++
++This is a technical rehearsal loop, not an aesthetic optimizer.
++
++## Current scope
++
++The first bounded adapter works only with `native_pbr.py` painted-metal manifests (`axm.game-assets.native-pbr.v0.2`). It reads the exact authored spec and existing material signal review, then may create candidate material directories without modifying the source material directory.
++
++Current automatic repairs are intentionally narrow:
++
++- if the generated height payload has measured variation but the tangent-normal payload is near-flat, increase the explicitly authored `normal_strength` within policy bounds;
++- if the tangent-normal signal has weak positive Z, reduce `normal_strength` within policy bounds.
++
++It deliberately does **not** auto-repair base-colour diversity, roughness variation, aesthetic quality, art-direction fit, or physical PBR correctness.
++
++## Acceptance rule
++
++A candidate is accepted only when all of these are true:
++
++1. the targeted normal warning count decreases;
++2. total technical warnings do not increase;
++3. the candidate review does not become `HOLD`;
++4. every non-normal material payload keeps the exact same SHA-256;
++5. the normal payload actually changes.
++
++That means a repair to tangent-normal expression cannot silently rewrite base colour, height, AO, roughness, metallic, or packed ORM bytes.
++
++Rejected attempts remain on disk and are recorded in the rehearsal receipt.
++
++## Example
++
++```bash
++python native_pbr_rehearsal.py \
++  build/material/material.json \
++  build/material-rehearsal \
++  --max-passes 4
++```
++
++The output directory is create-only. It contains candidate attempt directories plus `rehearsal-receipt.json`.
++
++## Evidence boundary
++
++A successful rehearsal can prove only that one named bounded technical signal improved under the acceptance rule. It does not prove:
++
++- that the material looks better to a person;
++- that the material matches an art direction;
++- that it is physically correct PBR;
++- that it is engine-parity validated;
++- that it is approved, released, merged, or CANON.
++
++The source manifest is hashed before rehearsal and checked again at the end. The source material directory is not mutated.
++
++## Provenance
++
++The evidence-improvement discipline is adapted from `mike-axiom-mir/axm-framestate` rehearsal logic. The implementation is native Game Asset Forge Python and does not require FrameState at runtime.
++
++## Why this matters
++
++The Forge now has three separate layers around material iteration:
++
++1. deterministic native material generation;
++2. payload/signal observation;
++3. evidence-bounded repair rehearsal.
++
++That is a stronger growth pattern than an opaque `make material better` step because every accepted change names the parameter changed, the warning targeted, the before/after evidence, the unchanged protected payloads, and the exact candidate retained.
+diff --git a/docs/NATIVE_PREVIEW_EVIDENCE.md b/docs/NATIVE_PREVIEW_EVIDENCE.md
+new file mode 100644
+index 0000000..f7b6797
+--- /dev/null
++++ b/docs/NATIVE_PREVIEW_EVIDENCE.md
+@@ -0,0 +1,59 @@
++# Native preview evidence v0.1
++
++`native_preview_evidence.py` wires two existing Game Asset Forge capabilities together:
++
++`native_preview.py` diagnostic software rasterization
++→ `native_evidence_verify.py` caller-pinned exact-byte verification
++
++The result is a review bundle whose diagnostic frames, report, and local review surface are bound to one exact mesh digest and one caller-pinned evidence manifest.
++
++## What is captured
++
++For each requested preview view the wrapper records:
++
++- silhouette PNG;
++- depth PNG;
++- face-normal PNG.
++
++It also records:
++
++- `preview-report.json`;
++- `review.html`.
++
++The default front/side/top set therefore contains eleven caller-pinned files.
++
++## Identity
++
++The mesh digest is computed from the explicit mesh name, vertex positions, and face indices. The evidence manifest also records preview size, ordered views, signal kinds, and the fact that this is the native orthographic diagnostic rasterizer.
++
++After writing the manifest, the wrapper immediately calls the generic evidence verifier. That verifier independently re-hashes every declared file and validates the caller-pinned manifest digest.
++
++## Use
++
++Python API:
++
++```python
++from native_preview_evidence import write_verified_preview
++
++result = write_verified_preview(mesh, "build/preview-evidence", size=128)
++```
++
++The destination is create-only so a new run cannot silently overwrite the reviewed evidence body.
++
++## Truth boundary
++
++`PASS` proves exact diagnostic bytes and the declared mesh/context binding at verification time.
++
++It does not prove:
++
++- aesthetic quality;
++- engine rendering parity;
++- gameplay readability;
++- AAA quality;
++- canonical acceptance.
++
++These previews remain software diagnostics. Real engine screenshots/video and performance evidence are still separate later gates.
++
++## Provenance
++
++The stable caller-pinned verifier was adapted from FrameState and transplanted into Game Asset Forge in PR #24. This wrapper is the first direct use of that verifier on Forge-native visual output rather than only on synthetic evidence fixtures.
+diff --git a/docs/NATIVE_PREVIEW_RESUME.md b/docs/NATIVE_PREVIEW_RESUME.md
+new file mode 100644
+index 0000000..c34bdf4
+--- /dev/null
++++ b/docs/NATIVE_PREVIEW_RESUME.md
+@@ -0,0 +1,79 @@
++# Crash-resumable native preview evidence v0.1
++
++`native_preview_resumable.py` adapts FrameState's checkpoint/resume discipline to Game Asset Forge's native diagnostic preview path.
++
++The problem it solves is simple: once preview/evidence jobs become larger, interruption must not force the machine either to restart everything or to trust half-written output.
++
++## Admission model
++
++A preview view is trusted for resume only after all three of its diagnostic artifacts have been written and checkpoint-admitted:
++
++- silhouette PNG;
++- depth PNG;
++- face-normal PNG.
++
++The checkpoint binds:
++
++- exact mesh digest;
++- mesh name;
++- preview size;
++- ordered view list;
++- exact admitted PNG SHA-256 and byte counts;
++- per-view deterministic preview report state.
++
++On resume, every admitted file is re-hashed before work continues.
++
++If a file exists for a view after the last admitted checkpoint, it is treated as an **unadmitted crash tail**, removed, and regenerated. It is never promoted merely because bytes happen to exist.
++
++## Example API
++
++```python
++from native_preview_resumable import render_preview_resumable
++
++# Do at most one new view this run.
++result = render_preview_resumable(
++    mesh,
++    "build/resumable-preview",
++    size=128,
++    max_new_views=1,
++)
++
++# Later, continue from the admitted checkpoint.
++result = render_preview_resumable(
++    mesh,
++    "build/resumable-preview",
++    size=128,
++)
++```
++
++A completed call assembles the ordinary native `preview-report.json` and `review.html`, then builds and verifies the same caller-pinned evidence manifest used by `native_preview_evidence.py`.
++
++Calling the completed job again re-verifies its evidence; it does not rerender completed views.
++
++## Deterministic parity proof
++
++The integration test pauses after one view, injects an unadmitted tail artifact, resumes, and then compares every one of the eleven default evidence files against a clean one-shot `write_verified_preview(...)` run.
++
++The required result is byte identity, not merely visual similarity.
++
++The test also proves that:
++
++- tampering with a checkpoint-admitted PNG blocks resume;
++- changing mesh identity blocks resume;
++- changing preview size blocks resume;
++- changing checkpoint JSON without recomputing its digest blocks resume;
++- a zero-work budget creates a legitimate paused checkpoint without claiming completed work.
++
++## Truth boundary
++
++This checkpoint mechanism proves continuity of deterministic diagnostic work. It does not prove visual quality, engine parity, gameplay readability, release readiness, merge authority, or CANON.
++
++It currently applies to the lightweight native diagnostic preview renderer. It is a proving ground for resumable evidence semantics, **not yet a claim that Blender, Godot, Three.js, or all long asset jobs are resumable**.
++
++## Provenance
++
++The admission/checkpoint idea is adapted from:
++
++`mike-axiom-mir/axm-framestate/src/axm_framestate/resumable.py`
++
++The implementation is Game Asset Forge native Python and does not import FrameState at runtime.
+diff --git a/native_pbr_rehearsal.py b/native_pbr_rehearsal.py
+new file mode 100644
+index 0000000..c8e6ac9
+--- /dev/null
++++ b/native_pbr_rehearsal.py
+@@ -0,0 +1,558 @@
++#!/usr/bin/env python3
++"""Bounded evidence-improving rehearsal for AXM native painted-metal materials.
++
++Adapted from the repair discipline in axm-framestate rehearsal:
++produce -> measure -> propose one bounded change -> measure again -> accept only
++when the targeted evidence improves and protected evidence does not regress.
++
++This module never mutates the source material directory or Game Asset Genome.
++Every candidate is written into a fresh attempt directory and failed attempts
++remain visible.
++"""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++from dataclasses import asdict, fields, replace
++from pathlib import Path
++from typing import Any
++
++from native_pbr import PaintedMetalSpec, write_painted_metal
++from native_pbr_signal_review import review_native_pbr
++
++SCHEMA = "axm.game-assets.native-pbr-rehearsal/v0.1"
++POLICY_SCHEMA = "axm.game-assets.native-pbr-rehearsal-policy/v0.1"
++SUPPORTED_PBR_SCHEMA = "axm.game-assets.native-pbr.v0.2"
++
++
++class NativePbrRehearsalError(ValueError):
++    pass
++
++
++def _sha256(data: bytes) -> str:
++    return "sha256:" + hashlib.sha256(data).hexdigest()
++
++
++def _canonical(value: Any) -> bytes:
++    return json.dumps(
++        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
++    ).encode("utf-8")
++
++
++def _strict_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
++    out: dict[str, Any] = {}
++    for key, value in pairs:
++        if key in out:
++            raise NativePbrRehearsalError(f"duplicate JSON key: {key}")
++        out[key] = value
++    return out
++
++
++def _load_json(path: Path) -> tuple[dict[str, Any], bytes]:
++    try:
++        raw = path.read_bytes()
++        value = json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_pairs)
++    except NativePbrRehearsalError:
++        raise
++    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
++        raise NativePbrRehearsalError(f"cannot read {path}: {exc}") from exc
++    if not isinstance(value, dict):
++        raise NativePbrRehearsalError(f"{path} must contain one JSON object")
++    return value, raw
++
++
++def _spec_to_json(spec: PaintedMetalSpec) -> dict[str, Any]:
++    value = asdict(spec)
++    value["paint_rgb"] = list(spec.paint_rgb)
++    value["metal_rgb"] = list(spec.metal_rgb)
++    return value
++
++
++def _spec_from_manifest(manifest: dict[str, Any]) -> PaintedMetalSpec:
++    if manifest.get("schema") != SUPPORTED_PBR_SCHEMA:
++        raise NativePbrRehearsalError(
++            f"material schema must be {SUPPORTED_PBR_SCHEMA}"
++        )
++    raw = manifest.get("spec")
++    if not isinstance(raw, dict):
++        raise NativePbrRehearsalError("material spec must be an object")
++    required = {item.name for item in fields(PaintedMetalSpec)}
++    missing = sorted(required - set(raw))
++    unknown = sorted(set(raw) - required)
++    if missing or unknown:
++        raise NativePbrRehearsalError(
++            f"material spec fields differ; missing={missing!r}; unknown={unknown!r}"
++        )
++
++    def rgb(name: str) -> tuple[int, int, int]:
++        value = raw[name]
++        if (
++            not isinstance(value, list)
++            or len(value) != 3
++            or any(isinstance(channel, bool) or not isinstance(channel, int) for channel in value)
++            or any(channel < 0 or channel > 255 for channel in value)
++        ):
++            raise NativePbrRehearsalError(f"{name} must be three integer channels in [0,255]")
++        return tuple(value)  # type: ignore[return-value]
++
++    def number(name: str) -> float:
++        value = raw[name]
++        if isinstance(value, bool) or not isinstance(value, (int, float)):
++            raise NativePbrRehearsalError(f"{name} must be numeric")
++        value = float(value)
++        if not (-1.0e9 < value < 1.0e9):
++            raise NativePbrRehearsalError(f"{name} is outside the rehearsal numeric bound")
++        return value
++
++    scratches = raw["scratches"]
++    if isinstance(scratches, bool) or not isinstance(scratches, int) or scratches < 0:
++        raise NativePbrRehearsalError("scratches must be a non-negative integer")
++
++    return PaintedMetalSpec(
++        paint_rgb=rgb("paint_rgb"),
++        metal_rgb=rgb("metal_rgb"),
++        paint_roughness=number("paint_roughness"),
++        metal_roughness=number("metal_roughness"),
++        wear=number("wear"),
++        scratches=scratches,
++        grain_scale=number("grain_scale"),
++        height_grain_amplitude=number("height_grain_amplitude"),
++        height_broad_amplitude=number("height_broad_amplitude"),
++        height_scratch_depth=number("height_scratch_depth"),
++        height_pit_depth=number("height_pit_depth"),
++        pit_wear_strength=number("pit_wear_strength"),
++        base_grain_variation=number("base_grain_variation"),
++        roughness_grain_variation=number("roughness_grain_variation"),
++        normal_strength=number("normal_strength"),
++    )
++
++
++def _source_state(manifest_path: Path) -> tuple[dict[str, Any], PaintedMetalSpec, int, int, str]:
++    manifest, raw = _load_json(manifest_path)
++    spec = _spec_from_manifest(manifest)
++
++    size = manifest.get("size")
++    if (
++        not isinstance(size, list)
++        or len(size) != 2
++        or any(isinstance(value, bool) or not isinstance(value, int) for value in size)
++        or size[0] != size[1]
++        or size[0] < 8
++    ):
++        raise NativePbrRehearsalError(
++            "rehearsal currently requires one square native PBR material size >= 8"
++        )
++    seed = manifest.get("seed")
++    if isinstance(seed, bool) or not isinstance(seed, int):
++        raise NativePbrRehearsalError("native PBR seed must be an integer")
++    return manifest, spec, size[0], seed, _sha256(raw)
++
++
++def normalize_policy(policy: dict[str, Any] | None = None) -> dict[str, Any]:
++    raw = dict(policy or {})
++    allowed = {
++        "schema",
++        "max_passes",
++        "min_normal_strength",
++        "max_normal_strength",
++        "near_flat_bootstrap_strength",
++        "weak_z_scale",
++    }
++    unknown = sorted(set(raw) - allowed)
++    if unknown:
++        raise NativePbrRehearsalError(f"unknown rehearsal policy fields: {unknown!r}")
++    if raw.get("schema", POLICY_SCHEMA) != POLICY_SCHEMA:
++        raise NativePbrRehearsalError(f"policy schema must be {POLICY_SCHEMA}")
++
++    max_passes = raw.get("max_passes", 4)
++    if isinstance(max_passes, bool) or not isinstance(max_passes, int) or not 1 <= max_passes <= 12:
++        raise NativePbrRehearsalError("max_passes must be an integer in [1,12]")
++
++    def bounded(name: str, default: float, lo: float, hi: float) -> float:
++        value = raw.get(name, default)
++        if isinstance(value, bool) or not isinstance(value, (int, float)):
++            raise NativePbrRehearsalError(f"{name} must be numeric")
++        value = float(value)
++        if not lo <= value <= hi:
++            raise NativePbrRehearsalError(f"{name} must be within [{lo},{hi}]")
++        return value
++
++    minimum = bounded("min_normal_strength", 0.1, 0.0, 32.0)
++    maximum = bounded("max_normal_strength", 8.0, 0.1, 32.0)
++    bootstrap = bounded("near_flat_bootstrap_strength", 1.0, 0.1, 32.0)
++    weak_z_scale = bounded("weak_z_scale", 0.65, 0.05, 0.95)
++    if minimum > maximum:
++        raise NativePbrRehearsalError("min_normal_strength cannot exceed max_normal_strength")
++    if bootstrap > maximum:
++        raise NativePbrRehearsalError("near_flat_bootstrap_strength cannot exceed max_normal_strength")
++
++    normalized = {
++        "schema": POLICY_SCHEMA,
++        "max_passes": max_passes,
++        "min_normal_strength": minimum,
++        "max_normal_strength": maximum,
++        "near_flat_bootstrap_strength": bootstrap,
++        "weak_z_scale": weak_z_scale,
++        "automatic_repairs": [
++            "normal near-flat signal when the source height field has measured variation",
++            "weak tangent-normal positive-Z by reducing normal strength",
++        ],
++        "non_repairs": [
++            "base-color diversity",
++            "roughness variation",
++            "aesthetic quality",
++            "art-direction fit",
++            "physical PBR correctness",
++        ],
++    }
++    normalized["policy_digest"] = _sha256(_canonical(normalized))
++    return normalized
++
++
++def _entry(review: dict[str, Any], entry_id: str) -> dict[str, Any] | None:
++    audit = review.get("audit")
++    if not isinstance(audit, dict):
++        return None
++    rows = audit.get("entries")
++    if not isinstance(rows, list):
++        return None
++    for row in rows:
++        if isinstance(row, dict) and row.get("id") == entry_id:
++            return row
++    return None
++
++
++def _warning_count(review: dict[str, Any]) -> int:
++    audit = review.get("audit", {})
++    rows = audit.get("entries", []) if isinstance(audit, dict) else []
++    count = 0
++    for row in rows:
++        if isinstance(row, dict):
++            warnings = row.get("warnings", [])
++            if isinstance(warnings, list):
++                count += len(warnings)
++    family = audit.get("family_warnings", []) if isinstance(audit, dict) else []
++    if isinstance(family, list):
++        count += len(family)
++    return count + len(review.get("manifest_hash_mismatches", []))
++
++
++def _normal_warnings(review: dict[str, Any]) -> set[str]:
++    row = _entry(review, "normal")
++    if not row or not isinstance(row.get("warnings"), list):
++        return set()
++    return {str(value) for value in row["warnings"]}
++
++
++def _height_has_variation(review: dict[str, Any]) -> bool:
++    row = _entry(review, "height")
++    if not row or row.get("status") == "HOLD":
++        return False
++    signal = row.get("signal")
++    if not isinstance(signal, dict):
++        return False
++    std = signal.get("std")
++    if not isinstance(std, dict):
++        return False
++    try:
++        spread = max(float(std.get(key, 0.0)) for key in ("r", "g", "b"))
++        edge = float(signal.get("edge_energy", 0.0))
++    except (TypeError, ValueError):
++        return False
++    return spread >= 1.5 or edge >= 0.002
++
++
++def _map_hashes(review: dict[str, Any]) -> dict[str, str]:
++    hashes: dict[str, str] = {}
++    audit = review.get("audit")
++    if not isinstance(audit, dict):
++        return hashes
++    rows = audit.get("entries")
++    if not isinstance(rows, list):
++        return hashes
++    for row in rows:
++        if not isinstance(row, dict):
++            continue
++        entry_id = row.get("id")
++        digest = row.get("sha256")
++        if isinstance(entry_id, str) and isinstance(digest, str):
++            hashes[entry_id] = digest
++    return hashes
++
++
++def propose_repairs(
++    spec: PaintedMetalSpec,
++    review: dict[str, Any],
++    policy: dict[str, Any],
++) -> list[dict[str, Any]]:
++    if review.get("status") == "HOLD":
++        return []
++    warnings = _normal_warnings(review)
++    proposals: list[dict[str, Any]] = []
++
++    if (
++        {"near-flat-signal", "normal-map-near-grayscale"} & warnings
++        and _height_has_variation(review)
++    ):
++        current = float(spec.normal_strength)
++        if current < policy["max_normal_strength"]:
++            candidate = (
++                policy["near_flat_bootstrap_strength"]
++                if current < policy["near_flat_bootstrap_strength"]
++                else min(policy["max_normal_strength"], current * 1.75)
++            )
++            if candidate > current:
++                proposals.append(
++                    {
++                        "code": "NORMAL_SIGNAL_NEAR_FLAT",
++                        "parameter": "normal_strength",
++                        "before": current,
++                        "after": candidate,
++                        "target_warnings": sorted(
++                            {"near-flat-signal", "normal-map-near-grayscale"} & warnings
++                        ),
++                        "reason": (
++                            "the generator's height payload has measured variation while "
++                            "the tangent-normal payload is near-flat"
++                        ),
++                    }
++                )
++
++    if "normal-positive-z-weak" in warnings:
++        current = float(spec.normal_strength)
++        candidate = max(policy["min_normal_strength"], current * policy["weak_z_scale"])
++        if candidate < current:
++            proposals.append(
++                {
++                    "code": "NORMAL_POSITIVE_Z_WEAK",
++                    "parameter": "normal_strength",
++                    "before": current,
++                    "after": candidate,
++                    "target_warnings": ["normal-positive-z-weak"],
++                    "reason": "bounded tangent-normal Z diagnostic is weak",
++                }
++            )
++    return proposals
++
++
++def _comparison(
++    before_review: dict[str, Any],
++    after_review: dict[str, Any],
++    proposal: dict[str, Any],
++) -> dict[str, Any]:
++    before_normal = _normal_warnings(before_review)
++    after_normal = _normal_warnings(after_review)
++    targets = set(proposal["target_warnings"])
++    before_target = len(before_normal & targets)
++    after_target = len(after_normal & targets)
++    before_total = _warning_count(before_review)
++    after_total = _warning_count(after_review)
++    before_hashes = _map_hashes(before_review)
++    after_hashes = _map_hashes(after_review)
++
++    protected_ids = sorted((set(before_hashes) | set(after_hashes)) - {"normal"})
++    changed_protected = [
++        entry_id
++        for entry_id in protected_ids
++        if before_hashes.get(entry_id) != after_hashes.get(entry_id)
++    ]
++    normal_changed = (
++        before_hashes.get("normal") is not None
++        and after_hashes.get("normal") is not None
++        and before_hashes["normal"] != after_hashes["normal"]
++    )
++    accepted = bool(
++        after_review.get("status") != "HOLD"
++        and after_target < before_target
++        and after_total <= before_total
++        and not changed_protected
++        and normal_changed
++    )
++    return {
++        "accepted": accepted,
++        "target_warning_count_before": before_target,
++        "target_warning_count_after": after_target,
++        "total_warning_count_before": before_total,
++        "total_warning_count_after": after_total,
++        "protected_map_hashes_unchanged": not changed_protected,
++        "changed_protected_maps": changed_protected,
++        "normal_map_changed": normal_changed,
++        "rule": (
++            "targeted normal warnings must decrease; total warnings may not increase; "
++            "candidate may not HOLD; every non-normal payload hash must remain exact; "
++            "the normal payload must actually change"
++        ),
++    }
++
++
++def rehearse_native_pbr(
++    manifest_path: str | Path,
++    output_root: str | Path,
++    *,
++    policy: dict[str, Any] | None = None,
++) -> dict[str, Any]:
++    source_path = Path(manifest_path).resolve()
++    source_manifest, source_spec, size, seed, source_manifest_sha256 = _source_state(source_path)
++    normalized_policy = normalize_policy(policy)
++    output = Path(output_root).resolve()
++    try:
++        output.mkdir(parents=True, exist_ok=False)
++    except FileExistsError as exc:
++        raise NativePbrRehearsalError(f"rehearsal output already exists: {output}") from exc
++
++    try:
++        current_review = review_native_pbr(source_path)
++    except Exception as exc:
++        raise NativePbrRehearsalError(f"initial native PBR review failed: {exc}") from exc
++    initial_review = current_review
++    current_spec = source_spec
++    current_manifest_path = source_path
++    attempts: list[dict[str, Any]] = []
++    accepted_count = 0
++    stop_reason = "MAX_PASSES_REACHED"
++
++    for pass_index in range(1, normalized_policy["max_passes"] + 1):
++        proposals = propose_repairs(current_spec, current_review, normalized_policy)
++        if not proposals:
++            stop_reason = "NO_JUSTIFIED_AUTO_DELTA"
++            break
++
++        accepted_this_pass = False
++        for attempt_index, proposal in enumerate(proposals, 1):
++            candidate_spec = replace(
++                current_spec,
++                **{proposal["parameter"]: proposal["after"]},
++            )
++            candidate_dir = output / f"pass-{pass_index:02d}-attempt-{attempt_index:02d}"
++            try:
++                write_painted_metal(
++                    candidate_dir,
++                    size=size,
++                    seed=seed,
++                    spec=candidate_spec,
++                )
++                candidate_manifest_path = candidate_dir / "material.json"
++                candidate_review = review_native_pbr(candidate_manifest_path)
++                comparison = _comparison(current_review, candidate_review, proposal)
++            except Exception as exc:
++                attempts.append(
++                    {
++                        "pass": pass_index,
++                        "attempt": attempt_index,
++                        "proposal": proposal,
++                        "candidate_spec": _spec_to_json(candidate_spec),
++                        "candidate_dir": candidate_dir.name,
++                        "accepted": False,
++                        "error": str(exc),
++                    }
++                )
++                continue
++
++            attempt = {
++                "pass": pass_index,
++                "attempt": attempt_index,
++                "proposal": proposal,
++                "candidate_spec": _spec_to_json(candidate_spec),
++                "candidate_dir": candidate_dir.name,
++                "candidate_review_digest": candidate_review.get("review_digest"),
++                "comparison": comparison,
++                "accepted": comparison["accepted"],
++            }
++            attempts.append(attempt)
++            if comparison["accepted"]:
++                current_spec = candidate_spec
++                current_review = candidate_review
++                current_manifest_path = candidate_manifest_path
++                accepted_count += 1
++                accepted_this_pass = True
++                break
++
++        if not accepted_this_pass:
++            stop_reason = "NO_EVIDENCE_IMPROVING_DELTA"
++            break
++
++    receipt: dict[str, Any] = {
++        "schema": SCHEMA,
++        "source": {
++            "manifest_path": source_path.name,
++            "manifest_file_sha256": source_manifest_sha256,
++            "schema": source_manifest.get("schema"),
++            "kind": source_manifest.get("kind"),
++            "seed": seed,
++            "size": [size, size],
++        },
++        "policy": normalized_policy,
++        "initial_spec": _spec_to_json(source_spec),
++        "final_spec": _spec_to_json(current_spec),
++        "initial_review_digest": initial_review.get("review_digest"),
++        "final_review_digest": current_review.get("review_digest"),
++        "final_review_status": current_review.get("status"),
++        "final_manifest_path": (
++            str(current_manifest_path.relative_to(output))
++            if output in current_manifest_path.parents
++            else f"source:{source_path.name}"
++        ),
++        "attempts": attempts,
++        "accepted_delta_count": accepted_count,
++        "rejected_attempt_count": sum(not bool(item.get("accepted")) for item in attempts),
++        "stop_reason": stop_reason,
++        "source_manifest_unchanged": _sha256(source_path.read_bytes()) == source_manifest_sha256,
++        "authority": {
++            "source_mutation": False,
++            "genome_mutation": False,
++            "visual_approval": False,
++            "automatic_promotion": False,
++            "release": False,
++            "merge": False,
++            "canon": False,
++        },
++        "truth_boundary": {
++            "quality_claim": (
++                "bounded technical normal-signal rehearsal only; accepted candidates "
++                "improve named signal warnings without changing non-normal payloads"
++            ),
++            "aesthetic_quality_proven": False,
++            "physical_pbr_correctness_proven": False,
++            "art_direction_fit_proven": False,
++            "engine_parity_proven": False,
++        },
++        "provenance": {
++            "mechanism_source": (
++                "mike-axiom-mir/axm-framestate rehearsal evidence-improvement discipline"
++            ),
++            "implementation": "AXM Game Asset Forge native Python adaptation",
++        },
++    }
++    receipt["rehearsal_digest"] = _sha256(_canonical(receipt))
++    receipt_path = output / "rehearsal-receipt.json"
++    with receipt_path.open("x", encoding="utf-8", newline="\n") as handle:
++        json.dump(receipt, handle, indent=2, sort_keys=True, ensure_ascii=False)
++        handle.write("\n")
++    return receipt
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(
++        description=(
++            "Rehearse one native painted-metal material without mutating its source state"
++        )
++    )
++    parser.add_argument("manifest", type=Path)
++    parser.add_argument("output", type=Path)
++    parser.add_argument("--max-passes", type=int, default=4)
++    args = parser.parse_args(argv)
++    try:
++        receipt = rehearse_native_pbr(
++            args.manifest,
++            args.output,
++            policy={"max_passes": args.max_passes},
++        )
++    except NativePbrRehearsalError as exc:
++        parser.error(str(exc))
++    print(json.dumps(receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/native_pbr_rehearsal_test.py b/native_pbr_rehearsal_test.py
+new file mode 100644
+index 0000000..fdcae98
+--- /dev/null
++++ b/native_pbr_rehearsal_test.py
+@@ -0,0 +1,131 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import hashlib
++import json
++from pathlib import Path
++from tempfile import TemporaryDirectory
++
++from native_pbr import PaintedMetalSpec, write_painted_metal
++from native_pbr_rehearsal import (
++    NativePbrRehearsalError,
++    normalize_policy,
++    rehearse_native_pbr,
++)
++from native_pbr_signal_review import review_native_pbr
++
++
++def _sha(path: Path) -> str:
++    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
++
++
++def _normal_warnings(review: dict) -> set[str]:
++    for row in review["audit"]["entries"]:
++        if row["id"] == "normal":
++            return set(row.get("warnings", []))
++    raise AssertionError("normal row missing")
++
++
++def run() -> None:
++    with TemporaryDirectory() as tmp:
++        root = Path(tmp)
++
++        source = root / "source-flat-normal"
++        write_painted_metal(
++            source,
++            size=48,
++            seed=404,
++            spec=PaintedMetalSpec(normal_strength=0.0),
++        )
++        source_manifest = source / "material.json"
++        source_manifest_hash = _sha(source_manifest)
++        source_normal_hash = _sha(source / "normal.png")
++        source_height_hash = _sha(source / "height.png")
++        before = review_native_pbr(source_manifest)
++        assert "near-flat-signal" in _normal_warnings(before), before
++
++        receipt = rehearse_native_pbr(source_manifest, root / "rehearsal")
++        assert receipt["schema"] == "axm.game-assets.native-pbr-rehearsal/v0.1"
++        assert receipt["accepted_delta_count"] >= 1, receipt
++        assert receipt["final_spec"]["normal_strength"] > 0.0
++        assert receipt["source_manifest_unchanged"] is True
++        assert receipt["authority"]["source_mutation"] is False
++        assert receipt["authority"]["genome_mutation"] is False
++        assert receipt["authority"]["canon"] is False
++        assert _sha(source_manifest) == source_manifest_hash
++        assert _sha(source / "normal.png") == source_normal_hash
++        assert _sha(source / "height.png") == source_height_hash
++
++        accepted = [item for item in receipt["attempts"] if item.get("accepted")]
++        assert accepted, receipt
++        first = accepted[0]
++        assert first["comparison"]["target_warning_count_after"] < first["comparison"]["target_warning_count_before"]
++        assert first["comparison"]["protected_map_hashes_unchanged"] is True
++        assert first["comparison"]["normal_map_changed"] is True
++
++        final_manifest = root / "rehearsal" / receipt["final_manifest_path"]
++        after = review_native_pbr(final_manifest)
++        assert len(_normal_warnings(after)) < len(_normal_warnings(before))
++        assert after["status"] != "HOLD"
++
++        healthy = root / "healthy"
++        write_painted_metal(healthy, size=32, seed=405)
++        healthy_review = review_native_pbr(healthy / "material.json")
++        healthy_receipt = rehearse_native_pbr(
++            healthy / "material.json",
++            root / "healthy-rehearsal",
++        )
++        assert healthy_receipt["accepted_delta_count"] == 0
++        assert healthy_receipt["stop_reason"] == "NO_JUSTIFIED_AUTO_DELTA"
++        assert healthy_receipt["final_review_digest"] == healthy_review["review_digest"]
++
++        try:
++            rehearse_native_pbr(
++                healthy / "material.json",
++                root / "healthy-rehearsal",
++            )
++        except NativePbrRehearsalError as exc:
++            assert "already exists" in str(exc)
++        else:
++            raise AssertionError("expected create-only rehearsal output rejection")
++
++        malformed = root / "malformed"
++        write_painted_metal(malformed, size=16, seed=406)
++        manifest_path = malformed / "material.json"
++        manifest = json.loads(manifest_path.read_text())
++        manifest["size"] = [16, 8]
++        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
++        try:
++            rehearse_native_pbr(manifest_path, root / "malformed-rehearsal")
++        except NativePbrRehearsalError as exc:
++            assert "square" in str(exc)
++        else:
++            raise AssertionError("expected non-square source rejection")
++
++        policy = normalize_policy(
++            {
++                "max_passes": 3,
++                "min_normal_strength": 0.2,
++                "max_normal_strength": 4.0,
++                "near_flat_bootstrap_strength": 0.8,
++                "weak_z_scale": 0.5,
++            }
++        )
++        assert policy["max_passes"] == 3
++        assert policy["policy_digest"].startswith("sha256:")
++        try:
++            normalize_policy({"unknown": 1})
++        except NativePbrRehearsalError as exc:
++            assert "unknown rehearsal policy" in str(exc)
++        else:
++            raise AssertionError("expected unknown policy rejection")
++
++        print(
++            "NATIVE PBR REHEARSAL TEST PASS",
++            receipt["accepted_delta_count"],
++            "accepted technical repair(s)",
++        )
++
++
++if __name__ == "__main__":
++    run()
+diff --git a/native_preview_evidence.py b/native_preview_evidence.py
+new file mode 100644
+index 0000000..6e204bb
+--- /dev/null
++++ b/native_preview_evidence.py
+@@ -0,0 +1,172 @@
++#!/usr/bin/env python3
++"""Build and caller-pin one native diagnostic preview evidence bundle.
++
++This module wires the native software preview path to the caller-pinned evidence
++verifier transplanted from FrameState. It proves exact diagnostic bytes and
++context, not visual quality or engine acceptance.
++"""
++from __future__ import annotations
++
++import hashlib
++import json
++from pathlib import Path
++from typing import Any, Iterable
++
++from native_evidence_verify import (
++    EvidenceVerificationError,
++    MANIFEST_SCHEMA,
++    manifest_digest,
++    verify_evidence_bundle,
++)
++from native_geometry import Mesh
++from native_preview import write_preview
++
++SCHEMA = "axm.game-assets.native-preview-evidence/v0.1"
++
++
++class NativePreviewEvidenceError(ValueError):
++    pass
++
++
++def _sha256(data: bytes) -> str:
++    return "sha256:" + hashlib.sha256(data).hexdigest()
++
++
++def _canonical(value: Any) -> bytes:
++    return json.dumps(
++        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
++    ).encode("utf-8")
++
++
++def mesh_digest(mesh: Mesh) -> str:
++    payload = {
++        "name": mesh.name,
++        "vertices": [list(vertex) for vertex in mesh.vertices],
++        "faces": [list(face) for face in mesh.faces],
++    }
++    return _sha256(_canonical(payload))
++
++
++def _record(path: Path, root: Path, role: str) -> dict[str, Any]:
++    if path.is_symlink() or not path.is_file():
++        raise NativePreviewEvidenceError(f"preview evidence must be a regular file: {path}")
++    data = path.read_bytes()
++    return {
++        "path": path.relative_to(root).as_posix(),
++        "sha256": _sha256(data),
++        "bytes": len(data),
++        "role": role,
++    }
++
++
++def _write_create_only(path: Path, value: dict[str, Any]) -> None:
++    try:
++        with path.open("x", encoding="utf-8", newline="\n") as handle:
++            json.dump(value, handle, indent=2, sort_keys=True, ensure_ascii=False)
++            handle.write("\n")
++    except FileExistsError as exc:
++        raise NativePreviewEvidenceError(f"output already exists: {path}") from exc
++
++
++def write_verified_preview(
++    mesh: Mesh,
++    output: str | Path,
++    *,
++    size: int = 128,
++    views: Iterable[str] = ("front", "side", "top"),
++) -> dict[str, Any]:
++    root = Path(output).resolve()
++    try:
++        root.mkdir(parents=True, exist_ok=False)
++    except FileExistsError as exc:
++        raise NativePreviewEvidenceError(f"preview evidence output already exists: {root}") from exc
++
++    view_list = tuple(views)
++    if not view_list:
++        raise NativePreviewEvidenceError("at least one preview view is required")
++
++    try:
++        preview = write_preview(mesh, root, size=size, views=view_list)
++    except Exception as exc:
++        raise NativePreviewEvidenceError(f"native preview generation failed: {exc}") from exc
++
++    files: list[dict[str, Any]] = []
++    for view in view_list:
++        for signal in ("silhouette", "depth", "normal"):
++            files.append(
++                _record(
++                    root / f"{view}-{signal}.png",
++                    root,
++                    f"native-preview/{view}/{signal}",
++                )
++            )
++    files.append(_record(root / "preview-report.json", root, "native-preview/report"))
++    files.append(_record(root / "review.html", root, "native-preview/review-surface"))
++
++    source_digest = mesh_digest(mesh)
++    bundle_id = f"native-preview-{source_digest.removeprefix('sha256:')[:20]}"
++    manifest: dict[str, Any] = {
++        "schema": MANIFEST_SCHEMA,
++        "bundle_id": bundle_id,
++        "files": files,
++        "context": {
++            "producer": "AXM Game Asset Forge native_preview.py",
++            "wrapper_schema": SCHEMA,
++            "mesh_name": mesh.name,
++            "mesh_digest": source_digest,
++            "size": [size, size],
++            "views": list(view_list),
++            "signals": ["silhouette", "depth", "normal"],
++            "projection": "orthographic diagnostic software rasterizer",
++        },
++        "authority": {
++            "visual_approval": False,
++            "engine_acceptance": False,
++            "canonical_mutation": False,
++            "release": False,
++            "merge": False,
++            "canon": False,
++        },
++        "truth_boundary": {
++            "proves_after_verification": [
++                "exact caller-pinned preview artifact bytes",
++                "exact diagnostic mesh digest and declared preview context",
++            ],
++            "does_not_prove": [
++                "aesthetic quality",
++                "engine rendering parity",
++                "gameplay readability",
++                "AAA quality",
++                "canonical acceptance",
++            ],
++        },
++    }
++    manifest["manifest_digest"] = manifest_digest(manifest)
++    manifest_path = root / "evidence-manifest.json"
++    _write_create_only(manifest_path, manifest)
++
++    try:
++        verification = verify_evidence_bundle(
++            root,
++            manifest_path,
++            expected_manifest_digest=manifest["manifest_digest"],
++        )
++    except EvidenceVerificationError as exc:
++        raise NativePreviewEvidenceError(
++            f"fresh preview evidence did not verify: {exc}"
++        ) from exc
++    _write_create_only(root / "evidence-verification.json", verification)
++
++    result: dict[str, Any] = {
++        "schema": SCHEMA,
++        "status": verification["status"],
++        "mesh_digest": source_digest,
++        "preview": preview,
++        "evidence_manifest_digest": manifest["manifest_digest"],
++        "verification_receipt_digest": verification["receipt_digest"],
++        "evidence_file_count": verification["summary"]["file_count"],
++        "authority": manifest["authority"],
++        "truth_boundary": manifest["truth_boundary"],
++    }
++    result["result_digest"] = _sha256(_canonical(result))
++    return result
+diff --git a/native_preview_evidence_test.py b/native_preview_evidence_test.py
+new file mode 100644
+index 0000000..82806bb
+--- /dev/null
++++ b/native_preview_evidence_test.py
+@@ -0,0 +1,68 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import json
++from pathlib import Path
++from tempfile import TemporaryDirectory
++
++from native_evidence_verify import EvidenceVerificationError, verify_evidence_bundle
++from native_geometry import make_box, scale
++from native_preview_evidence import (
++    NativePreviewEvidenceError,
++    mesh_digest,
++    write_verified_preview,
++)
++
++
++def run() -> None:
++    with TemporaryDirectory() as tmp:
++        root = Path(tmp)
++        mesh = make_box((1.0, 0.5, 2.0), name="preview-evidence-box")
++
++        result = write_verified_preview(mesh, root / "bundle", size=48)
++        assert result["status"] == "PASS"
++        assert result["evidence_file_count"] == 11
++        assert result["authority"]["canon"] is False
++        assert result["authority"]["engine_acceptance"] is False
++        assert result["mesh_digest"] == mesh_digest(mesh)
++        assert result["mesh_digest"] != mesh_digest(scale(mesh, 2.0))
++
++        bundle = root / "bundle"
++        manifest = json.loads((bundle / "evidence-manifest.json").read_text())
++        verified = verify_evidence_bundle(
++            bundle,
++            "evidence-manifest.json",
++            expected_manifest_digest=manifest["manifest_digest"],
++        )
++        assert verified["status"] == "PASS"
++        assert verified["summary"]["file_count"] == 11
++
++        tampered = bundle / "front-silhouette.png"
++        tampered.write_bytes(tampered.read_bytes() + b"tamper")
++        try:
++            verify_evidence_bundle(
++                bundle,
++                "evidence-manifest.json",
++                expected_manifest_digest=manifest["manifest_digest"],
++            )
++        except EvidenceVerificationError as exc:
++            assert "byte count mismatch" in str(exc) or "SHA-256 mismatch" in str(exc)
++        else:
++            raise AssertionError("expected tampered preview rejection")
++
++        try:
++            write_verified_preview(mesh, bundle, size=48)
++        except NativePreviewEvidenceError as exc:
++            assert "already exists" in str(exc)
++        else:
++            raise AssertionError("expected create-only output rejection")
++
++        print(
++            "NATIVE PREVIEW EVIDENCE TEST PASS",
++            result["evidence_file_count"],
++            "caller-pinned files",
++        )
++
++
++if __name__ == "__main__":
++    run()
+diff --git a/native_preview_resumable.py b/native_preview_resumable.py
+new file mode 100644
+index 0000000..abc44b3
+--- /dev/null
++++ b/native_preview_resumable.py
+@@ -0,0 +1,434 @@
++#!/usr/bin/env python3
++"""Crash-resumable native diagnostic preview evidence.
++
++Adapted from AXM FrameState's checkpoint discipline. A view becomes trusted for
++resume only after its exact three diagnostic PNGs and report metadata are
++checkpoint-admitted. Tail files produced after the last admitted checkpoint are
++discarded and regenerated. Completion assembles the normal preview review surface
++and caller-pinned evidence bundle without granting visual or canonical authority.
++"""
++from __future__ import annotations
++
++import copy
++import hashlib
++import json
++import os
++import stat
++import tempfile
++from pathlib import Path
++from typing import Any, Iterable
++
++from native_evidence_verify import MANIFEST_SCHEMA, manifest_digest, verify_evidence_bundle
++from native_geometry import Mesh
++from native_preview import VIEWS, _review_board_html, render
++from native_preview_evidence import mesh_digest
++
++CHECKPOINT_SCHEMA = "axm.game-assets.native-preview-checkpoint/v0.1"
++RESULT_SCHEMA = "axm.game-assets.native-preview-resumable-result/v0.1"
++MAX_VIEWS = 32
++
++
++class NativePreviewResumeError(ValueError):
++    pass
++
++
++def _canonical(value: Any) -> bytes:
++    return json.dumps(
++        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
++    ).encode("utf-8")
++
++
++def _digest(value: Any) -> str:
++    return "sha256:" + hashlib.sha256(_canonical(value)).hexdigest()
++
++
++def _sha256(data: bytes) -> str:
++    return "sha256:" + hashlib.sha256(data).hexdigest()
++
++
++def _strict_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
++    out: dict[str, Any] = {}
++    for key, value in pairs:
++        if key in out:
++            raise NativePreviewResumeError(f"duplicate JSON key: {key}")
++        out[key] = value
++    return out
++
++
++def _reject_constant(value: str) -> None:
++    raise NativePreviewResumeError(f"non-finite JSON number: {value}")
++
++
++def _atomic_write(path: Path, data: bytes) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    with tempfile.NamedTemporaryFile(
++        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, delete=False
++    ) as handle:
++        temp = Path(handle.name)
++        handle.write(data)
++        handle.flush()
++        os.fsync(handle.fileno())
++    try:
++        os.replace(temp, path)
++    finally:
++        temp.unlink(missing_ok=True)
++
++
++def _real_output_dir(path: Path) -> Path:
++    if path.exists():
++        try:
++            mode = path.lstat().st_mode
++        except OSError as exc:
++            raise NativePreviewResumeError(f"cannot inspect output directory: {path}") from exc
++        if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
++            raise NativePreviewResumeError("preview output must be a real non-symlink directory")
++    else:
++        path.mkdir(parents=True, exist_ok=False)
++    return path.resolve()
++
++
++def _identity(mesh: Mesh, size: int, views: tuple[str, ...]) -> dict[str, Any]:
++    return {
++        "mesh_name": mesh.name,
++        "mesh_digest": mesh_digest(mesh),
++        "size": [size, size],
++        "views": list(views),
++        "signals": ["silhouette", "depth", "normal"],
++        "renderer": "AXM Game Asset Forge native_preview.py orthographic diagnostic rasterizer",
++    }
++
++
++def _checkpoint_digest(checkpoint: dict[str, Any]) -> str:
++    core = copy.deepcopy(checkpoint)
++    core.pop("checkpoint_digest", None)
++    return _digest(core)
++
++
++def _load_checkpoint(path: Path) -> dict[str, Any] | None:
++    if not path.exists():
++        return None
++    try:
++        if path.is_symlink() or not path.is_file():
++            raise NativePreviewResumeError("render checkpoint must be a regular non-symlink file")
++        value = json.loads(
++            path.read_text(encoding="utf-8"),
++            object_pairs_hook=_strict_pairs,
++            parse_constant=_reject_constant,
++        )
++    except NativePreviewResumeError:
++        raise
++    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
++        raise NativePreviewResumeError("render checkpoint is unreadable") from exc
++    if not isinstance(value, dict) or value.get("schema") != CHECKPOINT_SCHEMA:
++        raise NativePreviewResumeError("unsupported render checkpoint schema")
++    if value.get("checkpoint_digest") != _checkpoint_digest(value):
++        raise NativePreviewResumeError("render checkpoint digest does not match its content")
++    return value
++
++
++def _regular_file_record(path: Path, root: Path, role: str) -> dict[str, Any]:
++    try:
++        info = path.lstat()
++    except OSError as exc:
++        raise NativePreviewResumeError(f"missing admitted preview artifact: {path.name}") from exc
++    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
++        raise NativePreviewResumeError(f"preview artifact must be a regular non-symlink file: {path.name}")
++    data = path.read_bytes()
++    return {
++        "path": path.relative_to(root).as_posix(),
++        "sha256": _sha256(data),
++        "bytes": len(data),
++        "role": role,
++    }
++
++
++def _verify_completed(
++    root: Path,
++    checkpoint: dict[str, Any],
++    identity: dict[str, Any],
++) -> list[dict[str, Any]]:
++    if checkpoint.get("identity") != identity:
++        raise NativePreviewResumeError(
++            "render checkpoint identity does not match current mesh/size/view request"
++        )
++    completed = checkpoint.get("completed")
++    if not isinstance(completed, list):
++        raise NativePreviewResumeError("render checkpoint completed rows are invalid")
++    requested_views = identity["views"]
++    if len(completed) > len(requested_views):
++        raise NativePreviewResumeError("render checkpoint contains too many completed views")
++
++    for index, row in enumerate(completed):
++        if not isinstance(row, dict):
++            raise NativePreviewResumeError("render checkpoint completed row must be an object")
++        if row.get("index") != index or row.get("view") != requested_views[index]:
++            raise NativePreviewResumeError("render checkpoint views are not contiguous and ordered")
++        report = row.get("report")
++        if not isinstance(report, dict) or report.get("view") != requested_views[index]:
++            raise NativePreviewResumeError("render checkpoint view report is invalid")
++        files = row.get("files")
++        if not isinstance(files, list) or len(files) != 3:
++            raise NativePreviewResumeError("each admitted view must bind exactly three signal files")
++        expected_roles = [
++            f"native-preview/{requested_views[index]}/{signal}"
++            for signal in ("silhouette", "depth", "normal")
++        ]
++        for file_index, file_row in enumerate(files):
++            if not isinstance(file_row, dict):
++                raise NativePreviewResumeError("checkpoint file record must be an object")
++            expected_path = f"{requested_views[index]}-{('silhouette','depth','normal')[file_index]}.png"
++            if file_row.get("path") != expected_path or file_row.get("role") != expected_roles[file_index]:
++                raise NativePreviewResumeError("checkpoint file identity differs from requested view")
++            observed = _regular_file_record(root / expected_path, root, expected_roles[file_index])
++            if observed != file_row:
++                raise NativePreviewResumeError(
++                    f"checkpoint-admitted preview artifact differs from receipt: {expected_path}"
++                )
++    return completed
++
++
++def _remove_unadmitted(root: Path, views: tuple[str, ...], admitted_count: int) -> list[str]:
++    removed: list[str] = []
++    for view in views[admitted_count:]:
++        for signal in ("silhouette", "depth", "normal"):
++            path = root / f"{view}-{signal}.png"
++            if path.exists() or path.is_symlink():
++                if path.is_dir() and not path.is_symlink():
++                    raise NativePreviewResumeError(f"unexpected directory in preview tail: {path.name}")
++                path.unlink(missing_ok=True)
++                removed.append(path.name)
++    for name in (
++        "preview-report.json",
++        "review.html",
++        "evidence-manifest.json",
++        "evidence-verification.json",
++    ):
++        path = root / name
++        if path.exists() or path.is_symlink():
++            if path.is_dir() and not path.is_symlink():
++                raise NativePreviewResumeError(f"unexpected directory in preview finalization path: {name}")
++            path.unlink(missing_ok=True)
++            removed.append(name)
++    return sorted(removed)
++
++
++def _admit_view(mesh: Mesh, root: Path, view: str, size: int, index: int) -> dict[str, Any]:
++    result = render(mesh, view=view, size=size)
++    files: list[dict[str, Any]] = []
++    for signal in ("silhouette", "depth", "normal"):
++        key = f"{signal}_png"
++        data = result.pop(key)
++        if not isinstance(data, (bytes, bytearray)):
++            raise NativePreviewResumeError(f"native preview did not return {key}")
++        path = root / f"{view}-{signal}.png"
++        _atomic_write(path, bytes(data))
++        files.append(
++            _regular_file_record(
++                path,
++                root,
++                f"native-preview/{view}/{signal}",
++            )
++        )
++    return {"index": index, "view": view, "report": result, "files": files}
++
++
++def _assemble_preview(root: Path, mesh: Mesh, completed: list[dict[str, Any]]) -> dict[str, Any]:
++    report = {
++        "mesh": mesh.name,
++        "views": [row["report"] for row in completed],
++        "truth": "Aspect-preserving orthographic diagnostic software rasterizer only; not an in-engine acceptance render.",
++        "review": {
++            "html": "review.html",
++            "report": "preview-report.json",
++            "authority": "presentation_only_no_automatic_acceptance",
++        },
++    }
++    _atomic_write(
++        root / "preview-report.json",
++        (json.dumps(report, indent=2, sort_keys=True) + "\n").encode("utf-8"),
++    )
++    _atomic_write(root / "review.html", _review_board_html(report).encode("utf-8"))
++    return report
++
++
++def _finalize_evidence(
++    root: Path,
++    identity: dict[str, Any],
++    completed: list[dict[str, Any]],
++) -> tuple[dict[str, Any], dict[str, Any]]:
++    files = [file_row for row in completed for file_row in row["files"]]
++    files.append(_regular_file_record(root / "preview-report.json", root, "native-preview/report"))
++    files.append(_regular_file_record(root / "review.html", root, "native-preview/review-surface"))
++    manifest: dict[str, Any] = {
++        "schema": MANIFEST_SCHEMA,
++        "bundle_id": f"native-preview-{identity['mesh_digest'].removeprefix('sha256:')[:20]}",
++        "files": files,
++        "context": identity,
++        "authority": {
++            "visual_approval": False,
++            "engine_acceptance": False,
++            "canonical_mutation": False,
++            "release": False,
++            "merge": False,
++            "canon": False,
++        },
++        "truth_boundary": {
++            "proves_after_verification": [
++                "exact checkpoint-admitted preview artifact bytes",
++                "exact diagnostic mesh digest and declared preview context",
++                "completed final evidence was rebuilt only from contiguous admitted views",
++            ],
++            "does_not_prove": [
++                "aesthetic quality",
++                "engine rendering parity",
++                "gameplay readability",
++                "AAA quality",
++                "canonical acceptance",
++            ],
++        },
++    }
++    manifest["manifest_digest"] = manifest_digest(manifest)
++    _atomic_write(
++        root / "evidence-manifest.json",
++        (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8"),
++    )
++    verification = verify_evidence_bundle(
++        root,
++        root / "evidence-manifest.json",
++        expected_manifest_digest=manifest["manifest_digest"],
++    )
++    _atomic_write(
++        root / "evidence-verification.json",
++        (json.dumps(verification, indent=2, sort_keys=True) + "\n").encode("utf-8"),
++    )
++    return manifest, verification
++
++
++def render_preview_resumable(
++    mesh: Mesh,
++    output: str | Path,
++    *,
++    size: int = 128,
++    views: Iterable[str] = ("front", "side", "top"),
++    max_new_views: int | None = None,
++) -> dict[str, Any]:
++    if isinstance(size, bool) or not isinstance(size, int) or size < 16:
++        raise NativePreviewResumeError("preview size must be an integer >= 16")
++    view_tuple = tuple(views)
++    if not view_tuple or len(view_tuple) > MAX_VIEWS:
++        raise NativePreviewResumeError(f"views must contain between 1 and {MAX_VIEWS} entries")
++    if len(set(view_tuple)) != len(view_tuple):
++        raise NativePreviewResumeError("preview views must be unique")
++    unknown = [view for view in view_tuple if view not in VIEWS]
++    if unknown:
++        raise NativePreviewResumeError(f"unknown native preview views: {unknown!r}")
++    if max_new_views is not None:
++        if isinstance(max_new_views, bool) or not isinstance(max_new_views, int) or max_new_views < 0:
++            raise NativePreviewResumeError("max_new_views must be a non-negative integer or None")
++
++    root = _real_output_dir(Path(output))
++    checkpoint_path = root / "render-checkpoint.json"
++    identity = _identity(mesh, size, view_tuple)
++    checkpoint = _load_checkpoint(checkpoint_path)
++
++    if checkpoint is None:
++        completed: list[dict[str, Any]] = []
++        checkpoint = {
++            "schema": CHECKPOINT_SCHEMA,
++            "identity": identity,
++            "completed": completed,
++            "status": "IN_PROGRESS",
++            "truth_boundary": (
++                "only checkpoint-admitted diagnostic view bytes and metadata are trusted for resume; "
++                "unadmitted tail artifacts are discarded and regenerated"
++            ),
++        }
++    else:
++        completed = _verify_completed(root, checkpoint, identity)
++
++    if checkpoint.get("status") == "COMPLETE" and len(completed) == len(view_tuple):
++        manifest_path = root / "evidence-manifest.json"
++        try:
++            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
++            verification = verify_evidence_bundle(
++                root,
++                manifest_path,
++                expected_manifest_digest=manifest["manifest_digest"],
++            )
++        except Exception as exc:
++            raise NativePreviewResumeError(f"completed preview evidence failed re-verification: {exc}") from exc
++        return {
++            "schema": RESULT_SCHEMA,
++            "status": "COMPLETE",
++            "completed_views": len(completed),
++            "total_views": len(view_tuple),
++            "rendered_views_this_run": 0,
++            "checkpoint_digest": checkpoint["checkpoint_digest"],
++            "evidence_manifest_digest": manifest["manifest_digest"],
++            "verification_receipt_digest": verification["receipt_digest"],
++            "removed_unadmitted_artifacts": [],
++        }
++
++    removed = _remove_unadmitted(root, view_tuple, len(completed))
++    budget = None if max_new_views is None else max_new_views
++    rendered = 0
++
++    for index in range(len(completed), len(view_tuple)):
++        if budget is not None and rendered >= budget:
++            break
++        row = _admit_view(mesh, root, view_tuple[index], size, index)
++        completed.append(row)
++        rendered += 1
++        checkpoint["completed"] = completed
++        checkpoint["status"] = "IN_PROGRESS"
++        checkpoint["checkpoint_digest"] = _checkpoint_digest(checkpoint)
++        _atomic_write(
++            checkpoint_path,
++            (json.dumps(checkpoint, indent=2, sort_keys=True) + "\n").encode("utf-8"),
++        )
++
++    complete = len(completed) == len(view_tuple)
++    if not complete:
++        checkpoint["status"] = "PAUSED"
++        checkpoint["checkpoint_digest"] = _checkpoint_digest(checkpoint)
++        _atomic_write(
++            checkpoint_path,
++            (json.dumps(checkpoint, indent=2, sort_keys=True) + "\n").encode("utf-8"),
++        )
++        return {
++            "schema": RESULT_SCHEMA,
++            "status": "PAUSED",
++            "completed_views": len(completed),
++            "total_views": len(view_tuple),
++            "rendered_views_this_run": rendered,
++            "checkpoint_digest": checkpoint["checkpoint_digest"],
++            "removed_unadmitted_artifacts": removed,
++            "authority": "NONE",
++        }
++
++    _assemble_preview(root, mesh, completed)
++    manifest, verification = _finalize_evidence(root, identity, completed)
++    checkpoint["status"] = "COMPLETE"
++    checkpoint["evidence_manifest_digest"] = manifest["manifest_digest"]
++    checkpoint["verification_receipt_digest"] = verification["receipt_digest"]
++    checkpoint["checkpoint_digest"] = _checkpoint_digest(checkpoint)
++    _atomic_write(
++        checkpoint_path,
++        (json.dumps(checkpoint, indent=2, sort_keys=True) + "\n").encode("utf-8"),
++    )
++    return {
++        "schema": RESULT_SCHEMA,
++        "status": "COMPLETE",
++        "completed_views": len(completed),
++        "total_views": len(view_tuple),
++        "rendered_views_this_run": rendered,
++        "checkpoint_digest": checkpoint["checkpoint_digest"],
++        "evidence_manifest_digest": manifest["manifest_digest"],
++        "verification_receipt_digest": verification["receipt_digest"],
++        "removed_unadmitted_artifacts": removed,
++        "authority": "NONE",
++        "truth_boundary": (
++            "resumable completion proves contiguous checkpoint-admitted diagnostic preview evidence; "
++            "it does not prove visual quality or engine acceptance"
++        ),
++    }
+diff --git a/native_preview_resumable_test.py b/native_preview_resumable_test.py
+new file mode 100644
+index 0000000..840435b
+--- /dev/null
++++ b/native_preview_resumable_test.py
+@@ -0,0 +1,134 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import hashlib
++import json
++from pathlib import Path
++from tempfile import TemporaryDirectory
++
++from native_geometry import make_box, scale
++from native_preview_evidence import write_verified_preview
++from native_preview_resumable import NativePreviewResumeError, render_preview_resumable
++
++
++def _sha(path: Path) -> str:
++    return hashlib.sha256(path.read_bytes()).hexdigest()
++
++
++def _evidence_paths(root: Path) -> list[str]:
++    manifest = json.loads((root / "evidence-manifest.json").read_text())
++    return [row["path"] for row in manifest["files"]]
++
++
++def expect_resume_error(fn, text: str) -> None:
++    try:
++        fn()
++    except NativePreviewResumeError as exc:
++        assert text in str(exc), str(exc)
++    else:
++        raise AssertionError(f"expected NativePreviewResumeError containing {text!r}")
++
++
++def run() -> None:
++    with TemporaryDirectory() as tmp:
++        root = Path(tmp)
++        mesh = make_box((1.2, 0.5, 2.1), name="resumable-preview-box")
++        resumed_root = root / "resumed"
++
++        first = render_preview_resumable(
++            mesh,
++            resumed_root,
++            size=48,
++            max_new_views=1,
++        )
++        assert first["status"] == "PAUSED"
++        assert first["completed_views"] == 1
++        assert first["rendered_views_this_run"] == 1
++        assert (resumed_root / "front-silhouette.png").is_file()
++        assert not (resumed_root / "side-depth.png").exists()
++
++        # Model a crash after a tail artifact was written but before its view was
++        # checkpoint-admitted. Resume must discard this untrusted tail byte body.
++        (resumed_root / "side-silhouette.png").write_bytes(b"unadmitted crash tail")
++        completed = render_preview_resumable(mesh, resumed_root, size=48)
++        assert completed["status"] == "COMPLETE"
++        assert completed["completed_views"] == 3
++        assert completed["rendered_views_this_run"] == 2
++        assert "side-silhouette.png" in completed["removed_unadmitted_artifacts"]
++        assert completed["authority"] == "NONE"
++        assert (resumed_root / "evidence-manifest.json").is_file()
++        assert (resumed_root / "evidence-verification.json").is_file()
++
++        # Resume output must be byte-identical to a clean one-shot preview for
++        # every evidence file, not merely visually similar.
++        one_shot_root = root / "one-shot"
++        one_shot = write_verified_preview(mesh, one_shot_root, size=48)
++        assert one_shot["status"] == "PASS"
++        resumed_paths = _evidence_paths(resumed_root)
++        one_shot_paths = _evidence_paths(one_shot_root)
++        assert resumed_paths == one_shot_paths
++        assert len(resumed_paths) == 11
++        for relative in resumed_paths:
++            assert _sha(resumed_root / relative) == _sha(one_shot_root / relative), relative
++
++        # Completed resume is a re-verification, not a rerender.
++        repeated = render_preview_resumable(mesh, resumed_root, size=48)
++        assert repeated["status"] == "COMPLETE"
++        assert repeated["rendered_views_this_run"] == 0
++        assert repeated["evidence_manifest_digest"] == completed["evidence_manifest_digest"]
++
++        tamper_root = root / "tamper"
++        paused = render_preview_resumable(mesh, tamper_root, size=40, max_new_views=1)
++        assert paused["status"] == "PAUSED"
++        admitted = tamper_root / "front-depth.png"
++        admitted.write_bytes(admitted.read_bytes() + b"tamper")
++        expect_resume_error(
++            lambda: render_preview_resumable(mesh, tamper_root, size=40),
++            "differs from receipt",
++        )
++
++        identity_root = root / "identity"
++        paused_identity = render_preview_resumable(
++            mesh,
++            identity_root,
++            size=40,
++            max_new_views=1,
++        )
++        assert paused_identity["status"] == "PAUSED"
++        expect_resume_error(
++            lambda: render_preview_resumable(scale(mesh, 1.1), identity_root, size=40),
++            "identity does not match",
++        )
++        expect_resume_error(
++            lambda: render_preview_resumable(mesh, identity_root, size=42),
++            "identity does not match",
++        )
++
++        checkpoint_root = root / "checkpoint-tamper"
++        render_preview_resumable(mesh, checkpoint_root, size=40, max_new_views=1)
++        checkpoint_path = checkpoint_root / "render-checkpoint.json"
++        checkpoint = json.loads(checkpoint_path.read_text())
++        checkpoint["status"] = "COMPLETE"
++        checkpoint_path.write_text(json.dumps(checkpoint, indent=2, sort_keys=True) + "\n")
++        expect_resume_error(
++            lambda: render_preview_resumable(mesh, checkpoint_root, size=40),
++            "checkpoint digest",
++        )
++
++        zero_root = root / "zero-budget"
++        zero = render_preview_resumable(mesh, zero_root, size=32, max_new_views=0)
++        assert zero["status"] == "PAUSED"
++        assert zero["completed_views"] == 0
++        assert zero["rendered_views_this_run"] == 0
++
++        print(
++            "NATIVE PREVIEW RESUME TEST PASS",
++            completed["completed_views"],
++            "views /",
++            len(resumed_paths),
++            "byte-identical evidence files",
++        )
++
++
++if __name__ == "__main__":
++    run()

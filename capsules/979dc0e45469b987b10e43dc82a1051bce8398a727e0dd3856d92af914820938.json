@@ -1,0 +1,52 @@
+{
+  "capsule_id": "979dc0e45469b987b10e43dc82a1051bce8398a727e0dd3856d92af914820938",
+  "evidence": {
+    "files": [
+      {
+        "additions": 35,
+        "binary": false,
+        "content_sha256": "b6d77f44e4b0f7bbb2715e1e17f38ea39220bf82289ee91a438fcb00ba039796",
+        "deletions": 0,
+        "path": "native_kettlejack_character_v2_test.py",
+        "status": "A",
+        "symbols": [
+          "KettlejackV2Tests"
+        ],
+        "topics": []
+      }
+    ],
+    "patch_sha256": "4bff75a421f8e6a5c4c9e29b895229d55cf5acdf4d7914acd773f9c12a2e3b6f"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 5,
+    "kinds": [
+      "code",
+      "test-change"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "asset-forge",
+      "axm",
+      "build",
+      "character",
+      "game-assets",
+      "kettlejack",
+      "native",
+      "repair",
+      "standalone",
+      "visual"
+    ]
+  },
+  "source": {
+    "base": "99b97d8d888068d4db3fdafc7d76dd3ee3055a47",
+    "commit_subject": "Test Kettlejack v0.2 visual repair build",
+    "head": "2332228c88a5ccacf4ae7cb963d20a983ef0fc6e",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

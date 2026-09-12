@@ -1,0 +1,121 @@
+{
+  "capsule_id": "a11f3d5fcb6b8b9a0b6e32dc96c5dfd88a3c1a6667cddbb9b84d1960038def28",
+  "evidence": {
+    "files": [
+      {
+        "additions": 86,
+        "binary": false,
+        "content_sha256": "55e2f56e492c4c3921a52d693d7e2e8df3ff3c9b02ead3713d4ae68a2cfb7f84",
+        "deletions": 0,
+        "path": "docs/NATIVE_COLLISION_CONTRACT.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Native collision/navigation contract donor",
+          "Why this is separate from visual geometry",
+          "Contract",
+          "Conditional collision",
+          "Coarse bounds helper",
+          "Delivery evidence",
+          "Truth boundary"
+        ]
+      },
+      {
+        "additions": 240,
+        "binary": false,
+        "content_sha256": "f2957ebdf29d933a9b26cc966951ad642869030215f3526ee8bf5993d2f96224",
+        "deletions": 0,
+        "path": "native_collision_contract.py",
+        "status": "A",
+        "symbols": [
+          "CollisionContractError",
+          "CollisionBox",
+          "CollisionContract",
+          "_canonical",
+          "_digest",
+          "_finite3",
+          "_box_payload",
+          "contract_payload",
+          "validate_collision_contract",
+          "collision_proxy_mesh",
+          "coarse_contract_from_mesh",
+          "write_collision_contract"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 95,
+        "binary": false,
+        "content_sha256": "0852ced856fd94c227e69edd66198f3a6ef2db3eb1024041fe48d73c1244750e",
+        "deletions": 0,
+        "path": "native_collision_contract_test.py",
+        "status": "A",
+        "symbols": [
+          "NativeCollisionContractTests"
+        ],
+        "topics": []
+      }
+    ],
+    "patch_sha256": "309b46f3ea7c2b00943f15719816bd5fba210d136556326f7fbff81cf257ed30"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 7,
+    "kinds": [
+      "code",
+      "knowledge",
+      "protocol-state",
+      "test-change"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "asset-forge",
+      "axm",
+      "boundary",
+      "bounds",
+      "box",
+      "canonical",
+      "coarse",
+      "collision",
+      "conditional",
+      "contract",
+      "contracts",
+      "delivery",
+      "digest",
+      "donor",
+      "error",
+      "evidence",
+      "finite3",
+      "from",
+      "game-assets",
+      "geometry",
+      "helper",
+      "merge",
+      "mesh",
+      "native",
+      "navigation",
+      "payload",
+      "proxy",
+      "semantic",
+      "separate",
+      "standalone",
+      "this",
+      "truth",
+      "validate",
+      "visual",
+      "why",
+      "write"
+    ]
+  },
+  "source": {
+    "base": "7d0f92689dd1a8033ab4b69399796985340b7e27",
+    "commit_subject": "Merge PR #30: semantic collision and navigation contracts",
+    "head": "91d56f8f25e1ea3187b16433b2fefdc9a2b39168",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

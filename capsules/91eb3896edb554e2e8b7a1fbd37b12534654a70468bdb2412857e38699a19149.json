@@ -1,0 +1,128 @@
+{
+  "capsule_id": "91eb3896edb554e2e8b7a1fbd37b12534654a70468bdb2412857e38699a19149",
+  "evidence": {
+    "files": [
+      {
+        "additions": 63,
+        "binary": false,
+        "content_sha256": "3c10b02f9924093db36f48ef9c223a89d0d01454299a8313334c41cd06e1e055",
+        "deletions": 0,
+        "path": "docs/NATIVE_FOUND_OBJECT_DETAIL.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Native found-object detail donor",
+          "Why this donor matters",
+          "Current recipes",
+          "Practical lights",
+          "Composition principle",
+          "Truth boundary"
+        ]
+      },
+      {
+        "additions": 283,
+        "binary": false,
+        "content_sha256": "4a4d1052cc269ba0ba0cbfcdc3d62967102ec217efdd3782578c0bbae99f6171",
+        "deletions": 0,
+        "path": "native_found_object_detail.py",
+        "status": "A",
+        "symbols": [
+          "FoundObjectDetailError",
+          "PracticalLight",
+          "DetailCluster",
+          "_canonical",
+          "_digest",
+          "_mesh_digest",
+          "_finite3",
+          "_positive",
+          "_part",
+          "_cluster",
+          "_ellipsoid",
+          "build_kettle",
+          "build_mug",
+          "build_winch",
+          "build_stool",
+          "build_lantern",
+          "build_tied_cargo"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 78,
+        "binary": false,
+        "content_sha256": "ee644bfde2800b7a20a16cbbcf24c05390a02e362563478979c79625274dd64c",
+        "deletions": 0,
+        "path": "native_found_object_detail_test.py",
+        "status": "A",
+        "symbols": [
+          "NativeFoundObjectDetailTests"
+        ],
+        "topics": []
+      }
+    ],
+    "patch_sha256": "93a8323f1330b6b8ebb57ef596d69ad2369cac94553e825374173f96813f8504"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 6,
+    "kinds": [
+      "code",
+      "knowledge",
+      "test-change"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "asset-forge",
+      "axm",
+      "boundary",
+      "build",
+      "canonical",
+      "cargo",
+      "cluster",
+      "composition",
+      "current",
+      "detail",
+      "digest",
+      "donor",
+      "ellipsoid",
+      "error",
+      "finite3",
+      "found",
+      "game-assets",
+      "kettle",
+      "language",
+      "lantern",
+      "light",
+      "lights",
+      "matters",
+      "merge",
+      "mesh",
+      "mug",
+      "native",
+      "object",
+      "part",
+      "positive",
+      "practical",
+      "principle",
+      "recipes",
+      "standalone",
+      "stool",
+      "this",
+      "tied",
+      "truth",
+      "why",
+      "winch"
+    ]
+  },
+  "source": {
+    "base": "91d56f8f25e1ea3187b16433b2fefdc9a2b39168",
+    "commit_subject": "Merge PR #31: found-object detail language",
+    "head": "65d482b6331f287ba2d1fa8b27cce48a2ffc7c29",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

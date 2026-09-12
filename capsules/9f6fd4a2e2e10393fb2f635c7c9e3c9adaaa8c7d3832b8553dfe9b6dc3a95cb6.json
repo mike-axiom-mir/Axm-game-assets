@@ -1,0 +1,220 @@
+{
+  "capsule_id": "9f6fd4a2e2e10393fb2f635c7c9e3c9adaaa8c7d3832b8553dfe9b6dc3a95cb6",
+  "evidence": {
+    "files": [
+      {
+        "additions": 194,
+        "binary": false,
+        "content_sha256": "c03ae904c896c7657a44aed7c03df6dba24c1956defcec852d61739371d1dc05",
+        "deletions": 0,
+        "path": "docs/UNIVERSAL_CREATION_RTS_DONORS.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Universal Creation v0.24 donor intake",
+          "Selected donor 1 \u2014 multi-family authored surfaces",
+          "Selected donor 2 \u2014 lossless shared-image GLB packing",
+          "Selected donor 3 \u2014 readable geometric stencil detail",
+          "Why these donors matter for the dense workshop reference",
+          "What was deliberately not copied",
+          "Relationship to the existing Universal Creation bridge",
+          "Truth and authority boundary"
+        ]
+      },
+      {
+        "additions": 473,
+        "binary": false,
+        "content_sha256": "118cfacfc6243fe331d818133edc303d67d94f841afe8f12d5d29ee65df30390",
+        "deletions": 0,
+        "path": "native_shared_glb_pack.py",
+        "status": "A",
+        "symbols": [
+          "SharedGlbPackError",
+          "_sha256",
+          "_hex_digest",
+          "_strict_pairs",
+          "_reject_constant",
+          "_parse_json",
+          "read_glb",
+          "_view_blob",
+          "_collect_buffer_view_refs",
+          "_remap_buffer_views",
+          "_relative_uri",
+          "_write_create_only",
+          "_write_shared_payload",
+          "pack_glb_to_shared",
+          "_safe_asset_id",
+          "pack_shared_collection",
+          "main"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 110,
+        "binary": false,
+        "content_sha256": "d6656dfa8c8837ddb5ae0d87409101f24ad82157dc25113ca8a1ab1d02b5e8bd",
+        "deletions": 0,
+        "path": "native_shared_glb_pack_test.py",
+        "status": "A",
+        "symbols": [
+          "build_real_forge_glb",
+          "NativeSharedGlbPackTests"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 193,
+        "binary": false,
+        "content_sha256": "92e8c867ef0fb764ccc6deb432b0bfd22369fefe65141c76641205db87b26649",
+        "deletions": 0,
+        "path": "native_stencil_detail.py",
+        "status": "A",
+        "symbols": [
+          "StencilDetailError",
+          "_sha256",
+          "_canonical",
+          "_normalize_lines",
+          "stencil_mesh",
+          "stencil_receipt",
+          "main"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 46,
+        "binary": false,
+        "content_sha256": "9f4fa9b696c80539f1a3027f0bf5e2e8f0d643035dea26c58c5b37f49136cbf7",
+        "deletions": 0,
+        "path": "native_stencil_detail_test.py",
+        "status": "A",
+        "symbols": [
+          "NativeStencilDetailTests"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 357,
+        "binary": false,
+        "content_sha256": "7d64df251494fc924d18ef4bdc3e6f51bd792cdfd07b789b522288c00e829860",
+        "deletions": 0,
+        "path": "native_surface_families.py",
+        "status": "A",
+        "symbols": [
+          "SurfaceFamilySpec",
+          "_clamp",
+          "_u8",
+          "_sha256",
+          "_canonical",
+          "_rgb01",
+          "_hash01",
+          "_signals",
+          "_normal_map",
+          "build_surface_family",
+          "write_surface_family",
+          "main"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 114,
+        "binary": false,
+        "content_sha256": "6809daf385b9d561f58c0750c1a8b6109d6b9e22cb903a15c2cd8988decb27c9",
+        "deletions": 0,
+        "path": "native_surface_families_test.py",
+        "status": "A",
+        "symbols": [
+          "NativeSurfaceFamiliesTests"
+        ],
+        "topics": []
+      }
+    ],
+    "patch_sha256": "a8f5b7a614aa0c913b8ba6ec6a5ed21a2b47b2d06fd8f697af9a42dd336453a9"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 6,
+    "kinds": [
+      "code",
+      "knowledge",
+      "test-change"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "asset",
+      "asset-forge",
+      "authored",
+      "authority",
+      "axm",
+      "blob",
+      "boundary",
+      "bridge",
+      "buffer",
+      "build",
+      "canonical",
+      "clamp",
+      "collect",
+      "collection",
+      "constant",
+      "copied",
+      "create",
+      "creation",
+      "deliberately",
+      "dense",
+      "detail",
+      "digest",
+      "donor",
+      "donors",
+      "error",
+      "existing",
+      "families",
+      "family",
+      "finished",
+      "forge",
+      "foundry",
+      "game-assets",
+      "geometric",
+      "glb",
+      "hash01",
+      "hex",
+      "image",
+      "intake",
+      "json",
+      "lines",
+      "lossless",
+      "map",
+      "matter",
+      "mesh",
+      "multi",
+      "native",
+      "normal",
+      "normalize",
+      "not",
+      "only",
+      "pack",
+      "packing",
+      "pairs",
+      "parse",
+      "payload",
+      "read",
+      "readable",
+      "real",
+      "receipt",
+      "reference",
+      "refs",
+      "reject",
+      "relationship",
+      "relative"
+    ]
+  },
+  "source": {
+    "base": "c17d99b06e1717638b2d820138806390b14db99c",
+    "commit_subject": "Transplant finished Universal Creation foundry donors (#26)",
+    "head": "e0b3fecfb363f5f1ee54c4593e899898e428f9fe",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

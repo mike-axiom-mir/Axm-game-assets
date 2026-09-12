@@ -1,0 +1,163 @@
+{
+  "capsule_id": "0b2e4cf3f1ac98d793cc88f7eb6b6cf5909bcbfde02a9aa00bd8512e2aff74f9",
+  "evidence": {
+    "files": [
+      {
+        "additions": 80,
+        "binary": false,
+        "content_sha256": "b16b17abf90d6a85511899c6e0afdba194df5c885c1bac950db46a95827a0879",
+        "deletions": 0,
+        "path": "docs/NATIVE_CONSTRUCTION_KIT.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Native construction kit donor",
+          "Native primitives",
+          "Why it matters",
+          "Composition with existing Forge organs",
+          "Evidence",
+          "Truth boundary"
+        ]
+      },
+      {
+        "additions": 17,
+        "binary": false,
+        "content_sha256": "1bae4d5b055e4a81c15fcc39ce5e8389fc6581e773635b4a1d62c083b87f407a",
+        "deletions": 0,
+        "path": "docs/UNIVERSAL_CREATION_DONOR_INTAKE_NOTE.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Universal Creation donor intake continuation"
+        ]
+      },
+      {
+        "additions": 527,
+        "binary": false,
+        "content_sha256": "e89a1e8e13dee4f5e0aaab62c0598ec8e1840b3c48ff5d8633c04f43205632ee",
+        "deletions": 0,
+        "path": "native_construction_kit.py",
+        "status": "A",
+        "symbols": [
+          "ConstructionKitError",
+          "SemanticPart",
+          "ConstructionAssembly",
+          "_add",
+          "_sub",
+          "_mul",
+          "_cross",
+          "_length",
+          "_norm",
+          "_finite3",
+          "_frame",
+          "_safe_positive",
+          "beam_segment",
+          "pipe_path",
+          "torus_ring",
+          "lathe_profile",
+          "rounded_box",
+          "_part",
+          "_assembly",
+          "build_ladder",
+          "build_barrel",
+          "build_crate",
+          "build_railing",
+          "build_crane"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 87,
+        "binary": false,
+        "content_sha256": "ca3bd72886c71a2a55544f5c3eded228ec014d6b20426b3e689354838437286a",
+        "deletions": 0,
+        "path": "native_construction_kit_test.py",
+        "status": "A",
+        "symbols": [
+          "NativeConstructionKitTests"
+        ],
+        "topics": []
+      }
+    ],
+    "patch_sha256": "8e0abde3fd3b21e26a0d371a509ccbd05b2def561a3ccdae6166e12cf680e51d"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 6,
+    "kinds": [
+      "code",
+      "knowledge",
+      "test-change"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "add",
+      "assembly",
+      "asset-forge",
+      "axm",
+      "barrel",
+      "beam",
+      "boundary",
+      "box",
+      "build",
+      "composition",
+      "construction",
+      "continuation",
+      "crane",
+      "crate",
+      "creation",
+      "cross",
+      "donor",
+      "error",
+      "evidence",
+      "existing",
+      "finite3",
+      "forge",
+      "frame",
+      "game-assets",
+      "intake",
+      "kit",
+      "ladder",
+      "lathe",
+      "length",
+      "matters",
+      "merge",
+      "mul",
+      "native",
+      "norm",
+      "note",
+      "organs",
+      "part",
+      "path",
+      "pipe",
+      "positive",
+      "primitives",
+      "profile",
+      "railing",
+      "reusable",
+      "ring",
+      "rounded",
+      "safe",
+      "segment",
+      "semantic",
+      "standalone",
+      "sub",
+      "torus",
+      "truth",
+      "universal",
+      "why",
+      "with"
+    ]
+  },
+  "source": {
+    "base": "2fbc37767f6b59d6002a8f38b11ca6d7bc1893d1",
+    "commit_subject": "Merge PR #28: reusable Universal Creation construction kit",
+    "head": "7a6eb9053939bfe09348e12e1058d54259f3c665",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

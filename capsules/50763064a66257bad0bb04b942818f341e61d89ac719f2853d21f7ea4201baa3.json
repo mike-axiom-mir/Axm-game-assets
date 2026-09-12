@@ -1,0 +1,51 @@
+{
+  "capsule_id": "50763064a66257bad0bb04b942818f341e61d89ac719f2853d21f7ea4201baa3",
+  "evidence": {
+    "files": [
+      {
+        "additions": 16,
+        "binary": false,
+        "content_sha256": "42593e0d8e9c0db1be600ae23f68e235e2c4ed73b0362f9313cf450a01d63925",
+        "deletions": 0,
+        "path": "docs/KETTLEJACK_V02_RENDER_FINDINGS.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Kettlejack v0.2 retained-render findings"
+        ]
+      }
+    ],
+    "patch_sha256": "b981c91f4deece7d7f707dd214b278e65494c6cfd607dc5137d27e050757670b"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 1,
+    "kinds": [
+      "knowledge"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "asset-forge",
+      "axm",
+      "findings",
+      "game-assets",
+      "kettlejack",
+      "record",
+      "render",
+      "retained",
+      "standalone",
+      "v02"
+    ]
+  },
+  "source": {
+    "base": "11d9482fe510012203393d861f3fa09649d2bfb7",
+    "commit_subject": "Record Kettlejack v0.2 render findings",
+    "head": "6276837c2f923f182d81606729f80d5d50453d24",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}
