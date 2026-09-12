@@ -21,11 +21,14 @@ on:
       - "native_shared_glb_pack_test.py"
       - "native_stencil_detail.py"
       - "native_stencil_detail_test.py"
+      - "native_salvage_construction.py"
+      - "native_salvage_construction_test.py"
       - "docs/CODE_MULTIPLIER_TRANSPLANTS.md"
       - "docs/NATIVE_PBR_REHEARSAL.md"
       - "docs/NATIVE_PREVIEW_EVIDENCE.md"
       - "docs/NATIVE_PREVIEW_RESUME.md"
       - "docs/UNIVERSAL_CREATION_RTS_DONORS.md"
+      - "docs/NATIVE_SALVAGE_CONSTRUCTION.md"
       - ".github/workflows/native-multiplier-transplants.yml"
   pull_request:
     paths:
@@ -47,11 +50,14 @@ on:
       - "native_shared_glb_pack_test.py"
       - "native_stencil_detail.py"
       - "native_stencil_detail_test.py"
+      - "native_salvage_construction.py"
+      - "native_salvage_construction_test.py"
       - "docs/CODE_MULTIPLIER_TRANSPLANTS.md"
       - "docs/NATIVE_PBR_REHEARSAL.md"
       - "docs/NATIVE_PREVIEW_EVIDENCE.md"
       - "docs/NATIVE_PREVIEW_RESUME.md"
       - "docs/UNIVERSAL_CREATION_RTS_DONORS.md"
+      - "docs/NATIVE_SALVAGE_CONSTRUCTION.md"
       - ".github/workflows/native-multiplier-transplants.yml"
 
 jobs:
@@ -80,3 +86,5 @@ jobs:
         run: python native_shared_glb_pack_test.py
       - name: Universal Creation geometric stencil donor tests
         run: python native_stencil_detail_test.py
+      - name: Universal Creation salvage construction donor tests
+        run: python native_salvage_construction_test.py
