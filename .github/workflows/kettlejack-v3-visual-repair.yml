@@ -1,0 +1,92 @@
+name: kettlejack-v3-visual-repair
+
+on:
+  push:
+    paths:
+      - "native_kettlejack_character_v3.py"
+      - "native_kettlejack_character_v3_test.py"
+      - "engine/godot_face/render_kettlejack_v3_review.gd"
+      - ".github/workflows/kettlejack-v3-visual-repair.yml"
+  pull_request:
+    paths:
+      - "native_kettlejack_character_v3.py"
+      - "native_kettlejack_character_v3_test.py"
+      - "engine/godot_face/render_kettlejack_v3_review.gd"
+      - ".github/workflows/kettlejack-v3-visual-repair.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-render-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build and structurally test v0.3
+        run: |
+          python native_kettlejack_character_v3_test.py
+          rm -rf engine/godot_face/generated
+          python native_kettlejack_character_v3.py engine/godot_face/generated --texture-size 64
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('engine/godot_face/generated/kettlejack-v3-package.json').read_text())
+          assert p['schema']=='axm.game-assets.kettlejack-character/v0.3'
+          assert all(p['acceptance'].values()),p['acceptance']
+          assert p['delivery']['joints']==23
+          assert p['delivery']['animations']==['idle','run','jump','wrench_swing','victory']
+          print('KETTLEJACK V0.3 STRUCTURE PASS',p['delivery'])
+          PY
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" --output .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Render v0.3 visual evidence
+        run: |
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          rm -f engine/godot_face/godot-kettlejack-v3-review-*.png engine/godot_face/godot-kettlejack-v3-review-receipt.json
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --display-driver x11 \
+            --rendering-method gl_compatibility \
+            --path engine/godot_face \
+            --script render_kettlejack_v3_review.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('engine/godot_face/godot-kettlejack-v3-review-receipt.json').read_text())
+          assert r['status']=='pass',r
+          assert r['capture_count']==9,r
+          expected=['front','three_quarter','side','back','idle','run','jump','wrench_swing','victory']
+          assert [c['name'] for c in r['captures']]==expected,r
+          print('KETTLEJACK V0.3 RENDER PASS',[(c['name'],c['capture']['metrics']['foreground_coverage']) for c in r['captures']])
+          PY
+
+      - name: Preserve v0.3 asset and render evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kettlejack-v0.3-visual-repair
+          if-no-files-found: error
+          path: |
+            engine/godot_face/generated/**
+            engine/godot_face/godot-kettlejack-v3-review-*.png
+            engine/godot_face/godot-kettlejack-v3-review-receipt.json
