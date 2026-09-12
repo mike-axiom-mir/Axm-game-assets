@@ -9,10 +9,13 @@ on:
       - "native_pbr_signal_review_test.py"
       - "native_pbr_rehearsal.py"
       - "native_pbr_rehearsal_test.py"
+      - "native_preview_evidence.py"
+      - "native_preview_evidence_test.py"
       - "native_evidence_verify.py"
       - "native_evidence_verify_test.py"
       - "docs/CODE_MULTIPLIER_TRANSPLANTS.md"
       - "docs/NATIVE_PBR_REHEARSAL.md"
+      - "docs/NATIVE_PREVIEW_EVIDENCE.md"
       - ".github/workflows/native-multiplier-transplants.yml"
   pull_request:
     paths:
@@ -22,10 +25,13 @@ on:
       - "native_pbr_signal_review_test.py"
       - "native_pbr_rehearsal.py"
       - "native_pbr_rehearsal_test.py"
+      - "native_preview_evidence.py"
+      - "native_preview_evidence_test.py"
       - "native_evidence_verify.py"
       - "native_evidence_verify_test.py"
       - "docs/CODE_MULTIPLIER_TRANSPLANTS.md"
       - "docs/NATIVE_PBR_REHEARSAL.md"
+      - "docs/NATIVE_PREVIEW_EVIDENCE.md"
       - ".github/workflows/native-multiplier-transplants.yml"
 
 jobs:
@@ -42,5 +48,7 @@ jobs:
         run: python native_pbr_signal_review_test.py
       - name: Native PBR rehearsal integration tests
         run: python native_pbr_rehearsal_test.py
+      - name: Native preview evidence integration tests
+        run: python native_preview_evidence_test.py
       - name: Native evidence bundle verification tests
         run: python native_evidence_verify_test.py
