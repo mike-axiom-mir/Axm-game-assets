@@ -37,6 +37,9 @@ class NativeSharedGlbPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             glb = build_real_forge_glb(root)
+            _, source_doc, _ = read_glb(glb)
+            expected_image_count = len(source_doc.get("images", []))
+            self.assertGreater(expected_image_count, 0)
             second = root / "delivery-copy.glb"
             shutil.copyfile(glb, second)
             result = pack_shared_collection(
@@ -45,7 +48,7 @@ class NativeSharedGlbPackTests(unittest.TestCase):
             )
             self.assertEqual(result["status"], "PASS")
             self.assertEqual(set(result["assets"]), {"first", "second"})
-            self.assertEqual(result["shared_texture_count"], 7)
+            self.assertEqual(result["shared_texture_count"], expected_image_count)
             first_doc = json.loads((root / "shared/assets/first/first.gltf").read_text())
             second_doc = json.loads((root / "shared/assets/second/second.gltf").read_text())
             self.assertEqual(
