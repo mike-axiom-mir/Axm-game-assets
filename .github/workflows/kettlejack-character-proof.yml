@@ -1,0 +1,112 @@
+name: kettlejack-character-proof
+
+on:
+  push:
+    paths:
+      - "native_skinned_multi_gltf.py"
+      - "native_skinned_multi_gltf_test.py"
+      - "native_kettlejack_character.py"
+      - "native_kettlejack_character_test.py"
+      - "native_hm08_humanoid_rig.py"
+      - "native_hm08_humanoid_skin_v2.py"
+      - "native_hm08_undersuit.py"
+      - "native_skin_material.py"
+      - "native_surface_families.py"
+      - "native_construction_kit.py"
+      - "native_found_object_detail.py"
+      - "seed_data/hm08_full_body_v0.1/**"
+      - "engine/godot_face/smoke_kettlejack.gd"
+      - ".github/workflows/kettlejack-character-proof.yml"
+  pull_request:
+    paths:
+      - "native_skinned_multi_gltf.py"
+      - "native_skinned_multi_gltf_test.py"
+      - "native_kettlejack_character.py"
+      - "native_kettlejack_character_test.py"
+      - "native_hm08_humanoid_rig.py"
+      - "native_hm08_humanoid_skin_v2.py"
+      - "native_hm08_undersuit.py"
+      - "native_skin_material.py"
+      - "native_surface_families.py"
+      - "native_construction_kit.py"
+      - "native_found_object_detail.py"
+      - "seed_data/hm08_full_body_v0.1/**"
+      - "engine/godot_face/smoke_kettlejack.gd"
+      - ".github/workflows/kettlejack-character-proof.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Test reusable multi-material skinned compiler
+        run: python native_skinned_multi_gltf_test.py
+
+      - name: Build and test Kettlejack character
+        run: |
+          python native_kettlejack_character_test.py
+          rm -rf engine/godot_face/generated
+          python native_kettlejack_character.py engine/godot_face/generated --texture-size 64
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("engine/godot_face/generated")
+          package=json.loads((root/"kettlejack-package.json").read_text())
+          assert package["schema"]=="axm.game-assets.kettlejack-character/v0.1", package["schema"]
+          assert all(package["acceptance"].values()), package["acceptance"]
+          assert [row["name"] for row in package["clips"]]==["idle","run","jump","wrench_swing","victory"]
+          assert package["delivery"]["joints"]==23
+          assert package["delivery"]["primitive_count"]>=8
+          assert package["truth"]["concept_pixel_faithful"] is False
+          assert package["truth"]["automatic_canon"] is False
+          print("KETTLEJACK NATIVE BUILD PASS", package["height_m"], package["delivery"])
+          PY
+
+      - name: Download pinned Godot 4.7.2
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+        run: |
+          mkdir -p .godot-bin
+          curl --fail --location --retry 3 --retry-delay 2 "$GODOT_URL" --output .godot-bin/godot.zip
+          echo "$GODOT_SHA256  .godot-bin/godot.zip" | sha256sum --check --strict
+          unzip -q .godot-bin/godot.zip -d .godot-bin
+          chmod +x .godot-bin/Godot_v4.7.2-stable_linux.x86_64
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 --version
+
+      - name: Import Kettlejack in real Godot
+        run: |
+          rm -f engine/godot_face/godot-kettlejack-import-receipt.json
+          .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --headless \
+            --path engine/godot_face \
+            --script smoke_kettlejack.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt=json.loads(Path("engine/godot_face/godot-kettlejack-import-receipt.json").read_text())
+          assert receipt["status"]=="pass", receipt
+          assert receipt["surfaces"]>=8, receipt
+          assert receipt["max_bone_count"]>=23, receipt
+          assert set(["idle","run","jump","wrench_swing","victory"]).issubset(receipt["clips"]), receipt
+          print("KETTLEJACK GODOT IMPORT PASS", receipt)
+          PY
+
+      - name: Preserve usable Kettlejack game character
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kettlejack-game-character-v0.1
+          if-no-files-found: error
+          path: |
+            engine/godot_face/generated/**
+            engine/godot_face/godot-kettlejack-import-receipt.json
