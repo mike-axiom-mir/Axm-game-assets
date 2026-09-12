@@ -1,0 +1,218 @@
+# Universal Creation → Game Asset Forge 3D ingress
+
+## Why this bridge exists
+
+`axm-universal-creation` can now produce increasingly detailed 3D candidates and
+retain a review-driven history around those candidates. Game Asset Forge should
+be able to benefit from that growth **without making Universal Creation the owner
+of Game Asset canonical truth**.
+
+This bridge is the first executable version of the previously documented clean
+boundary between the two repositories.
+
+The relationship is deliberately asymmetric at admission time:
+
+```text
+goal / reference direction
+        |
+        v
+Universal Creation 3D forge / iteration
+        |
+        | exact forge-request.json
+        | exact asset-manifest.json
+        | exact forge-receipt.json
+        | source + LOD/collision GLBs + render proofs
+        v
+universal_creation_asset_bridge.py
+        |
+        | independent byte/path/container checks
+        v
+PROPOSAL_ONLY ingress receipt
+        |
+        +--> Game Asset Genome mapping / family transform (separate work)
+        +--> native topology/material/rig/contact checks
+        +--> Three.js / Godot / other engine evidence
+        +--> explicit root-compatible acceptance decision
+```
+
+A visually impressive render does not skip the lower half of this diagram.
+
+## Current provider boundary
+
+This bridge does **not** claim that every Universal Creation 3D path already
+emits this contract. The currently inspected `3D_ITERATION.md` explicitly says
+its retained iteration adapter covers the Axiom/Mir 3D builders rather than all
+creation formats. Universal Creation also has other 3D builders and static-asset
+contract work, but those remain separate until they emit a compatible bounded
+handoff.
+
+So this ingress is immediately usable for compatible forge directories and is a
+stable landing contract for future detailed builders. It does not manufacture a
+missing provider capability by documentation.
+
+## What the bridge verifies
+
+The bridge consumes one existing Universal Creation 3D forge output directory.
+It does not import Universal Creation Python modules or discover a provider
+implicitly.
+
+It independently checks:
+
+- `forge-request.json` uses `axm.3d-forge-request/v0.1`;
+- `forge-receipt.json` uses `axm.3d-forge-receipt/v0.1`;
+- request, manifest and receipt carry the same `asset_id`;
+- all manifest paths are relative, in-tree and non-symlinked;
+- manifest-declared source, LOD0, LOD1, LOD2, collision and render-proof bytes
+  still match their declared SHA-256 identities;
+- each GLB is a bounded glTF 2.0 binary container with a valid first JSON chunk;
+- each render proof has a PNG/IHDR identity and bounded dimensions;
+- the receipt's proof list exactly matches the manifest's proof list;
+- declared render angles are summarized as a separate review-readiness signal.
+
+The resulting proposal also retains the source request's criteria, constraints,
+avoid list, palette, archetype, quality tier and technical requirements as
+**expression intent**. That matters because a detailed asset is more than a
+triangle count. A later Game Asset transform should be able to preserve the
+reason the detail exists.
+
+## What it deliberately does not verify
+
+The proposal does **not** establish:
+
+- visual or "AAA" quality;
+- Game Asset Genome compatibility;
+- topology, UV, collision or deformation quality beyond the small GLB container
+  boundary checked here;
+- rigging, skinning, animation, contact or secondary-motion quality;
+- actual engine import, gameplay behavior or performance;
+- authorship or license fitness merely because the provider emitted a receipt;
+- release, merge or CANON.
+
+The Universal Creation acceptance object is retained under `upstream_claims`,
+but it is evidence from the provider, not inherited authority.
+
+## Use
+
+From the Game Asset Forge repository:
+
+```bash
+python universal_creation_asset_bridge.py \
+  --candidate /path/to/universal-creation/version-directory \
+  --proposal build/workshop/uc-proposal.json \
+  --expected-asset-id stylized-workshop-cluster
+```
+
+The output path is **create-only**. Existing proposal bytes are never silently
+overwritten.
+
+A successful run prints the same proposal JSON to stdout and writes a receipt
+with schema:
+
+```text
+axm.game-assets.universal-creation-3d-proposal/v0.1
+```
+
+Its state is always:
+
+```text
+PROPOSAL_ONLY
+```
+
+There is intentionally no `--install`, `--accept`, `--merge` or `--canon`
+switch.
+
+## Detailed environment assets are now a first-class proving direction
+
+The current Forge has deep character/Sentinel coverage. The growth in Universal
+Creation makes another proving direction useful: a **dense stylized environment
+cluster** such as a repair workshop, market stall, field laboratory, improvised
+base module, or RTS civilian structure.
+
+That class of asset stresses capabilities the character lane does not stress as
+directly:
+
+- large / medium / small form hierarchy;
+- modular subparts and attachment semantics;
+- many material roles in one readable object;
+- believable wear and asymmetry;
+- functional clutter rather than random noise;
+- signage / decals / readable graphic accents;
+- repeated small props without destroying draw-call budgets;
+- collision and navigation around irregular silhouettes;
+- hero-close detail that can collapse into distant RTS readability;
+- baked versus geometric detail decisions;
+- LOD retention of identity and gameplay-relevant landmarks.
+
+The uploaded workshop-style direction that motivated this lane is a good example
+of why **detail density must be semantic**. The tarp, ladder, lamps, crates,
+barrels, workbench, shelving, pipework, tools and sign are not interchangeable
+noise. Together they communicate "lived-in repair workshop" before the viewer
+reads any metadata.
+
+Game Asset Forge should therefore preserve intent such as:
+
+- primary silhouette;
+- form hierarchy;
+- functional prop groups;
+- material-role separation;
+- warm/cool or emissive anchors;
+- wear/history logic;
+- asymmetry;
+- negative space;
+- scale cues;
+- signage/decals where relevant;
+- distance readability.
+
+Those are candidate/request semantics. This bridge retains them when Universal
+Creation already expressed them, but it does not pretend to infer them from an
+image automatically.
+
+## Relationship to the Game Asset Genome
+
+The proposal is **not** a Genome revision.
+
+A later admission step may map a proposal into:
+
+1. a known asset family (`prop`, `building`, `environment_kit`, etc.);
+2. canonical source-state artifacts;
+3. explicit expression/detail intent;
+4. variant and realization contracts;
+5. native evidence gates;
+6. engine-specific compiled deliveries.
+
+That step must preserve the existing Game Asset rule:
+
+> degrade expression, never truth; upgrade expression, never invent truth.
+
+A low-cost RTS realization may bake or omit tiny workshop tools, for example,
+while keeping the building identity, interaction sockets, collision meaning,
+important signage/landmarks and canonical high-detail source state intact.
+
+## Failure behavior
+
+The bridge returns a typed failure instead of silently downgrading evidence.
+
+Examples include:
+
+- `ASSET_IDENTITY_DRIFT`
+- `ARTIFACT_DIGEST_DRIFT`
+- `ARTIFACT_SIZE_DRIFT`
+- `UNSAFE_PATH`
+- `INVALID_GLB`
+- `INVALID_PNG`
+- `RECEIPT_PROOF_DRIFT`
+- `CONSUMER_ASSET_ID_MISMATCH`
+
+Weak camera distribution is different: the candidate may still be structurally
+valid, so it becomes `HOLD` under `review_readiness.multi_angle_distribution`
+rather than being mislabeled as either visually accepted or technically invalid.
+
+## Next useful layer
+
+This ingress closes the byte-and-intent boundary. The next high-value evolution
+is not another broad "make assets better" switch. It is to connect proposal
+artifacts to existing family-specific native gates and create an executable
+**detail-retention / realization contract** for environment kits and buildings.
+
+That would let one rich canonical workshop body compile to hero, gameplay,
+mass-RTS and mobile realizations while retaining explicit semantic priorities.
