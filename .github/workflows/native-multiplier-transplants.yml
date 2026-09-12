@@ -27,6 +27,8 @@ on:
       - "native_construction_kit_test.py"
       - "native_rigid_assembly.py"
       - "native_rigid_assembly_test.py"
+      - "native_collision_contract.py"
+      - "native_collision_contract_test.py"
       - "docs/CODE_MULTIPLIER_TRANSPLANTS.md"
       - "docs/NATIVE_PBR_REHEARSAL.md"
       - "docs/NATIVE_PREVIEW_EVIDENCE.md"
@@ -35,6 +37,7 @@ on:
       - "docs/NATIVE_SALVAGE_CONSTRUCTION.md"
       - "docs/NATIVE_CONSTRUCTION_KIT.md"
       - "docs/NATIVE_RIGID_ASSEMBLY.md"
+      - "docs/NATIVE_COLLISION_CONTRACT.md"
       - ".github/workflows/native-multiplier-transplants.yml"
   pull_request:
     paths:
@@ -62,6 +65,8 @@ on:
       - "native_construction_kit_test.py"
       - "native_rigid_assembly.py"
       - "native_rigid_assembly_test.py"
+      - "native_collision_contract.py"
+      - "native_collision_contract_test.py"
       - "docs/CODE_MULTIPLIER_TRANSPLANTS.md"
       - "docs/NATIVE_PBR_REHEARSAL.md"
       - "docs/NATIVE_PREVIEW_EVIDENCE.md"
@@ -70,6 +75,7 @@ on:
       - "docs/NATIVE_SALVAGE_CONSTRUCTION.md"
       - "docs/NATIVE_CONSTRUCTION_KIT.md"
       - "docs/NATIVE_RIGID_ASSEMBLY.md"
+      - "docs/NATIVE_COLLISION_CONTRACT.md"
       - ".github/workflows/native-multiplier-transplants.yml"
 
 jobs:
@@ -104,3 +110,5 @@ jobs:
         run: python native_construction_kit_test.py
       - name: Universal Creation rigid assembly donor tests
         run: python native_rigid_assembly_test.py
+      - name: Universal Creation collision contract donor tests
+        run: python native_collision_contract_test.py
