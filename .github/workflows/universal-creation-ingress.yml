@@ -1,0 +1,26 @@
+name: universal-creation-ingress
+
+on:
+  push:
+    paths:
+      - "universal_creation_asset_bridge.py"
+      - "universal_creation_asset_bridge_test.py"
+      - "docs/UNIVERSAL_CREATION_INGRESS.md"
+      - ".github/workflows/universal-creation-ingress.yml"
+  pull_request:
+    paths:
+      - "universal_creation_asset_bridge.py"
+      - "universal_creation_asset_bridge_test.py"
+      - "docs/UNIVERSAL_CREATION_INGRESS.md"
+      - ".github/workflows/universal-creation-ingress.yml"
+
+jobs:
+  ingress-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Universal Creation proposal ingress tests
+        run: python universal_creation_asset_bridge_test.py
