@@ -9,6 +9,7 @@ on:
       - "tools/blender/render_kettlejack_foundry.py"
       - "tools/blender/kettlejack-foundry-requirements.txt"
       - "engine/godot_face/smoke_kettlejack_blender.gd"
+      - "engine/godot_face/render_kettlejack_blender.gd"
       - ".github/workflows/kettlejack-blender-foundry-v2.yml"
   pull_request:
     paths:
@@ -18,6 +19,7 @@ on:
       - "tools/blender/render_kettlejack_foundry.py"
       - "tools/blender/kettlejack-foundry-requirements.txt"
       - "engine/godot_face/smoke_kettlejack_blender.gd"
+      - "engine/godot_face/render_kettlejack_blender.gd"
       - ".github/workflows/kettlejack-blender-foundry-v2.yml"
   workflow_dispatch:
 
@@ -60,10 +62,10 @@ jobs:
       - name: Independently reimport and verify GLB
         run: python tools/blender/verify_kettlejack_foundry.py -- --directory engine/godot_face/generated_blender
 
-      - name: Render fresh-import review evidence
+      - name: Render fresh-import Blender review evidence
         run: python tools/blender/render_kettlejack_foundry.py -- --directory engine/godot_face/generated_blender --resolution 640
 
-      - name: Build review contact sheet
+      - name: Build Blender review contact sheet
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -81,7 +83,7 @@ jobs:
               sheet.paste(image,(x,y))
               draw.rectangle(((i%3)*thumb,(i//3)*thumb,(i%3+1)*thumb,(i//3+1)*thumb),outline=(55,60,70),width=2)
               draw.text(((i%3)*thumb+10,(i//3+1)*thumb-24),name,fill=(235,235,235))
-          sheet.save(root/'kettlejack-contact-sheet.png')
+          sheet.save(root/'kettlejack-blender-contact-sheet.png')
           PY
 
       - name: Download pinned Godot 4.7.2
@@ -110,6 +112,51 @@ jobs:
           print('KETTLEJACK BLENDER V0.2 GODOT PASS',r)
           PY
 
+      - name: Render exact GLB motions in Godot
+        run: |
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          rm -f engine/godot_face/godot-kettlejack-blender-render-*.png engine/godot_face/godot-kettlejack-blender-render-receipt.json
+          xvfb-run --auto-servernum --server-args="-screen 0 640x640x24" \
+            .godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --display-driver x11 \
+            --rendering-method gl_compatibility \
+            --path engine/godot_face \
+            --script render_kettlejack_blender.gd
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt=json.loads(Path('engine/godot_face/godot-kettlejack-blender-render-receipt.json').read_text())
+          assert receipt['status']=='pass',receipt
+          assert receipt['capture_count']==9,receipt
+          expected=['front','three_quarter','side','back','idle','run','jump','wrench_swing','victory']
+          assert [row['name'] for row in receipt['captures']]==expected,receipt
+          print('KETTLEJACK GODOT PIXEL PASS',[(r['name'],r['pose']['time']) for r in receipt['captures']])
+          PY
+
+      - name: Build Godot review contact sheet
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          root=Path('engine/godot_face')
+          names=['front','three_quarter','side','back','idle','run','jump','wrench_swing','victory']
+          thumb=360
+          sheet=Image.new('RGB',(thumb*3,thumb*3),(10,12,16))
+          draw=ImageDraw.Draw(sheet)
+          for i,name in enumerate(names):
+              image=Image.open(root/f'godot-kettlejack-blender-render-{name}.png').convert('RGB')
+              image.thumbnail((thumb,thumb))
+              x=(i%3)*thumb+(thumb-image.width)//2
+              y=(i//3)*thumb+(thumb-image.height)//2
+              sheet.paste(image,(x,y))
+              draw.rectangle(((i%3)*thumb,(i//3)*thumb,(i%3+1)*thumb,(i//3+1)*thumb),outline=(55,60,70),width=2)
+              draw.text(((i%3)*thumb+10,(i//3+1)*thumb-24),name,fill=(235,235,235))
+          sheet.save(root/'generated_blender'/'kettlejack-godot-contact-sheet.png')
+          PY
+
       - name: Preserve source, GLB, verification and pixels
         if: always()
         uses: actions/upload-artifact@v4
@@ -119,3 +166,5 @@ jobs:
           path: |
             engine/godot_face/generated_blender/**
             engine/godot_face/godot-kettlejack-blender-receipt.json
+            engine/godot_face/godot-kettlejack-blender-render-*.png
+            engine/godot_face/godot-kettlejack-blender-render-receipt.json
