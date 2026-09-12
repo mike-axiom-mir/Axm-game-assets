@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import math
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -96,7 +97,7 @@ class NativeRigidAssemblyTests(unittest.TestCase):
         accessor = document["accessors"][accessor_index]
         view = document["bufferViews"][accessor["bufferView"]]
         offset = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
-        altered[offset] ^= 0x40
+        struct.pack_into("<f", altered, offset, .5)
         report = validate_rigid_assembly_delivery(document, bytes(altered))
         self.assertEqual(report["status"], "fail")
         self.assertTrue(any("quaternion" in failure for failure in report["failures"]))
