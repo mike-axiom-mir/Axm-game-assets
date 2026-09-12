@@ -19,8 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
-from native_geometry import Mesh, bounds, combine, topology_report, translate, write_obj
-from native_modeling import make_box
+from native_geometry import Mesh, bounds, combine, make_box, topology_report, translate, write_obj
 
 SCHEMA = "axm.game-assets.collision-contract/v0.1"
 DONOR = {
