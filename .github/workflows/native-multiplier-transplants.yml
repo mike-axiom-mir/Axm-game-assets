@@ -25,6 +25,8 @@ on:
       - "native_salvage_construction_test.py"
       - "native_construction_kit.py"
       - "native_construction_kit_test.py"
+      - "native_rigid_assembly.py"
+      - "native_rigid_assembly_test.py"
       - "docs/CODE_MULTIPLIER_TRANSPLANTS.md"
       - "docs/NATIVE_PBR_REHEARSAL.md"
       - "docs/NATIVE_PREVIEW_EVIDENCE.md"
@@ -32,6 +34,7 @@ on:
       - "docs/UNIVERSAL_CREATION_RTS_DONORS.md"
       - "docs/NATIVE_SALVAGE_CONSTRUCTION.md"
       - "docs/NATIVE_CONSTRUCTION_KIT.md"
+      - "docs/NATIVE_RIGID_ASSEMBLY.md"
       - ".github/workflows/native-multiplier-transplants.yml"
   pull_request:
     paths:
@@ -57,6 +60,8 @@ on:
       - "native_salvage_construction_test.py"
       - "native_construction_kit.py"
       - "native_construction_kit_test.py"
+      - "native_rigid_assembly.py"
+      - "native_rigid_assembly_test.py"
       - "docs/CODE_MULTIPLIER_TRANSPLANTS.md"
       - "docs/NATIVE_PBR_REHEARSAL.md"
       - "docs/NATIVE_PREVIEW_EVIDENCE.md"
@@ -64,6 +69,7 @@ on:
       - "docs/UNIVERSAL_CREATION_RTS_DONORS.md"
       - "docs/NATIVE_SALVAGE_CONSTRUCTION.md"
       - "docs/NATIVE_CONSTRUCTION_KIT.md"
+      - "docs/NATIVE_RIGID_ASSEMBLY.md"
       - ".github/workflows/native-multiplier-transplants.yml"
 
 jobs:
@@ -96,3 +102,5 @@ jobs:
         run: python native_salvage_construction_test.py
       - name: Universal Creation construction toolkit donor tests
         run: python native_construction_kit_test.py
+      - name: Universal Creation rigid assembly donor tests
+        run: python native_rigid_assembly_test.py
