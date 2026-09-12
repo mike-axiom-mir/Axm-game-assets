@@ -70,6 +70,10 @@ def _digest(value: Any) -> str:
     return "sha256:" + hashlib.sha256(_canonical(value)).hexdigest()
 
 
+def _mesh_digest(mesh: Mesh) -> str:
+    return _digest({"name": mesh.name, "vertices": mesh.vertices, "faces": mesh.faces})
+
+
 def _finite3(value: Sequence[float], label: str) -> tuple[float, float, float]:
     if len(value) != 3:
         raise FoundObjectDetailError(f"{label} must contain three values")
@@ -116,6 +120,7 @@ def _cluster(name: str, parts: Iterable[SemanticPart], recipe: str, lights: Iter
                 "part_id": part.part_id,
                 "material_family": part.material_family,
                 "semantic_role": part.semantic_role,
+                "mesh_digest": _mesh_digest(part.mesh),
                 "topology": topology_report(part.mesh),
             }
             for part in ordered
