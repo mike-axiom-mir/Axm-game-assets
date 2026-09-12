@@ -1,0 +1,605 @@
+#!/usr/bin/env python3
+"""Native rigid-component assembly and node-motion delivery for Game Asset Forge.
+
+Selectively adapted from the finished Universal Creation RTS foundry at commit
+``a5cc708457b7e8f33e794fdac648ae65d15a0fb4``, especially
+``src/axm_uc/rts_foundry.py`` and ``tools/blender/verify_rts_batch.py``.
+
+This fills a gap between one-piece rigid props and skinned character animation:
+vehicles, turrets, wheels, doors and mechanisms can keep explicit component
+pivots, sockets and bounded rigid node animation without pretending to be a
+skeleton or physics simulation.
+"""
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+import math
+import struct
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Sequence
+
+from native_geometry import Mesh, Vec3
+from native_gltf import _add_view, _align4, _expanded_triangles, _pack_vec, _tangents, validate_gltf
+from native_multi_gltf import MaterialPrimitive
+
+SCHEMA = "axm.game-assets.rigid-assembly/v0.1"
+DONOR = {
+    "repo": "mike-axiom-mir/axm-universal-creation",
+    "commit": "a5cc708457b7e8f33e794fdac648ae65d15a0fb4",
+    "mechanisms": ["src/axm_uc/rts_foundry.py", "tools/blender/verify_rts_batch.py"],
+}
+EPS = 1e-10
+
+
+class RigidAssemblyError(ValueError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class RigidComponent:
+    name: str
+    pivot: Vec3
+    primitives: tuple[MaterialPrimitive, ...]
+    semantic_role: str = "rigid-component"
+
+
+@dataclass(frozen=True, slots=True)
+class RigidMotion:
+    clip: str
+    component: str
+    axis: Vec3
+    angles: tuple[float, ...]
+    duration: float
+    interpolation: str = "LINEAR"
+
+
+@dataclass(frozen=True, slots=True)
+class RigidSocket:
+    name: str
+    component: str
+    position: Vec3
+    forward: Vec3 = (0.0, 0.0, 1.0)
+    space: str = "component-local"
+
+
+@dataclass(frozen=True, slots=True)
+class RigidAssembly:
+    name: str
+    components: tuple[RigidComponent, ...]
+    motions: tuple[RigidMotion, ...] = ()
+    sockets: tuple[RigidSocket, ...] = ()
+
+
+def _canonical(value: Any) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+
+
+def _digest(value: Any) -> str:
+    return "sha256:" + hashlib.sha256(_canonical(value)).hexdigest()
+
+
+def _finite3(value: Sequence[float], label: str) -> Vec3:
+    if len(value) != 3:
+        raise RigidAssemblyError(f"{label} must contain three values")
+    result = tuple(float(item) for item in value)
+    if not all(math.isfinite(item) for item in result):
+        raise RigidAssemblyError(f"{label} must contain finite values")
+    return result  # type: ignore[return-value]
+
+
+def _normalize(value: Sequence[float], label: str) -> Vec3:
+    x, y, z = _finite3(value, label)
+    length = math.sqrt(x * x + y * y + z * z)
+    if length <= EPS:
+        raise RigidAssemblyError(f"{label} must not be near-zero")
+    return x / length, y / length, z / length
+
+
+def _validate_assembly(assembly: RigidAssembly) -> dict[str, Any]:
+    failures: list[str] = []
+    if not isinstance(assembly.name, str) or not assembly.name.strip():
+        failures.append("assembly name must be non-empty")
+    if not assembly.components:
+        failures.append("assembly needs at least one component")
+    names: set[str] = set()
+    for index, component in enumerate(assembly.components):
+        if not component.name.strip():
+            failures.append(f"component {index} name must be non-empty")
+        elif component.name in names:
+            failures.append(f"duplicate component name {component.name!r}")
+        names.add(component.name)
+        try:
+            _finite3(component.pivot, f"component {component.name} pivot")
+        except RigidAssemblyError as exc:
+            failures.append(str(exc))
+        if not component.primitives:
+            failures.append(f"component {component.name!r} has no material primitives")
+        if not component.semantic_role.strip():
+            failures.append(f"component {component.name!r} semantic_role must be non-empty")
+
+    motion_targets: set[tuple[str, str]] = set()
+    for index, motion in enumerate(assembly.motions):
+        if not motion.clip.strip():
+            failures.append(f"motion {index} clip must be non-empty")
+        if motion.component not in names:
+            failures.append(f"motion {index} references unknown component {motion.component!r}")
+        target = (motion.clip, motion.component)
+        if target in motion_targets:
+            failures.append(f"duplicate rigid motion target clip={motion.clip!r} component={motion.component!r}")
+        motion_targets.add(target)
+        if motion.interpolation not in {"LINEAR", "STEP"}:
+            failures.append(f"motion {index} interpolation must be LINEAR or STEP")
+        if len(motion.angles) < 2 or not all(math.isfinite(float(angle)) for angle in motion.angles):
+            failures.append(f"motion {index} needs at least two finite angles")
+        if not math.isfinite(float(motion.duration)) or motion.duration <= 0.0:
+            failures.append(f"motion {index} duration must be finite and positive")
+        try:
+            _normalize(motion.axis, f"motion {index} axis")
+        except RigidAssemblyError as exc:
+            failures.append(str(exc))
+
+    socket_names: set[str] = set()
+    for index, socket in enumerate(assembly.sockets):
+        if not socket.name.strip():
+            failures.append(f"socket {index} name must be non-empty")
+        elif socket.name in socket_names:
+            failures.append(f"duplicate socket name {socket.name!r}")
+        socket_names.add(socket.name)
+        if socket.component not in names:
+            failures.append(f"socket {index} references unknown component {socket.component!r}")
+        if socket.space != "component-local":
+            failures.append(f"socket {index} unsupported space {socket.space!r}")
+        try:
+            _finite3(socket.position, f"socket {index} position")
+            _normalize(socket.forward, f"socket {index} forward")
+        except RigidAssemblyError as exc:
+            failures.append(str(exc))
+    return {"status": "pass" if not failures else "fail", "failures": failures}
+
+
+def _localize(mesh: Mesh, pivot: Vec3, component: str) -> Mesh:
+    px, py, pz = pivot
+    return Mesh(
+        f"{component}:{mesh.name}",
+        [(x - px, y - py, z - pz) for x, y, z in mesh.vertices],
+        list(mesh.faces),
+    )
+
+
+def _assembly_state(assembly: RigidAssembly) -> dict[str, Any]:
+    return {
+        "schema": SCHEMA,
+        "name": assembly.name,
+        "components": [
+            {
+                "name": component.name,
+                "pivot": [float(value) for value in component.pivot],
+                "semantic_role": component.semantic_role,
+                "primitive_count": len(component.primitives),
+            }
+            for component in assembly.components
+        ],
+        "motions": [
+            {
+                "clip": motion.clip,
+                "component": motion.component,
+                "axis": list(_normalize(motion.axis, f"motion {index} axis")),
+                "angles": [float(angle) for angle in motion.angles],
+                "duration": float(motion.duration),
+                "interpolation": motion.interpolation,
+            }
+            for index, motion in enumerate(assembly.motions)
+        ],
+        "sockets": [
+            {
+                "name": socket.name,
+                "component": socket.component,
+                "position": [float(value) for value in socket.position],
+                "forward": list(_normalize(socket.forward, f"socket {index} forward")),
+                "space": socket.space,
+            }
+            for index, socket in enumerate(assembly.sockets)
+        ],
+    }
+
+
+def compile_rigid_assembly_gltf(
+    assembly: RigidAssembly,
+    *,
+    buffer_uri: str,
+) -> tuple[dict[str, Any], bytes]:
+    report = _validate_assembly(assembly)
+    if report["status"] != "pass":
+        raise RigidAssemblyError(f"invalid rigid assembly: {report['failures']}")
+
+    blob = bytearray()
+    views: list[dict[str, Any]] = []
+    accessors: list[dict[str, Any]] = []
+    materials: list[dict[str, Any]] = []
+    images: list[dict[str, Any]] = []
+    textures: list[dict[str, Any]] = []
+    meshes: list[dict[str, Any]] = []
+    nodes: list[dict[str, Any]] = []
+    node_by_component: dict[str, int] = {}
+    total_triangles = 0
+    compiled_vertices = 0
+
+    def add_float(values: list[tuple[float, ...]], gltf_type: str, width: int, *, target: int | None = 34962, bounds: bool = False) -> int:
+        view_index = _add_view(blob, _pack_vec(values), views, target=target)
+        accessor: dict[str, Any] = {
+            "bufferView": view_index,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": len(values),
+            "type": gltf_type,
+        }
+        if bounds:
+            accessor["min"] = [min(row[i] for row in values) for i in range(width)]
+            accessor["max"] = [max(row[i] for row in values) for i in range(width)]
+        accessors.append(accessor)
+        return len(accessors) - 1
+
+    for component in assembly.components:
+        gltf_primitives: list[dict[str, Any]] = []
+        for spec in component.primitives:
+            if spec.alpha_mode not in (None, "OPAQUE", "MASK", "BLEND"):
+                raise RigidAssemblyError(f"unsupported alpha mode {spec.alpha_mode!r}")
+            if spec.alpha_cutoff is not None and spec.alpha_mode != "MASK":
+                raise RigidAssemblyError("alpha_cutoff is only valid with MASK")
+            local_mesh = _localize(spec.mesh, component.pivot, component.name)
+            positions, normals, texcoords, indices = _expanded_triangles(local_mesh, spec.uvmap)
+            if not positions:
+                raise RigidAssemblyError(f"component {component.name!r} produced no triangles")
+            tangents = _tangents(positions, normals, texcoords)
+            pos = add_float(positions, "VEC3", 3, bounds=True)
+            norm = add_float(normals, "VEC3", 3)
+            uv = add_float(texcoords, "VEC2", 2)
+            tangent = add_float(tangents, "VEC4", 4)
+            payload = struct.pack("<" + "I" * len(indices), *indices)
+            index_view = _add_view(blob, payload, views, target=34963)
+            accessors.append({
+                "bufferView": index_view,
+                "byteOffset": 0,
+                "componentType": 5125,
+                "count": len(indices),
+                "type": "SCALAR",
+                "min": [min(indices)],
+                "max": [max(indices)],
+            })
+            index_accessor = len(accessors) - 1
+
+            base_image = len(images)
+            images.extend([
+                {"uri": spec.base_color_uri},
+                {"uri": spec.orm_uri},
+                {"uri": spec.normal_uri},
+            ])
+            base_texture = len(textures)
+            textures.extend([
+                {"sampler": 0, "source": base_image},
+                {"sampler": 0, "source": base_image + 1},
+                {"sampler": 0, "source": base_image + 2},
+            ])
+            material: dict[str, Any] = {
+                "name": spec.material_name,
+                "doubleSided": bool(spec.double_sided),
+                "pbrMetallicRoughness": {
+                    "baseColorTexture": {"index": base_texture},
+                    "baseColorFactor": [float(value) for value in spec.base_color_factor],
+                    "metallicRoughnessTexture": {"index": base_texture + 1},
+                    "metallicFactor": float(spec.metallic_factor),
+                    "roughnessFactor": float(spec.roughness_factor),
+                },
+                "normalTexture": {"index": base_texture + 2},
+                "occlusionTexture": {"index": base_texture + 1},
+            }
+            if spec.alpha_mode is not None:
+                material["alphaMode"] = spec.alpha_mode
+            if spec.alpha_cutoff is not None:
+                material["alphaCutoff"] = float(spec.alpha_cutoff)
+            material_index = len(materials)
+            materials.append(material)
+            gltf_primitives.append({
+                "attributes": {"POSITION": pos, "NORMAL": norm, "TEXCOORD_0": uv, "TANGENT": tangent},
+                "indices": index_accessor,
+                "material": material_index,
+                "mode": 4,
+            })
+            total_triangles += len(indices) // 3
+            compiled_vertices += len(positions)
+        mesh_index = len(meshes)
+        meshes.append({"name": component.name, "primitives": gltf_primitives})
+        node_index = len(nodes)
+        node_by_component[component.name] = node_index
+        nodes.append({
+            "name": component.name,
+            "mesh": mesh_index,
+            "translation": [float(value) for value in component.pivot],
+            "extras": {"component": component.name, "semantic_role": component.semantic_role},
+        })
+
+    animation_entries: list[dict[str, Any]] = []
+    clips: dict[str, list[RigidMotion]] = {}
+    for motion in assembly.motions:
+        clips.setdefault(motion.clip, []).append(motion)
+    for clip_name in sorted(clips):
+        samplers: list[dict[str, Any]] = []
+        channels: list[dict[str, Any]] = []
+        for motion in sorted(clips[clip_name], key=lambda item: item.component):
+            axis = _normalize(motion.axis, f"motion {motion.component} axis")
+            count = len(motion.angles)
+            times = [(motion.duration * index / (count - 1),) for index in range(count)]
+            values = [
+                (
+                    axis[0] * math.sin(angle * 0.5),
+                    axis[1] * math.sin(angle * 0.5),
+                    axis[2] * math.sin(angle * 0.5),
+                    math.cos(angle * 0.5),
+                )
+                for angle in motion.angles
+            ]
+            input_accessor = add_float(times, "SCALAR", 1, target=None, bounds=True)
+            output_accessor = add_float(values, "VEC4", 4, target=None)
+            sampler_index = len(samplers)
+            samplers.append({"input": input_accessor, "output": output_accessor, "interpolation": motion.interpolation})
+            channels.append({
+                "sampler": sampler_index,
+                "target": {"node": node_by_component[motion.component], "path": "rotation"},
+            })
+        animation_entries.append({"name": clip_name, "samplers": samplers, "channels": channels})
+
+    _align4(blob)
+    state = _assembly_state(assembly)
+    state_digest = _digest(state)
+    document: dict[str, Any] = {
+        "asset": {"version": "2.0", "generator": "AXM Game Asset Forge native_rigid_assembly v0.1"},
+        "scene": 0,
+        "scenes": [{"nodes": list(range(len(nodes)))}],
+        "nodes": nodes,
+        "meshes": meshes,
+        "buffers": [{"uri": buffer_uri, "byteLength": len(blob)}],
+        "bufferViews": views,
+        "accessors": accessors,
+        "samplers": [{"magFilter": 9729, "minFilter": 9987, "wrapS": 10497, "wrapT": 10497}],
+        "images": images,
+        "textures": textures,
+        "materials": materials,
+        "animations": animation_entries,
+        "extras": {
+            "axmRigidAssembly": state,
+            "axmRigidAssemblySha256": state_digest,
+            "axm": {
+                "compiler": "native_rigid_assembly",
+                "components": len(assembly.components),
+                "motions": len(assembly.motions),
+                "sockets": len(assembly.sockets),
+                "triangles": total_triangles,
+                "compiled_vertices": compiled_vertices,
+                "provenance": DONOR,
+                "truth": "Rigid node articulation only. Pivots, sockets and authored rotation samples are explicit; no skinning, physics, collision response, IK, gameplay or visual-approval claim.",
+            },
+        },
+    }
+    return document, bytes(blob)
+
+
+def _read_float_accessor(document: dict[str, Any], binary: bytes, accessor_index: int) -> list[tuple[float, ...]]:
+    accessors = document.get("accessors", [])
+    views = document.get("bufferViews", [])
+    if type(accessor_index) is not int or not 0 <= accessor_index < len(accessors):
+        raise RigidAssemblyError("animation accessor index outside document")
+    accessor = accessors[accessor_index]
+    if accessor.get("componentType") != 5126:
+        raise RigidAssemblyError("rigid animation accessor must use FLOAT")
+    widths = {"SCALAR": 1, "VEC4": 4}
+    gltf_type = accessor.get("type")
+    if gltf_type not in widths:
+        raise RigidAssemblyError(f"unsupported rigid animation accessor type {gltf_type!r}")
+    view_index = accessor.get("bufferView")
+    if type(view_index) is not int or not 0 <= view_index < len(views):
+        raise RigidAssemblyError("rigid animation accessor has bad bufferView")
+    view = views[view_index]
+    width = widths[gltf_type]
+    stride = 4 * width
+    start = int(view.get("byteOffset", 0)) + int(accessor.get("byteOffset", 0))
+    count = int(accessor.get("count", 0))
+    end = start + stride * count
+    view_end = int(view.get("byteOffset", 0)) + int(view.get("byteLength", 0))
+    if count <= 0 or end > view_end or end > len(binary):
+        raise RigidAssemblyError("rigid animation accessor exceeds buffer bounds")
+    fmt = "<" + "f" * width
+    return [struct.unpack_from(fmt, binary, start + index * stride) for index in range(count)]
+
+
+def validate_rigid_assembly_delivery(document: dict[str, Any], binary: bytes) -> dict[str, Any]:
+    failures: list[str] = []
+    structural = validate_gltf(document, binary)
+    failures.extend(structural["failures"])
+    extras = document.get("extras")
+    if not isinstance(extras, dict):
+        return {"status": "fail", "failures": failures + ["missing rigid assembly extras"]}
+    state = extras.get("axmRigidAssembly")
+    recorded_digest = extras.get("axmRigidAssemblySha256")
+    if not isinstance(state, dict) or state.get("schema") != SCHEMA:
+        failures.append("missing or unsupported rigid assembly state")
+        return {"status": "fail", "failures": failures}
+    if recorded_digest != _digest(state):
+        failures.append("rigid assembly digest mismatch")
+
+    components = state.get("components")
+    nodes = document.get("nodes")
+    if not isinstance(components, list) or not isinstance(nodes, list):
+        failures.append("rigid assembly components/nodes missing")
+        return {"status": "fail", "failures": failures}
+    component_names = [component.get("name") for component in components if isinstance(component, dict)]
+    node_by_component: dict[str, int] = {}
+    for index, node in enumerate(nodes):
+        if not isinstance(node, dict):
+            failures.append(f"node {index} malformed")
+            continue
+        component = node.get("extras", {}).get("component") if isinstance(node.get("extras"), dict) else None
+        if not isinstance(component, str):
+            failures.append(f"node {index} missing component identity")
+            continue
+        node_by_component[component] = index
+    if sorted(component_names) != sorted(node_by_component):
+        failures.append("component state and node identities differ")
+    for component in components:
+        if not isinstance(component, dict):
+            continue
+        name = component.get("name")
+        if name not in node_by_component:
+            continue
+        node = nodes[node_by_component[name]]
+        if node.get("translation") != component.get("pivot"):
+            failures.append(f"component {name!r} node translation differs from declared pivot")
+
+    declared_motions = {}
+    for motion in state.get("motions", []):
+        if isinstance(motion, dict):
+            declared_motions[(motion.get("clip"), motion.get("component"))] = motion
+    seen_motions: set[tuple[Any, Any]] = set()
+    for animation in document.get("animations", []):
+        if not isinstance(animation, dict):
+            failures.append("malformed animation")
+            continue
+        clip = animation.get("name")
+        samplers = animation.get("samplers", [])
+        for channel in animation.get("channels", []):
+            if not isinstance(channel, dict):
+                failures.append(f"animation {clip!r} has malformed channel")
+                continue
+            target = channel.get("target", {})
+            node_index = target.get("node") if isinstance(target, dict) else None
+            if target.get("path") != "rotation" or type(node_index) is not int or not 0 <= node_index < len(nodes):
+                failures.append(f"animation {clip!r} has invalid rigid target")
+                continue
+            component = nodes[node_index].get("extras", {}).get("component")
+            key = (clip, component)
+            declaration = declared_motions.get(key)
+            if declaration is None:
+                failures.append(f"animation target {key!r} has no declared motion")
+                continue
+            if key in seen_motions:
+                failures.append(f"duplicate delivered motion target {key!r}")
+            seen_motions.add(key)
+            sampler_index = channel.get("sampler")
+            if type(sampler_index) is not int or not 0 <= sampler_index < len(samplers):
+                failures.append(f"motion {key!r} has invalid sampler")
+                continue
+            sampler = samplers[sampler_index]
+            try:
+                times = [row[0] for row in _read_float_accessor(document, binary, sampler["input"])]
+                quaternions = _read_float_accessor(document, binary, sampler["output"])
+            except (KeyError, RigidAssemblyError) as exc:
+                failures.append(f"motion {key!r} cannot be decoded: {exc}")
+                continue
+            angles = declaration.get("angles", [])
+            duration = declaration.get("duration")
+            if len(times) != len(quaternions) or len(times) != len(angles) or len(times) < 2:
+                failures.append(f"motion {key!r} sample count differs from declaration")
+                continue
+            expected_times = [float(duration) * index / (len(times) - 1) for index in range(len(times))]
+            if any(not math.isfinite(value) for value in times) or any(b <= a for a, b in zip(times, times[1:])):
+                failures.append(f"motion {key!r} times are not finite/strictly increasing")
+            if any(abs(actual - expected) > 1e-5 for actual, expected in zip(times, expected_times)):
+                failures.append(f"motion {key!r} time samples differ from declaration")
+            try:
+                axis = _normalize(declaration.get("axis", ()), f"motion {key!r} axis")
+            except RigidAssemblyError as exc:
+                failures.append(str(exc))
+                continue
+            for sample_index, (angle, quat) in enumerate(zip(angles, quaternions)):
+                if len(quat) != 4 or not all(math.isfinite(value) for value in quat):
+                    failures.append(f"motion {key!r} quaternion {sample_index} malformed")
+                    continue
+                if abs(sum(value * value for value in quat) - 1.0) > 1e-5:
+                    failures.append(f"motion {key!r} quaternion {sample_index} not normalized")
+                expected = (
+                    axis[0] * math.sin(float(angle) * 0.5),
+                    axis[1] * math.sin(float(angle) * 0.5),
+                    axis[2] * math.sin(float(angle) * 0.5),
+                    math.cos(float(angle) * 0.5),
+                )
+                if any(abs(actual - wanted) > 1e-5 for actual, wanted in zip(quat, expected)):
+                    failures.append(f"motion {key!r} quaternion {sample_index} differs from declaration")
+    if seen_motions != set(declared_motions):
+        failures.append("declared and delivered rigid motion targets differ")
+
+    known = set(component_names)
+    socket_names: set[str] = set()
+    for socket in state.get("sockets", []):
+        if not isinstance(socket, dict):
+            failures.append("malformed socket declaration")
+            continue
+        name = socket.get("name")
+        if not isinstance(name, str) or not name or name in socket_names:
+            failures.append("socket names must be unique and non-empty")
+        else:
+            socket_names.add(name)
+        if socket.get("component") not in known:
+            failures.append(f"socket {name!r} references unknown component")
+        if socket.get("space") != "component-local":
+            failures.append(f"socket {name!r} unsupported space")
+        try:
+            _finite3(socket.get("position", ()), f"socket {name!r} position")
+            _normalize(socket.get("forward", ()), f"socket {name!r} forward")
+        except RigidAssemblyError as exc:
+            failures.append(str(exc))
+
+    return {
+        "status": "pass" if not failures else "fail",
+        "failures": failures,
+        "components": len(components),
+        "motions": len(declared_motions),
+        "sockets": len(socket_names),
+        "assembly_digest": recorded_digest,
+    }
+
+
+def write_rigid_assembly_gltf(assembly: RigidAssembly, output: str | Path) -> dict[str, Any]:
+    root = Path(output)
+    root.mkdir(parents=True, exist_ok=True)
+    gltf_path = root / f"{assembly.name}.gltf"
+    bin_path = root / f"{assembly.name}.bin"
+    receipt_path = root / "rigid-assembly-receipt.json"
+    if gltf_path.exists() or bin_path.exists() or receipt_path.exists():
+        raise FileExistsError("rigid assembly delivery refuses to overwrite existing output")
+    document, binary = compile_rigid_assembly_gltf(assembly, buffer_uri=bin_path.name)
+    for image in document.get("images", []):
+        uri = image.get("uri")
+        if not isinstance(uri, str) or not (root / uri).is_file():
+            raise FileNotFoundError(root / str(uri))
+    validation = validate_rigid_assembly_delivery(document, binary)
+    if validation["status"] != "pass":
+        raise RigidAssemblyError(f"compiled rigid assembly failed validation: {validation}")
+    bin_path.write_bytes(binary)
+    gltf_bytes = (json.dumps(document, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+    gltf_path.write_bytes(gltf_bytes)
+    receipt: dict[str, Any] = {
+        "schema": SCHEMA,
+        "status": "PASS",
+        "assembly": assembly.name,
+        "gltf": {"path": gltf_path.name, "sha256": "sha256:" + hashlib.sha256(gltf_bytes).hexdigest(), "bytes": len(gltf_bytes)},
+        "binary": {"path": bin_path.name, "sha256": "sha256:" + hashlib.sha256(binary).hexdigest(), "bytes": len(binary)},
+        "validation": validation,
+        "provenance": DONOR,
+        "authority": {
+            "automatic_install": False,
+            "automatic_genome_mutation": False,
+            "visual_approval": False,
+            "release": False,
+            "merge": False,
+            "canon": False,
+        },
+        "truth_boundary": {
+            "proves": ["declared rigid component pivots", "declared component-local sockets", "decoded bounded rigid rotation samples", "structurally valid glTF delivery"],
+            "does_not_prove": ["physics behaviour", "collision correctness", "gameplay correctness", "engine performance", "visual quality", "canonical adoption"],
+        },
+    }
+    receipt["receipt_digest"] = _digest(receipt)
+    receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return receipt
