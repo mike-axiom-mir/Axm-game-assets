@@ -62,28 +62,15 @@ jobs:
       - name: Independently reimport and verify GLB
         run: python tools/blender/verify_kettlejack_foundry.py -- --directory engine/godot_face/generated_blender
 
-      - name: Render fresh-import Blender review evidence
-        run: python tools/blender/render_kettlejack_foundry.py -- --directory engine/godot_face/generated_blender --resolution 640
-
-      - name: Build Blender review contact sheet
+      - name: Note optional Blender pixel renderer boundary
         run: |
           python - <<'PY'
           from pathlib import Path
-          from PIL import Image,ImageDraw
-          root=Path('engine/godot_face/generated_blender')
-          names=['front','three_quarter','side','back','idle','run','jump','wrench_swing','victory']
-          thumb=360
-          sheet=Image.new('RGB',(thumb*3,thumb*3),(10,12,16))
-          draw=ImageDraw.Draw(sheet)
-          for i,name in enumerate(names):
-              image=Image.open(root/'proof'/f'{name}.png').convert('RGB')
-              image.thumbnail((thumb,thumb))
-              x=(i%3)*thumb+(thumb-image.width)//2
-              y=(i//3)*thumb+(thumb-image.height)//2
-              sheet.paste(image,(x,y))
-              draw.rectangle(((i%3)*thumb,(i//3)*thumb,(i%3+1)*thumb,(i//3+1)*thumb),outline=(55,60,70),width=2)
-              draw.text(((i%3)*thumb+10,(i//3+1)*thumb-24),name,fill=(235,235,235))
-          sheet.save(root/'kettlejack-blender-contact-sheet.png')
+          Path('engine/godot_face/generated_blender/blender-render-boundary.txt').write_text(
+              'The pinned bpy wheel can author, export and fresh-import headlessly in CI but this runner lacks libEGL.so.1. '
+              'CI pixel evidence therefore uses the exact exported GLB in pinned Godot 4.7.2. '
+              'tools/blender/render_kettlejack_foundry.py remains available on render-capable Blender hosts.\n'
+          )
           PY
 
       - name: Download pinned Godot 4.7.2
