@@ -5,6 +5,8 @@ on:
     paths:
       - "native_material_signal_audit.py"
       - "native_material_signal_audit_test.py"
+      - "native_pbr_signal_review.py"
+      - "native_pbr_signal_review_test.py"
       - "native_evidence_verify.py"
       - "native_evidence_verify_test.py"
       - "docs/CODE_MULTIPLIER_TRANSPLANTS.md"
@@ -13,6 +15,8 @@ on:
     paths:
       - "native_material_signal_audit.py"
       - "native_material_signal_audit_test.py"
+      - "native_pbr_signal_review.py"
+      - "native_pbr_signal_review_test.py"
       - "native_evidence_verify.py"
       - "native_evidence_verify_test.py"
       - "docs/CODE_MULTIPLIER_TRANSPLANTS.md"
@@ -28,5 +32,7 @@ jobs:
           python-version: "3.13"
       - name: Native material payload and signal audit tests
         run: python native_material_signal_audit_test.py
+      - name: Native PBR signal-review integration tests
+        run: python native_pbr_signal_review_test.py
       - name: Native evidence bundle verification tests
         run: python native_evidence_verify_test.py
