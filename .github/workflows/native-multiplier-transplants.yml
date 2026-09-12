@@ -7,9 +7,12 @@ on:
       - "native_material_signal_audit_test.py"
       - "native_pbr_signal_review.py"
       - "native_pbr_signal_review_test.py"
+      - "native_pbr_rehearsal.py"
+      - "native_pbr_rehearsal_test.py"
       - "native_evidence_verify.py"
       - "native_evidence_verify_test.py"
       - "docs/CODE_MULTIPLIER_TRANSPLANTS.md"
+      - "docs/NATIVE_PBR_REHEARSAL.md"
       - ".github/workflows/native-multiplier-transplants.yml"
   pull_request:
     paths:
@@ -17,9 +20,12 @@ on:
       - "native_material_signal_audit_test.py"
       - "native_pbr_signal_review.py"
       - "native_pbr_signal_review_test.py"
+      - "native_pbr_rehearsal.py"
+      - "native_pbr_rehearsal_test.py"
       - "native_evidence_verify.py"
       - "native_evidence_verify_test.py"
       - "docs/CODE_MULTIPLIER_TRANSPLANTS.md"
+      - "docs/NATIVE_PBR_REHEARSAL.md"
       - ".github/workflows/native-multiplier-transplants.yml"
 
 jobs:
@@ -34,5 +40,7 @@ jobs:
         run: python native_material_signal_audit_test.py
       - name: Native PBR signal-review integration tests
         run: python native_pbr_signal_review_test.py
+      - name: Native PBR rehearsal integration tests
+        run: python native_pbr_rehearsal_test.py
       - name: Native evidence bundle verification tests
         run: python native_evidence_verify_test.py
