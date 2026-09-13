@@ -1,0 +1,1529 @@
+diff --git a/docs/UNIVERSAL_CREATION_RTS_DONORS.md b/docs/UNIVERSAL_CREATION_RTS_DONORS.md
+new file mode 100644
+index 0000000..514bf03
+--- /dev/null
++++ b/docs/UNIVERSAL_CREATION_RTS_DONORS.md
+@@ -0,0 +1,194 @@
++# Universal Creation v0.24 donor intake
++
++This lane studies the finished high-detail / RTS foundry state in:
++
++- repository: `mike-axiom-mir/axm-universal-creation`
++- pinned commit: `a5cc708457b7e8f33e794fdac648ae65d15a0fb4`
++- release state: Universal Creation `v0.24.0`
++
++The goal is **not** to copy the whole Universal Creation machine into Game Asset
++Forge. Both repositories have distinct canonical responsibilities. Instead, this
++lane extracts small mechanisms that multiply Game Asset Forge without creating a
++hidden Universal Creation runtime dependency or silently replacing the Game Asset
++Genome.
++
++At the pinned state Universal Creation's new foundry contains a broad deterministic
++3D asset catalog and extensive proving tests across structures, vehicles, props and
++machines. That makes it a useful donor because the mechanisms were exercised in a
++real multi-asset pipeline rather than invented here from scratch.
++
++## Selected donor 1 — multi-family authored surfaces
++
++Universal Creation's salvage/workshop surface work separated two kinds of detail:
++
++- semantic/functional detail that should stay geometry;
++- micro/broad surface history that is better expressed through material signals.
++
++The donor surface implementation covered materially distinct steel/metal, wood,
++cloth, stone, soil and rubber treatments rather than painting every object with one
++noise function.
++
++Game Asset Forge now adapts that idea in:
++
++- `native_surface_families.py`
++- `native_surface_families_test.py`
++
++The Forge implementation is stdlib-only and builds on the already-owned
++`native_pbr.py` noise and PNG encoder. It does **not** copy Universal Creation's
++NumPy/Pillow/Blender runtime dependency.
++
++Current explicit families are:
++
++- `salvage_metal`
++- `steel`
++- `wood`
++- `cloth`
++- `stone`
++- `soil`
++- `rubber`
++
++Each family materializes:
++
++- base colour;
++- roughness;
++- metallic;
++- height;
++- tangent normal derived from height;
++- ambient occlusion;
++- packed ORM as an explicit delivery view.
++
++Every payload is hashed and the authoring state is receipted. The existing
++`native_material_signal_audit.py` is exercised against every family so the donor
++is immediately connected to the technical signal inspection organ added earlier.
++
++These are procedural authored surfaces, **not measured scans**, and successful
++signal inspection is not a claim of beauty, physical BRDF accuracy, engine parity
++or AAA quality.
++
++## Selected donor 2 — lossless shared-image GLB packing
++
++Universal Creation's finished RTS pipeline includes a useful production mechanism:
++many standalone GLBs can be repacked into portable glTF assets that reference one
++content-addressed shared texture store. Duplicate embedded images therefore stop
++being copied once per asset.
++
++Game Asset Forge adapts and hardens that mechanism in:
++
++- `native_shared_glb_pack.py`
++- `native_shared_glb_pack_test.py`
++
++The Forge implementation:
++
++1. reads one GLB 2.0 container;
++2. extracts embedded PNG/JPEG images;
++3. names shared payloads by exact SHA-256;
++4. keeps geometry/accessor buffer-view payload bytes lossless;
++5. repacks retained buffer views with deterministic alignment;
++6. recursively remaps `bufferView` references;
++7. preserves nodes, meshes, materials, textures, samplers, animations, skins and
++   scene structure;
++8. verifies every relocated binary view and image after writing;
++9. refuses unsupported opaque/compressed buffer extensions instead of pretending
++   they were safely rewritten;
++10. refuses to overwrite conflicting content-addressed payloads.
++
++The integration proof does not use a synthetic foreign GLB. It starts with a real
++Game Asset Forge route:
++
++`native mesh -> native rigid package -> verified self-contained GLB -> shared pack`
++
++Two identical deliveries are then packed into one collection and must resolve to
++the same shared image identities.
++
++This is **lossless packaging**, not mesh optimization or texture compression. It
++can reduce duplicated storage in asset kits without weakening the original asset
++truth.
++
++## Selected donor 3 — readable geometric stencil detail
++
++Universal Creation's foundry also used actual secondary geometry for readable
++labels/signage instead of baking every word into a screenshot or opaque texture.
++The useful generic mechanism is its compact 3×5 A–Z/0–9 stencil vocabulary.
++
++Game Asset Forge adapts this in:
++
++- `native_stencil_detail.py`
++- `native_stencil_detail_test.py`
++
++The output is ordinary native Forge `Mesh` state made from real quads. Unsupported
++characters are rejected rather than guessed. A receipt binds the exact text,
++requested bounds, resulting topology and donor provenance.
++
++The stencil organ deliberately does **not** choose:
++
++- what an asset should say;
++- where signage belongs;
++- the material or colour;
++- art direction;
++- canonical Genome meaning.
++
++Those decisions remain caller/professional/canonical-state responsibilities.
++
++## Why these donors matter for the dense workshop reference
++
++The earlier workshop reference was valuable because its quality came from a stack
++of semantically different details: structural shell, tarp/cloth, steel hardware,
++wooden work surfaces, rubber pieces, ground/stone, grime and wear, plus readable
++signage and many small functional props.
++
++A single universal material or one giant `make detailed` operation cannot express
++that structure cleanly. These donors increase the number of small, reusable
++capabilities available to a later environment/building pipeline:
++
++`geometry identity + material family + surface history + readable geometric detail + compact shared delivery`
++
++That is directly aligned with the repository's detail-density principle: multiply
++small truthful controls, then compose them.
++
++## What was deliberately not copied
++
++The entire Universal Creation RTS foundry, recipe catalog and Blender build stack
++were **not** imported wholesale.
++
++Reasons:
++
++- Game Asset Forge already owns a canonical Genome, native geometry, glTF/GLB,
++  LOD, material, rig and evidence stack;
++- duplicating the whole foundry would create overlapping authorities;
++- specific RTS recipes are useful creation proposals, not automatically canonical
++  Game Asset families;
++- several Universal Creation production tools intentionally use Blender and other
++  packages, while the selected Forge donors can remain native/stdlib-only;
++- other useful mechanisms such as stairs/ladders/corrugation/cables, industrial
++  articulation and richer surface geometry can be ported later when a concrete
++  Game Asset need justifies them.
++
++## Relationship to the existing Universal Creation bridge
++
++`universal_creation_asset_bridge.py` remains a proposal-only ingress for the older
++Universal Creation 3D forge request/receipt shape it was written against.
++
++The new v0.24 RTS/foundry body is broader and has its own contracts. This donor lane
++does **not** claim that every new foundry output automatically satisfies the older
++bridge schema. A later adapter should consume the new exact static/foundry output
++contract explicitly rather than weakening validation to make mismatched schemas
++look compatible.
++
++## Truth and authority boundary
++
++The selected donor mechanisms may produce or transform derived Game Asset data,
++but none of them gains authority to:
++
++- mutate a Game Asset Genome automatically;
++- install or select itself automatically;
++- declare aesthetic acceptance;
++- declare physical/PBR certification;
++- declare engine/gameplay fitness;
++- release, merge or enter CANON.
++
++Donor repository, exact commit and source mechanism are retained in the resulting
++implementations. Unsupported state is rejected or held instead of silently
++translated.
++
++The four AXM roots remain the merge gate: Truth, Agency / non-domination,
++Continuity, and Wisdom before speed.
+diff --git a/native_shared_glb_pack.py b/native_shared_glb_pack.py
+new file mode 100644
+index 0000000..ecf2ee9
+--- /dev/null
++++ b/native_shared_glb_pack.py
+@@ -0,0 +1,473 @@
++#!/usr/bin/env python3
++"""Lossless GLB -> portable glTF package with shared content-addressed images.
++
++Adapted from Universal Creation's finished RTS compact packer:
++mike-axiom-mir/axm-universal-creation
++commit a5cc708457b7e8f33e794fdac648ae65d15a0fb4
++tools/blender/pack_rts_shared.py
++
++This Game Asset Forge port hardens the donor mechanism with strict JSON, safe
++create-only outputs, recursive bufferView reference preservation, explicit
++receipts, and no Blender/runtime dependency. Geometry/accessor bytes and image
++payloads are relocated byte-for-byte; no remeshing, optimization, or image
++re-encoding occurs.
++"""
++from __future__ import annotations
++
++import argparse
++import copy
++import hashlib
++import json
++import os
++from pathlib import Path, PurePosixPath
++import struct
++from typing import Any
++
++SCHEMA = "axm.game-assets.shared-glb-pack/v0.1"
++DONOR = {
++    "repo": "mike-axiom-mir/axm-universal-creation",
++    "commit": "a5cc708457b7e8f33e794fdac648ae65d15a0fb4",
++    "mechanism": "tools/blender/pack_rts_shared.py",
++}
++SEMANTIC_SECTIONS = (
++    "nodes",
++    "meshes",
++    "materials",
++    "textures",
++    "samplers",
++    "animations",
++    "skins",
++    "scenes",
++    "scene",
++)
++IMAGE_EXTENSIONS = {
++    "image/png": ".png",
++    "image/jpeg": ".jpg",
++}
++
++
++class SharedGlbPackError(ValueError):
++    pass
++
++
++def _sha256(data: bytes) -> str:
++    return "sha256:" + hashlib.sha256(data).hexdigest()
++
++
++def _hex_digest(data: bytes) -> str:
++    return hashlib.sha256(data).hexdigest()
++
++
++def _strict_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
++    out: dict[str, Any] = {}
++    for key, value in pairs:
++        if key in out:
++            raise SharedGlbPackError(f"duplicate JSON key: {key}")
++        out[key] = value
++    return out
++
++
++def _reject_constant(value: str) -> None:
++    raise SharedGlbPackError(f"non-finite JSON number: {value}")
++
++
++def _parse_json(data: bytes) -> dict[str, Any]:
++    try:
++        value = json.loads(
++            data.decode("utf-8"),
++            object_pairs_hook=_strict_pairs,
++            parse_constant=_reject_constant,
++        )
++    except SharedGlbPackError:
++        raise
++    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
++        raise SharedGlbPackError("GLB JSON chunk is invalid") from exc
++    if not isinstance(value, dict):
++        raise SharedGlbPackError("GLB JSON chunk must contain one object")
++    return value
++
++
++def read_glb(path: str | Path) -> tuple[bytes, dict[str, Any], bytes]:
++    source = Path(path)
++    try:
++        source.lstat()
++    except OSError as exc:
++        raise SharedGlbPackError(f"source GLB is missing: {source}") from exc
++    if source.is_symlink() or not source.is_file():
++        raise SharedGlbPackError("source GLB must be a regular non-symlink file")
++    raw = source.read_bytes()
++    if len(raw) < 20:
++        raise SharedGlbPackError("GLB is too short")
++    magic, version, total = struct.unpack_from("<4sII", raw, 0)
++    if magic != b"glTF" or version != 2 or total != len(raw):
++        raise SharedGlbPackError("invalid GLB 2.0 header")
++    position = 12
++    document: dict[str, Any] | None = None
++    binary_chunk: bytes | None = None
++    seen_types: set[int] = set()
++    while position < len(raw):
++        if position + 8 > len(raw):
++            raise SharedGlbPackError("truncated GLB chunk header")
++        length, chunk_type = struct.unpack_from("<II", raw, position)
++        start = position + 8
++        end = start + length
++        if end > len(raw):
++            raise SharedGlbPackError("truncated GLB chunk payload")
++        if chunk_type in seen_types:
++            raise SharedGlbPackError("duplicate GLB JSON/BIN chunk type")
++        seen_types.add(chunk_type)
++        payload = raw[start:end]
++        if chunk_type == 0x4E4F534A:
++            document = _parse_json(payload.rstrip(b" \t\r\n\x00"))
++        elif chunk_type == 0x004E4942:
++            binary_chunk = payload
++        else:
++            raise SharedGlbPackError(f"unsupported GLB chunk type 0x{chunk_type:08x}")
++        position = end
++    if position != len(raw) or document is None or binary_chunk is None:
++        raise SharedGlbPackError("GLB requires exactly one JSON and one BIN chunk")
++    buffers = document.get("buffers")
++    if (
++        not isinstance(buffers, list)
++        or len(buffers) != 1
++        or not isinstance(buffers[0], dict)
++        or "uri" in buffers[0]
++    ):
++        raise SharedGlbPackError("GLB must declare one embedded buffer")
++    declared = buffers[0].get("byteLength")
++    if (
++        not isinstance(declared, int)
++        or isinstance(declared, bool)
++        or declared < 0
++        or declared > len(binary_chunk)
++        or len(binary_chunk) - declared > 3
++    ):
++        raise SharedGlbPackError("GLB buffer byteLength is invalid")
++    return raw, document, binary_chunk[:declared]
++
++
++def _view_blob(document: dict[str, Any], binary: bytes, index: int) -> bytes:
++    views = document.get("bufferViews")
++    if not isinstance(views, list) or not (0 <= index < len(views)):
++        raise SharedGlbPackError(f"bufferView {index} is missing")
++    view = views[index]
++    if not isinstance(view, dict) or view.get("buffer") != 0:
++        raise SharedGlbPackError(f"bufferView {index} must target buffer 0")
++    offset = view.get("byteOffset", 0)
++    length = view.get("byteLength")
++    if (
++        not isinstance(offset, int)
++        or isinstance(offset, bool)
++        or not isinstance(length, int)
++        or isinstance(length, bool)
++        or offset < 0
++        or length < 0
++        or offset + length > len(binary)
++    ):
++        raise SharedGlbPackError(f"bufferView {index} exceeds embedded buffer")
++    return binary[offset : offset + length]
++
++
++def _collect_buffer_view_refs(value: Any, *, skip_images: bool = False) -> set[int]:
++    refs: set[int] = set()
++    if isinstance(value, dict):
++        for key, item in value.items():
++            if skip_images and key == "images":
++                continue
++            if key == "bufferView":
++                if not isinstance(item, int) or isinstance(item, bool) or item < 0:
++                    raise SharedGlbPackError("bufferView reference must be a nonnegative integer")
++                refs.add(item)
++            else:
++                refs.update(_collect_buffer_view_refs(item, skip_images=False))
++    elif isinstance(value, list):
++        for item in value:
++            refs.update(_collect_buffer_view_refs(item, skip_images=False))
++    return refs
++
++
++def _remap_buffer_views(value: Any, remap: dict[int, int]) -> None:
++    if isinstance(value, dict):
++        for key, item in value.items():
++            if key == "bufferView":
++                if item not in remap:
++                    raise SharedGlbPackError(f"bufferView reference {item} was removed but is still referenced")
++                value[key] = remap[item]
++            else:
++                _remap_buffer_views(item, remap)
++    elif isinstance(value, list):
++        for item in value:
++            _remap_buffer_views(item, remap)
++
++
++def _relative_uri(from_dir: Path, target: Path) -> str:
++    return os.path.relpath(target, from_dir).replace(os.sep, "/")
++
++
++def _write_create_only(path: Path, payload: bytes) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    try:
++        with path.open("xb") as handle:
++            handle.write(payload)
++    except FileExistsError as exc:
++        raise SharedGlbPackError(f"refusing to overwrite output: {path}") from exc
++
++
++def _write_shared_payload(path: Path, payload: bytes) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    if path.exists():
++        if path.is_symlink() or not path.is_file() or path.read_bytes() != payload:
++            raise SharedGlbPackError(f"content-addressed payload path is occupied by different bytes: {path}")
++        return
++    _write_create_only(path, payload)
++
++
++def pack_glb_to_shared(
++    source_glb: str | Path,
++    dest_gltf: str | Path,
++    texture_root: str | Path,
++) -> dict[str, Any]:
++    source = Path(source_glb)
++    dest = Path(dest_gltf)
++    textures = Path(texture_root)
++    if dest.suffix.lower() != ".gltf":
++        raise SharedGlbPackError("destination must use .gltf")
++    if dest.exists() or dest.with_suffix(".bin").exists():
++        raise SharedGlbPackError("destination glTF/bin already exists")
++
++    raw, original, binary = read_glb(source)
++    document = copy.deepcopy(original)
++    extensions = document.get("extensionsUsed", [])
++    if extensions is None:
++        extensions = []
++    if not isinstance(extensions, list) or any(not isinstance(item, str) for item in extensions):
++        raise SharedGlbPackError("extensionsUsed must be a string list")
++    opaque = [
++        item for item in extensions
++        if any(token in item.lower() for token in ("meshopt", "draco", "compression"))
++    ]
++    if opaque:
++        raise SharedGlbPackError(
++            "compressed/opaque buffer extensions need a dedicated adapter: " + ", ".join(sorted(opaque))
++        )
++
++    images = document.get("images", [])
++    if not isinstance(images, list) or not images:
++        raise SharedGlbPackError("GLB must contain embedded images to share")
++    image_views: set[int] = set()
++    image_receipts: list[dict[str, Any]] = []
++    for index, image in enumerate(images):
++        if not isinstance(image, dict) or "uri" in image:
++            raise SharedGlbPackError(f"image {index} must be bufferView-embedded")
++        view_index = image.get("bufferView")
++        mime = image.get("mimeType")
++        if not isinstance(view_index, int) or isinstance(view_index, bool):
++            raise SharedGlbPackError(f"image {index} has invalid bufferView")
++        if mime not in IMAGE_EXTENSIONS:
++            raise SharedGlbPackError(f"image {index} has unsupported mimeType {mime!r}")
++        payload = _view_blob(original, binary, view_index)
++        digest_hex = _hex_digest(payload)
++        target = textures / (digest_hex + IMAGE_EXTENSIONS[mime])
++        _write_shared_payload(target, payload)
++        image.clear()
++        image.update({
++            "uri": _relative_uri(dest.parent, target),
++            "mimeType": mime,
++        })
++        image_views.add(view_index)
++        image_receipts.append({
++            "image_index": index,
++            "source_view": view_index,
++            "sha256": "sha256:" + digest_hex,
++            "bytes": len(payload),
++            "mime": mime,
++            "shared_path": target.name,
++        })
++
++    referenced_elsewhere = _collect_buffer_view_refs(original, skip_images=True)
++    views = original.get("bufferViews")
++    if not isinstance(views, list):
++        raise SharedGlbPackError("GLB bufferViews are required")
++    keep = [
++        index for index in range(len(views))
++        if index not in image_views or index in referenced_elsewhere
++    ]
++    remap = {old: new for new, old in enumerate(keep)}
++
++    packed = bytearray()
++    new_views: list[dict[str, Any]] = []
++    view_receipts: list[dict[str, Any]] = []
++    for old_index in keep:
++        view = copy.deepcopy(views[old_index])
++        payload = _view_blob(original, binary, old_index)
++        while len(packed) % 4:
++            packed.append(0)
++        offset = len(packed)
++        packed.extend(payload)
++        view["buffer"] = 0
++        view["byteOffset"] = offset
++        view["byteLength"] = len(payload)
++        new_views.append(view)
++        view_receipts.append({
++            "old_view": old_index,
++            "new_view": remap[old_index],
++            "sha256": _sha256(payload),
++            "bytes": len(payload),
++        })
++
++    document["bufferViews"] = new_views
++    _remap_buffer_views(document, remap)
++    document["buffers"] = [{"uri": dest.stem + ".bin", "byteLength": len(packed)}]
++
++    gltf_bytes = (
++        json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
++        + b"\n"
++    )
++    bin_path = dest.with_suffix(".bin")
++    _write_create_only(bin_path, bytes(packed))
++    _write_create_only(dest, gltf_bytes)
++
++    written = _parse_json(dest.read_bytes())
++    out_binary = bin_path.read_bytes()
++    for receipt in view_receipts:
++        view = written["bufferViews"][receipt["new_view"]]
++        offset = view.get("byteOffset", 0)
++        chunk = out_binary[offset : offset + view["byteLength"]]
++        if _sha256(chunk) != receipt["sha256"]:
++            raise SharedGlbPackError("written geometry/accessor view differs from source")
++    for image, receipt in zip(written.get("images", []), image_receipts):
++        payload = (dest.parent / image["uri"]).resolve().read_bytes()
++        if _sha256(payload) != receipt["sha256"]:
++            raise SharedGlbPackError("written shared image differs from source")
++    for key in SEMANTIC_SECTIONS:
++        if written.get(key) != original.get(key):
++            raise SharedGlbPackError(f"semantic section changed during lossless pack: {key}")
++
++    report: dict[str, Any] = {
++        "schema": SCHEMA,
++        "status": "PASS",
++        "source": {
++            "path": source.name,
++            "sha256": _sha256(raw),
++            "bytes": len(raw),
++        },
++        "delivery": {
++            "gltf": {
++                "path": dest.name,
++                "sha256": _sha256(dest.read_bytes()),
++                "bytes": dest.stat().st_size,
++            },
++            "bin": {
++                "path": bin_path.name,
++                "sha256": _sha256(out_binary),
++                "bytes": len(out_binary),
++            },
++            "shared_images": image_receipts,
++        },
++        "relocated_buffer_views": view_receipts,
++        "semantic_sections_preserved": list(SEMANTIC_SECTIONS),
++        "lossless_views_verified": True,
++        "provenance": {
++            "donor": DONOR,
++            "implementation": "AXM Game Asset Forge hardened stdlib-only native adaptation",
++        },
++        "truth_boundary": {
++            "proves": [
++                "relocated kept bufferView payload bytes match their source payloads",
++                "shared image payload bytes match their embedded source payloads",
++                "listed semantic glTF sections remain structurally equal",
++            ],
++            "does_not_prove": [
++                "visual quality",
++                "engine performance",
++                "semantic correctness of unknown extensions",
++                "that lossy optimization occurred",
++                "canonical adoption",
++            ],
++            "automatic_canon": False,
++        },
++    }
++    report["report_digest"] = _sha256(
++        json.dumps(report, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
++    )
++    return report
++
++
++def _safe_asset_id(value: str) -> str:
++    if not value or "\\" in value:
++        raise SharedGlbPackError("asset id must be a non-empty portable path segment")
++    parsed = PurePosixPath(value)
++    if parsed.is_absolute() or len(parsed.parts) != 1 or parsed.parts[0] in {".", ".."}:
++        raise SharedGlbPackError(f"unsafe asset id {value!r}")
++    return value
++
++
++def pack_shared_collection(
++    sources: dict[str, str | Path],
++    output: str | Path,
++) -> dict[str, Any]:
++    if not sources:
++        raise SharedGlbPackError("shared collection needs at least one source GLB")
++    root = Path(output)
++    if root.exists():
++        raise SharedGlbPackError("shared collection destination must not already exist")
++    root.mkdir(parents=True)
++    textures = root / "textures"
++    textures.mkdir()
++    reports: dict[str, Any] = {}
++    for asset_id in sorted(sources):
++        safe_id = _safe_asset_id(asset_id)
++        source = Path(sources[asset_id])
++        report = pack_glb_to_shared(
++            source,
++            root / "assets" / safe_id / f"{safe_id}.gltf",
++            textures,
++        )
++        reports[safe_id] = report
++    manifest: dict[str, Any] = {
++        "schema": "axm.game-assets.shared-glb-collection/v0.1",
++        "status": "PASS",
++        "assets": reports,
++        "shared_texture_count": len([item for item in textures.iterdir() if item.is_file()]),
++        "authority": {
++            "canonical_mutation": False,
++            "automatic_install": False,
++            "release": False,
++            "merge": False,
++            "canon": False,
++        },
++        "provenance": {"donor": DONOR},
++    }
++    manifest["manifest_digest"] = _sha256(
++        json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
++    )
++    (root / "packing-verification.json").write_text(
++        json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
++        encoding="utf-8",
++    )
++    return manifest
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description="Losslessly unpack GLBs into shared-image glTF deliveries")
++    parser.add_argument("output", type=Path)
++    parser.add_argument("sources", nargs="+", type=Path)
++    args = parser.parse_args(argv)
++    mapping: dict[str, Path] = {}
++    for source in args.sources:
++        key = source.stem
++        if key in mapping:
++            raise SharedGlbPackError(f"duplicate source stem {key!r}")
++        mapping[key] = source
++    result = pack_shared_collection(mapping, args.output)
++    print(json.dumps({
++        "status": result["status"],
++        "assets": len(result["assets"]),
++        "shared_texture_count": result["shared_texture_count"],
++        "manifest_digest": result["manifest_digest"],
++    }, sort_keys=True))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/native_shared_glb_pack_test.py b/native_shared_glb_pack_test.py
+new file mode 100644
+index 0000000..a8d3a0a
+--- /dev/null
++++ b/native_shared_glb_pack_test.py
+@@ -0,0 +1,110 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import json
++import shutil
++import tempfile
++import unittest
++from pathlib import Path
++
++from native_geometry import make_box, write_obj
++from native_glb_delivery import build_verified_glb_delivery
++from native_pipeline import build_rigid_package
++from native_shared_glb_pack import (
++    SharedGlbPackError,
++    pack_glb_to_shared,
++    pack_shared_collection,
++    read_glb,
++)
++
++
++def build_real_forge_glb(root: Path, *, seed: int = 41) -> Path:
++    source = root / "source.obj"
++    write_obj(make_box((1.2, 0.7, 0.9), name="donor-pack-proof"), source, include_normals=False)
++    package = build_rigid_package(source, root / "package", material_size=16, seed=seed)
++    output = root / "delivery.glb"
++    receipt = build_verified_glb_delivery(
++        root / "package",
++        output,
++        expected_manifest_sha256=package["manifest_sha256"],
++    )
++    assert receipt["delivery"]["validation"]["status"] == "pass"
++    return output
++
++
++class NativeSharedGlbPackTests(unittest.TestCase):
++    def test_real_forge_glb_round_trips_into_shared_collection(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            glb = build_real_forge_glb(root)
++            _, source_doc, _ = read_glb(glb)
++            expected_image_count = len(source_doc.get("images", []))
++            self.assertGreater(expected_image_count, 0)
++            second = root / "delivery-copy.glb"
++            shutil.copyfile(glb, second)
++            result = pack_shared_collection(
++                {"first": glb, "second": second},
++                root / "shared",
++            )
++            self.assertEqual(result["status"], "PASS")
++            self.assertEqual(set(result["assets"]), {"first", "second"})
++            self.assertEqual(result["shared_texture_count"], expected_image_count)
++            first_doc = json.loads((root / "shared/assets/first/first.gltf").read_text())
++            second_doc = json.loads((root / "shared/assets/second/second.gltf").read_text())
++            self.assertEqual(
++                [image["uri"].split("/")[-1] for image in first_doc["images"]],
++                [image["uri"].split("/")[-1] for image in second_doc["images"]],
++            )
++            self.assertTrue(all(
++                report["lossless_views_verified"]
++                for report in result["assets"].values()
++            ))
++
++    def test_low_level_pack_preserves_semantic_sections(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            glb = build_real_forge_glb(root)
++            _, original, _ = read_glb(glb)
++            report = pack_glb_to_shared(
++                glb,
++                root / "out/asset.gltf",
++                root / "out/textures",
++            )
++            written = json.loads((root / "out/asset.gltf").read_text())
++            for key in report["semantic_sections_preserved"]:
++                self.assertEqual(written.get(key), original.get(key), key)
++            self.assertFalse(report["truth_boundary"]["automatic_canon"])
++
++    def test_shared_texture_corruption_is_not_overwritten(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            glb = build_real_forge_glb(root)
++            textures = root / "textures"
++            first = pack_glb_to_shared(glb, root / "a/a.gltf", textures)
++            target = textures / first["delivery"]["shared_images"][0]["shared_path"]
++            target.write_bytes(b"corrupt")
++            with self.assertRaises(SharedGlbPackError):
++                pack_glb_to_shared(glb, root / "b/b.gltf", textures)
++            self.assertEqual(target.read_bytes(), b"corrupt")
++
++    def test_destination_is_create_only(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            glb = build_real_forge_glb(root)
++            textures = root / "textures"
++            pack_glb_to_shared(glb, root / "a/asset.gltf", textures)
++            with self.assertRaises(SharedGlbPackError):
++                pack_glb_to_shared(glb, root / "a/asset.gltf", textures)
++
++    def test_truncated_glb_is_rejected(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            glb = build_real_forge_glb(root)
++            bad = root / "bad.glb"
++            bad.write_bytes(glb.read_bytes()[:-11])
++            with self.assertRaises(SharedGlbPackError):
++                read_glb(bad)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/native_stencil_detail.py b/native_stencil_detail.py
+new file mode 100644
+index 0000000..98346a7
+--- /dev/null
++++ b/native_stencil_detail.py
+@@ -0,0 +1,193 @@
++#!/usr/bin/env python3
++"""Geometric 3x5 stencil detail donor for AXM Game Asset Forge.
++
++Adapted from Universal Creation's RTS detail layer at commit
++a5cc708457b7e8f33e794fdac648ae65d15a0fb4
++(`src/axm_uc/rts_detail.py`). The donor used real geometry for readable signage
++instead of baking lettering into a screenshot. This Forge version returns native
++Mesh state and imports no Universal Creation runtime.
++
++The result is geometry only. It does not choose art direction, material, placement,
++language, or canonical asset meaning for the caller.
++"""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++from pathlib import Path
++from typing import Any, Sequence
++
++from native_geometry import Mesh, bounds, topology_report, write_obj
++
++SCHEMA = "axm.game-assets.stencil-detail/v0.1"
++DONOR = {
++    "repo": "mike-axiom-mir/axm-universal-creation",
++    "commit": "a5cc708457b7e8f33e794fdac648ae65d15a0fb4",
++    "mechanism": "src/axm_uc/rts_detail.py geometric 3x5 lettering",
++}
++
++_GLYPHS = [
++    "010101111101101","110101110101110","011100100100011","110101101101110",
++    "111100110100111","111100110100100","011100101101011","101101111101101",
++    "111010010010111","001001001101010","101101110101101","100100100100111",
++    "101111111101101","101111111111101","010101101101010","110101110100100",
++    "010101101111011","110101110101101","011100010001110","111010010010010",
++    "101101101101111","101101101101010","101101111111101","101101010101101",
++    "101101010010010","111001010100111","111101101101111","010110010010111",
++    "110001010100111","110001010001110","101101111001001","111100110001110",
++    "011100111101111","111001010010010","111101111101111","111101111001110",
++]
++FONT = dict(zip("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", _GLYPHS))
++
++
++class StencilDetailError(ValueError):
++    pass
++
++
++def _sha256(data: bytes) -> str:
++    return "sha256:" + hashlib.sha256(data).hexdigest()
++
++
++def _canonical(value: Any) -> bytes:
++    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
++
++
++def _normalize_lines(lines: Sequence[str]) -> tuple[str, ...]:
++    if not lines:
++        raise StencilDetailError("at least one line is required")
++    normalized: list[str] = []
++    for index, line in enumerate(lines):
++        if not isinstance(line, str):
++            raise StencilDetailError(f"line {index} must be text")
++        text = line.upper()
++        if not text:
++            raise StencilDetailError(f"line {index} must not be empty")
++        unsupported = sorted({char for char in text if char != " " and char not in FONT})
++        if unsupported:
++            raise StencilDetailError(
++                f"line {index} contains unsupported stencil characters: {unsupported!r}"
++            )
++        normalized.append(text)
++    return tuple(normalized)
++
++
++def stencil_mesh(
++    lines: Sequence[str],
++    *,
++    width: float = 1.0,
++    height: float = 1.0,
++    z: float = 0.0,
++    name: str = "stencil",
++) -> Mesh:
++    text = _normalize_lines(lines)
++    if width <= 0.0 or height <= 0.0:
++        raise StencilDetailError("width and height must be positive")
++    max_chars = max(len(line) for line in text)
++    cell = min(width / max(1, max_chars * 4), height / max(1, len(text) * 6))
++    total_height = len(text) * 6 * cell
++    vertices: list[tuple[float, float, float]] = []
++    faces: list[tuple[int, int, int, int]] = []
++
++    for row_index, line in enumerate(text):
++        line_width = len(line) * 4 * cell
++        left = -line_width * 0.5
++        top = total_height * 0.5 - row_index * 6 * cell
++        for char_index, char in enumerate(line):
++            if char == " ":
++                continue
++            bits = FONT[char]
++            for pixel_row in range(5):
++                for pixel_col in range(3):
++                    if bits[pixel_row * 3 + pixel_col] != "1":
++                        continue
++                    x0 = left + (char_index * 4 + pixel_col) * cell
++                    x1 = x0 + cell * 0.90
++                    y1 = top - pixel_row * cell
++                    y0 = y1 - cell
++                    start = len(vertices)
++                    vertices.extend([
++                        (x0, y0, z),
++                        (x1, y0, z),
++                        (x1, y1, z),
++                        (x0, y1, z),
++                    ])
++                    faces.append((start, start + 1, start + 2, start + 3))
++    if not faces:
++        raise StencilDetailError("stencil contains no visible glyph cells")
++    return Mesh(name, vertices, faces)
++
++
++def stencil_receipt(
++    lines: Sequence[str],
++    *,
++    width: float = 1.0,
++    height: float = 1.0,
++    z: float = 0.0,
++    name: str = "stencil",
++) -> tuple[Mesh, dict[str, Any]]:
++    normalized = _normalize_lines(lines)
++    mesh = stencil_mesh(normalized, width=width, height=height, z=z, name=name)
++    lo, hi = bounds(mesh)
++    topology = topology_report(mesh)
++    receipt: dict[str, Any] = {
++        "schema": SCHEMA,
++        "name": name,
++        "text": list(normalized),
++        "requested_box": [width, height],
++        "z": z,
++        "bounds": {"min": list(lo), "max": list(hi)},
++        "topology": topology,
++        "provenance": {
++            "donor": DONOR,
++            "implementation": "AXM Game Asset Forge native geometry adaptation",
++        },
++        "truth_boundary": {
++            "geometry_generated": True,
++            "material_selected": False,
++            "placement_selected": False,
++            "art_direction_approved": False,
++            "automatic_genome_mutation": False,
++            "automatic_canon": False,
++        },
++    }
++    receipt["receipt_digest"] = _sha256(_canonical(receipt))
++    return mesh, receipt
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description="Build deterministic native 3x5 stencil geometry")
++    parser.add_argument("output_obj", type=Path)
++    parser.add_argument("text", nargs="+")
++    parser.add_argument("--width", type=float, default=1.0)
++    parser.add_argument("--height", type=float, default=1.0)
++    parser.add_argument("--name", default="stencil")
++    parser.add_argument("--receipt", type=Path)
++    args = parser.parse_args(argv)
++    mesh, receipt = stencil_receipt(
++        args.text,
++        width=args.width,
++        height=args.height,
++        name=args.name,
++    )
++    if args.output_obj.exists():
++        raise StencilDetailError(f"refusing to overwrite output: {args.output_obj}")
++    write_obj(mesh, args.output_obj, include_normals=False)
++    if args.receipt:
++        if args.receipt.exists():
++            raise StencilDetailError(f"refusing to overwrite receipt: {args.receipt}")
++        args.receipt.parent.mkdir(parents=True, exist_ok=True)
++        args.receipt.write_text(
++            json.dumps(receipt, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
++            encoding="utf-8",
++        )
++    print(json.dumps({
++        "name": mesh.name,
++        "faces": len(mesh.faces),
++        "receipt_digest": receipt["receipt_digest"],
++    }, sort_keys=True))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/native_stencil_detail_test.py b/native_stencil_detail_test.py
+new file mode 100644
+index 0000000..b60bc25
+--- /dev/null
++++ b/native_stencil_detail_test.py
+@@ -0,0 +1,46 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import unittest
++
++from native_geometry import topology_report
++from native_stencil_detail import StencilDetailError, stencil_mesh, stencil_receipt
++
++
++class NativeStencilDetailTests(unittest.TestCase):
++    def test_letters_are_real_geometry(self) -> None:
++        mesh, receipt = stencil_receipt(["GOOD", "STUFF"], width=1.6, height=1.2, name="shop-sign")
++        self.assertGreater(len(mesh.vertices), 0)
++        self.assertGreater(len(mesh.faces), 0)
++        report = topology_report(mesh)
++        self.assertEqual(report["invalid_indices"], 0)
++        self.assertEqual(report["degenerate_faces"], 0)
++        self.assertTrue(receipt["truth_boundary"]["geometry_generated"])
++        self.assertFalse(receipt["truth_boundary"]["art_direction_approved"])
++
++    def test_same_input_is_deterministic(self) -> None:
++        first, r1 = stencil_receipt(["AXM 2040"], width=2.0, height=0.8)
++        second, r2 = stencil_receipt(["AXM 2040"], width=2.0, height=0.8)
++        self.assertEqual(first.vertices, second.vertices)
++        self.assertEqual(first.faces, second.faces)
++        self.assertEqual(r1["receipt_digest"], r2["receipt_digest"])
++
++    def test_unknown_characters_are_rejected_not_guessed(self) -> None:
++        with self.assertRaises(StencilDetailError):
++            stencil_mesh(["HELLO!"])
++
++    def test_requested_bounds_are_respected(self) -> None:
++        _, receipt = stencil_receipt(["SURVIVE"], width=1.4, height=0.6)
++        lo = receipt["bounds"]["min"]
++        hi = receipt["bounds"]["max"]
++        self.assertLessEqual(hi[0] - lo[0], 1.4 + 1e-9)
++        self.assertLessEqual(hi[1] - lo[1], 0.6 + 1e-9)
++
++    def test_spaces_do_not_emit_cells(self) -> None:
++        compact = stencil_mesh(["AA"])
++        spaced = stencil_mesh(["A A"])
++        self.assertEqual(len(compact.faces), len(spaced.faces))
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/native_surface_families.py b/native_surface_families.py
+new file mode 100644
+index 0000000..ca6d677
+--- /dev/null
++++ b/native_surface_families.py
+@@ -0,0 +1,357 @@
++#!/usr/bin/env python3
++"""Deterministic multi-family surface authoring for AXM Game Asset Forge.
++
++The family vocabulary and several signal formulas are adapted from the finished
++Universal Creation RTS/workshop surface donor at commit
++a5cc708457b7e8f33e794fdac648ae65d15a0fb4, especially
++tools/blender/axm_salvage_surfaces.py. This is a native stdlib-only Forge port:
++it does not import Universal Creation, Blender, NumPy, Pillow, or network code.
++
++These maps are authored procedural material signals, not measured scans and not
++an aesthetic/AAA/PBR certification.
++"""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import math
++from dataclasses import asdict, dataclass, replace
++from pathlib import Path
++from typing import Any
++
++from native_pbr import fbm, png_bytes
++
++SCHEMA = "axm.game-assets.native-surface-family/v0.1"
++DONOR = {
++    "repo": "mike-axiom-mir/axm-universal-creation",
++    "commit": "a5cc708457b7e8f33e794fdac648ae65d15a0fb4",
++    "mechanism": "tools/blender/axm_salvage_surfaces.py",
++}
++KINDS = ("salvage_metal", "steel", "wood", "cloth", "stone", "soil", "rubber")
++
++
++@dataclass(frozen=True, slots=True)
++class SurfaceFamilySpec:
++    kind: str
++    base_rgb: tuple[int, int, int]
++    roughness: float
++    metallic: float
++    relief_strength: float = 3.0
++    scale: float = 1.0
++
++
++DEFAULT_SPECS: dict[str, SurfaceFamilySpec] = {
++    "salvage_metal": SurfaceFamilySpec("salvage_metal", (54, 92, 96), 0.59, 0.70, 3.4, 1.0),
++    "steel": SurfaceFamilySpec("steel", (174, 182, 173), 0.42, 0.90, 2.2, 1.0),
++    "wood": SurfaceFamilySpec("wood", (142, 107, 68), 0.84, 0.0, 2.6, 1.0),
++    "cloth": SurfaceFamilySpec("cloth", (56, 108, 124), 0.92, 0.0, 2.0, 1.0),
++    "stone": SurfaceFamilySpec("stone", (146, 144, 131), 0.90, 0.0, 2.8, 1.0),
++    "soil": SurfaceFamilySpec("soil", (80, 65, 53), 0.96, 0.0, 2.5, 1.0),
++    "rubber": SurfaceFamilySpec("rubber", (36, 44, 48), 0.82, 0.0, 3.2, 1.0),
++}
++
++
++def _clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
++    return max(lo, min(hi, value))
++
++
++def _u8(value: float) -> int:
++    return max(0, min(255, round(_clamp(value) * 255.0)))
++
++
++def _sha256(data: bytes) -> str:
++    return "sha256:" + hashlib.sha256(data).hexdigest()
++
++
++def _canonical(value: Any) -> bytes:
++    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
++
++
++def _rgb01(rgb: tuple[int, int, int]) -> tuple[float, float, float]:
++    if len(rgb) != 3 or any(type(value) is not int or value < 0 or value > 255 for value in rgb):
++        raise ValueError("base_rgb must contain three integers within [0,255]")
++    return tuple(value / 255.0 for value in rgb)
++
++
++def _hash01(x: int, y: int, seed: int) -> float:
++    payload = f"{seed}:{x}:{y}".encode("utf-8")
++    return int.from_bytes(hashlib.sha256(payload).digest()[:8], "big") / (2**64 - 1)
++
++
++def _signals(size: int, seed: int, spec: SurfaceFamilySpec) -> dict[str, list[float] | list[tuple[float, float, float]]]:
++    if spec.kind not in KINDS:
++        raise ValueError(f"unsupported surface kind {spec.kind!r}")
++    if size < 8:
++        raise ValueError("size must be >= 8")
++    if not math.isfinite(spec.relief_strength) or spec.relief_strength < 0.0:
++        raise ValueError("relief_strength must be finite and non-negative")
++    if not math.isfinite(spec.scale) or spec.scale <= 0.0:
++        raise ValueError("scale must be finite and positive")
++    base_rgb = _rgb01(spec.base_rgb)
++    base: list[tuple[float, float, float]] = []
++    rough: list[float] = []
++    metal: list[float] = []
++    height: list[float] = []
++    ao: list[float] = []
++
++    for y in range(size):
++        v = (y + 0.5) / size
++        for x in range(size):
++            u = (x + 0.5) / size
++            s = spec.scale
++            broad = fbm(u * 5.0 * s, v * 5.0 * s, seed + 101)
++            mid = fbm(u * 31.0 * s, v * 31.0 * s, seed + 503)
++            fine = fbm(u * 137.0 * s, v * 137.0 * s, seed + 907, octaves=4)
++            grain = _hash01(x, y, seed + 1601)
++
++            rr, gg, bb = base_rgb
++            rgh = spec.roughness
++            met = spec.metallic
++            h = 0.5
++            occlusion = 0.96
++
++            if spec.kind == "salvage_metal":
++                field = 0.51 * broad + 0.37 * mid + 0.12 * fine
++                chip = _clamp((field - 0.67) * 16.0)
++                halo = _clamp((field - 0.63) * 13.0)
++                rust = (
++                    0.16 + 0.13 * mid,
++                    0.066 + 0.045 * fine,
++                    0.028 + 0.020 * fine,
++                )
++                shade = 0.78 + 0.23 * broad + 0.07 * fine
++                rr, gg, bb = (component * shade * (1.0 - 0.38 * halo) for component in base_rgb)
++                rr = rr * (1.0 - chip) + rust[0] * chip
++                gg = gg * (1.0 - chip) + rust[1] * chip
++                bb = bb * (1.0 - chip) + rust[2] * chip
++                scratch = 1.0 if grain > 0.997 and mid > 0.44 else 0.0
++                if scratch:
++                    rr, gg, bb = 0.49, 0.47, 0.39
++                rgh = 0.43 + 0.27 * chip + 0.15 * mid
++                met = 0.72 * (1.0 - chip) + 0.20 * chip
++                h = 0.53 + 0.08 * (fine - 0.5) - 0.16 * chip - 0.06 * scratch
++                occlusion = 0.84 + 0.16 * _clamp(h)
++            elif spec.kind == "steel":
++                brushed = math.sin(v * math.tau * 115.0 * s) ** 2
++                shade = 0.79 + 0.17 * brushed + 0.11 * mid
++                rr, gg, bb = (component * shade for component in base_rgb)
++                rgh = 0.28 + 0.25 * mid
++                met = 0.90
++                h = 0.50 + 0.03 * (fine - 0.5) + 0.012 * (brushed - 0.5)
++                occlusion = 0.94 + 0.06 * broad
++            elif spec.kind == "wood":
++                rings = 0.5 + 0.5 * math.sin(
++                    (u + 0.019 * math.sin(v * 11.0) + 0.008 * broad) * 180.0 * s
++                )
++                shade = 0.74 + 0.18 * rings + 0.15 * mid
++                rr, gg, bb = (component * shade for component in base_rgb)
++                crack = 1.0 if rings < 0.018 and broad > 0.58 else 0.0
++                if crack:
++                    rr, gg, bb = rr * 0.42, gg * 0.42, bb * 0.42
++                rgh = 0.75 + 0.20 * fine
++                met = 0.0
++                h = 0.50 + 0.07 * (rings - 0.5) + 0.045 * (mid - 0.5) - 0.08 * crack
++                occlusion = 0.83 + 0.17 * _clamp(h)
++            elif spec.kind == "cloth":
++                weave = 0.5 + 0.5 * (
++                    math.sin(u * math.tau * 105.0 * s) * math.sin(v * math.tau * 105.0 * s)
++                )
++                stain = _clamp((broad - 0.55) * 6.0)
++                shade = (0.78 + 0.15 * weave + 0.20 * mid) * (1.0 - 0.19 * stain)
++                rr, gg, bb = (component * shade for component in base_rgb)
++                rgh = 0.88 + 0.10 * mid
++                met = 0.0
++                h = 0.50 + 0.055 * (weave - 0.5) + 0.025 * (fine - 0.5)
++                occlusion = 0.90 + 0.10 * _clamp(h)
++            elif spec.kind in {"stone", "soil"}:
++                shade = 0.80 + 0.20 * mid + 0.055 * grain
++                if spec.kind == "soil":
++                    shade *= 0.91 + 0.10 * broad
++                rr, gg, bb = (component * shade for component in base_rgb)
++                rgh = 0.82 + 0.15 * fine if spec.kind == "stone" else 0.90 + 0.08 * fine
++                met = 0.0
++                h = 0.50 + 0.075 * (mid - 0.5) + 0.025 * (fine - 0.5)
++                occlusion = 0.80 + 0.20 * _clamp(h)
++            elif spec.kind == "rubber":
++                shade = 0.72 + 0.24 * fine + 0.08 * mid
++                rr, gg, bb = (component * shade for component in base_rgb)
++                rgh = 0.72 + 0.20 * mid
++                met = 0.0
++                h = 0.50 + 0.075 * (fine - 0.5) + 0.02 * (grain - 0.5)
++                occlusion = 0.88 + 0.12 * _clamp(h)
++
++            base.append((_clamp(rr), _clamp(gg), _clamp(bb)))
++            rough.append(_clamp(rgh))
++            metal.append(_clamp(met))
++            height.append(_clamp(h))
++            ao.append(_clamp(occlusion))
++
++    return {"base": base, "roughness": rough, "metallic": metal, "height": height, "ao": ao}
++
++
++def _normal_map(height: list[float], size: int, strength: float) -> list[tuple[float, float, float]]:
++    out: list[tuple[float, float, float]] = []
++    for y in range(size):
++        for x in range(size):
++            left = height[y * size + max(0, x - 1)]
++            right = height[y * size + min(size - 1, x + 1)]
++            down = height[max(0, y - 1) * size + x]
++            up = height[min(size - 1, y + 1) * size + x]
++            dx = (right - left) * strength
++            dy = (up - down) * strength
++            nx, ny, nz = -dx, -dy, 1.0
++            inv = 1.0 / math.sqrt(nx * nx + ny * ny + nz * nz)
++            out.append((nx * inv * 0.5 + 0.5, ny * inv * 0.5 + 0.5, nz * inv * 0.5 + 0.5))
++    return out
++
++
++def build_surface_family(
++    *,
++    size: int = 256,
++    seed: int = 1,
++    spec: SurfaceFamilySpec,
++) -> dict[str, tuple[int, bytes]]:
++    signal = _signals(size, seed, spec)
++    base = bytearray()
++    rough = bytearray()
++    metal = bytearray()
++    height = bytearray()
++    ao = bytearray()
++    orm = bytearray()
++    for rgb, rgh, met, h, occ in zip(
++        signal["base"],
++        signal["roughness"],
++        signal["metallic"],
++        signal["height"],
++        signal["ao"],
++    ):
++        base.extend(_u8(value) for value in rgb)
++        rough.append(_u8(rgh))
++        metal.append(_u8(met))
++        height.append(_u8(h))
++        ao.append(_u8(occ))
++        orm.extend((_u8(occ), _u8(rgh), _u8(met)))
++    normal = bytearray()
++    for rgb in _normal_map(signal["height"], size, spec.relief_strength):
++        normal.extend(_u8(value) for value in rgb)
++    return {
++        "base_color": (3, bytes(base)),
++        "roughness": (1, bytes(rough)),
++        "metallic": (1, bytes(metal)),
++        "height": (1, bytes(height)),
++        "normal": (3, bytes(normal)),
++        "ao": (1, bytes(ao)),
++        "orm": (3, bytes(orm)),
++    }
++
++
++def write_surface_family(
++    output: str | Path,
++    *,
++    kind: str,
++    size: int = 256,
++    seed: int = 1,
++    name: str | None = None,
++    base_rgb: tuple[int, int, int] | None = None,
++    relief_strength: float | None = None,
++    scale: float | None = None,
++) -> dict[str, Any]:
++    if kind not in DEFAULT_SPECS:
++        raise ValueError(f"unknown surface family {kind!r}; choose from {', '.join(KINDS)}")
++    spec = DEFAULT_SPECS[kind]
++    if base_rgb is not None:
++        spec = replace(spec, base_rgb=base_rgb)
++    if relief_strength is not None:
++        spec = replace(spec, relief_strength=float(relief_strength))
++    if scale is not None:
++        spec = replace(spec, scale=float(scale))
++    root = Path(output)
++    root.mkdir(parents=True, exist_ok=True)
++    if any(root.iterdir()):
++        raise FileExistsError(f"surface output must start empty: {root}")
++    fields = build_surface_family(size=size, seed=seed, spec=spec)
++    maps: dict[str, dict[str, Any]] = {}
++    for map_id, (channels, pixels) in fields.items():
++        payload = png_bytes(size, size, channels, pixels)
++        file_name = f"{map_id}.png"
++        (root / file_name).write_bytes(payload)
++        maps[map_id] = {
++            "file": file_name,
++            "sha256": _sha256(payload),
++            "bytes": len(payload),
++            "channels": channels,
++        }
++    manifest: dict[str, Any] = {
++        "schema": SCHEMA,
++        "family_id": name or f"{kind}-{seed}",
++        "kind": kind,
++        "seed": seed,
++        "size": [size, size],
++        "spec": {
++            **asdict(spec),
++            "base_rgb": list(spec.base_rgb),
++        },
++        "maps": maps,
++        "packed_map_truth": {
++            "orm": {
++                "r": "ambient-occlusion",
++                "g": "roughness",
++                "b": "metallic",
++                "note": "Packed delivery view; individual source maps are also materialized.",
++            }
++        },
++        "provenance": {
++            "donor": DONOR,
++            "implementation": "AXM Game Asset Forge stdlib-only native adaptation",
++        },
++        "truth": {
++            "deterministic": True,
++            "physically_measured": False,
++            "source_picture_projection": False,
++            "aesthetic_quality_proven": False,
++            "physical_pbr_certified": False,
++            "automatic_genome_mutation": False,
++            "notes": [
++                "Procedural surface signals are authored, not measured scans.",
++                "Relief normal is derived from generated height; no displacement claim.",
++                "Material-family identity is explicit and never inferred from a filename.",
++            ],
++        },
++    }
++    core_digest = _sha256(_canonical(manifest))
++    manifest["manifest_digest"] = core_digest
++    (root / "material-family.json").write_text(
++        json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
++        encoding="utf-8",
++    )
++    return manifest
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description="Generate one deterministic native Forge surface family")
++    parser.add_argument("output", type=Path)
++    parser.add_argument("--kind", choices=KINDS, required=True)
++    parser.add_argument("--size", type=int, default=256)
++    parser.add_argument("--seed", type=int, default=1)
++    parser.add_argument("--name")
++    args = parser.parse_args(argv)
++    manifest = write_surface_family(
++        args.output,
++        kind=args.kind,
++        size=args.size,
++        seed=args.seed,
++        name=args.name,
++    )
++    print(json.dumps({
++        "schema": manifest["schema"],
++        "family_id": manifest["family_id"],
++        "kind": manifest["kind"],
++        "manifest_digest": manifest["manifest_digest"],
++        "maps": len(manifest["maps"]),
++    }, sort_keys=True))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/native_surface_families_test.py b/native_surface_families_test.py
+new file mode 100644
+index 0000000..429f140
+--- /dev/null
++++ b/native_surface_families_test.py
+@@ -0,0 +1,114 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import json
++import tempfile
++import unittest
++from pathlib import Path
++
++from native_material_signal_audit import REQUEST_SCHEMA, audit_material_request
++from native_surface_families import KINDS, write_surface_family
++
++CHANNELS = {
++    "base_color": "base-color",
++    "normal": "normal",
++    "roughness": "roughness",
++    "metallic": "metallic",
++    "height": "height",
++    "ao": "ambient-occlusion",
++    "orm": "unassigned",
++}
++
++
++class NativeSurfaceFamiliesTests(unittest.TestCase):
++    def test_all_donor_families_generate_and_audit_without_hold(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            for index, kind in enumerate(KINDS):
++                folder = root / kind
++                manifest = write_surface_family(folder, kind=kind, size=16, seed=100 + index)
++                self.assertEqual(manifest["kind"], kind)
++                self.assertFalse(manifest["truth"]["physically_measured"])
++                self.assertEqual(set(manifest["maps"]), set(CHANNELS))
++                request = {
++                    "schema": REQUEST_SCHEMA,
++                    "family_id": manifest["family_id"],
++                    "entries": [
++                        {
++                            "id": map_id,
++                            "channel": CHANNELS[map_id],
++                            "path": record["file"],
++                        }
++                        for map_id, record in sorted(manifest["maps"].items())
++                    ],
++                }
++                report = audit_material_request(request, folder)
++                self.assertNotEqual(report["status"], "HOLD", (kind, report))
++                rows = {row["id"]: row for row in report["entries"]}
++                self.assertTrue(rows["normal"].get("signal"))
++                self.assertGreater(rows["normal"]["signal"]["normal"]["mean_z"], 0.15)
++
++    def test_generation_is_byte_deterministic(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            first = write_surface_family(root / "a", kind="wood", size=24, seed=77, name="wood-proof")
++            second = write_surface_family(root / "b", kind="wood", size=24, seed=77, name="wood-proof")
++            self.assertEqual(first["manifest_digest"], second["manifest_digest"])
++            for key in first["maps"]:
++                self.assertEqual(first["maps"][key]["sha256"], second["maps"][key]["sha256"])
++                self.assertEqual(
++                    (root / "a" / first["maps"][key]["file"]).read_bytes(),
++                    (root / "b" / second["maps"][key]["file"]).read_bytes(),
++                )
++
++    def test_material_kinds_do_not_collapse_to_same_payload(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            wood = write_surface_family(root / "wood", kind="wood", size=20, seed=9)
++            cloth = write_surface_family(root / "cloth", kind="cloth", size=20, seed=9)
++            self.assertNotEqual(
++                wood["maps"]["base_color"]["sha256"],
++                cloth["maps"]["base_color"]["sha256"],
++            )
++            self.assertNotEqual(
++                wood["maps"]["height"]["sha256"],
++                cloth["maps"]["height"]["sha256"],
++            )
++
++    def test_custom_authoring_state_is_receipted(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td) / "custom"
++            manifest = write_surface_family(
++                root,
++                kind="rubber",
++                size=16,
++                seed=3,
++                base_rgb=(18, 25, 31),
++                relief_strength=4.25,
++                scale=1.6,
++            )
++            self.assertEqual(manifest["spec"]["base_rgb"], [18, 25, 31])
++            self.assertEqual(manifest["spec"]["relief_strength"], 4.25)
++            self.assertEqual(manifest["spec"]["scale"], 1.6)
++
++    def test_output_is_create_only_at_directory_body_level(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td) / "occupied"
++            root.mkdir()
++            (root / "existing.txt").write_text("keep me", encoding="utf-8")
++            with self.assertRaises(FileExistsError):
++                write_surface_family(root, kind="stone", size=16, seed=1)
++            self.assertEqual((root / "existing.txt").read_text(encoding="utf-8"), "keep me")
++
++    def test_manifest_is_not_authority(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td) / "family"
++            manifest = write_surface_family(root, kind="salvage_metal", size=16, seed=12)
++            parsed = json.loads((root / "material-family.json").read_text(encoding="utf-8"))
++            self.assertEqual(parsed["manifest_digest"], manifest["manifest_digest"])
++            self.assertFalse(parsed["truth"]["automatic_genome_mutation"])
++            self.assertFalse(parsed["truth"]["aesthetic_quality_proven"])
++
++
++if __name__ == "__main__":
++    unittest.main()

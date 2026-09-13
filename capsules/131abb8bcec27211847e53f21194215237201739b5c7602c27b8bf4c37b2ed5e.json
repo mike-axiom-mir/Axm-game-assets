@@ -1,0 +1,133 @@
+{
+  "capsule_id": "131abb8bcec27211847e53f21194215237201739b5c7602c27b8bf4c37b2ed5e",
+  "evidence": {
+    "files": [
+      {
+        "additions": 107,
+        "binary": false,
+        "content_sha256": "bdc04b97c14f032f3bacd0fb42c7705ad7853be85ce1e18a9bfd0ea56a0caf10",
+        "deletions": 0,
+        "path": "docs/NATIVE_SALVAGE_CONSTRUCTION.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Native salvage construction donor",
+          "Corrugated sheet",
+          "Pinned cloth / tarp",
+          "Why this donor belongs in Game Asset Forge",
+          "Evidence",
+          "Truth boundary"
+        ]
+      },
+      {
+        "additions": 395,
+        "binary": false,
+        "content_sha256": "6246012b3bcbd26290f9a235629b5001aa4258c90aef1d365283317d8909680e",
+        "deletions": 0,
+        "path": "native_salvage_construction.py",
+        "status": "A",
+        "symbols": [
+          "ConstructionPiece",
+          "SalvageConstructionError",
+          "_sha256",
+          "_canonical",
+          "_add",
+          "_sub",
+          "_mul",
+          "_cross",
+          "_length",
+          "_normalize",
+          "_lerp",
+          "_finite_vec3",
+          "_append_face_uv",
+          "_grid_shell",
+          "_base_receipt",
+          "corrugated_sheet",
+          "cloth_patch",
+          "write_piece"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 117,
+        "binary": false,
+        "content_sha256": "3c098d3d9e3afe314ee81904b58d36e72714df50f8750af4ed0fc2a71e1fc005",
+        "deletions": 0,
+        "path": "native_salvage_construction_test.py",
+        "status": "A",
+        "symbols": [
+          "NativeSalvageConstructionTests"
+        ],
+        "topics": []
+      }
+    ],
+    "patch_sha256": "43bf752a81984f9ec2c8b987431cf73e1a3475abe789d030ccaf2e326d445526"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 6,
+    "kinds": [
+      "code",
+      "knowledge",
+      "test-change"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "add",
+      "append",
+      "asset",
+      "asset-forge",
+      "axm",
+      "base",
+      "belongs",
+      "boundary",
+      "canonical",
+      "cloth",
+      "construction",
+      "corrugated",
+      "cross",
+      "donor",
+      "error",
+      "evidence",
+      "face",
+      "finite",
+      "forge",
+      "game",
+      "game-assets",
+      "grid",
+      "length",
+      "lerp",
+      "mul",
+      "native",
+      "normalize",
+      "patch",
+      "piece",
+      "pinned",
+      "port",
+      "receipt",
+      "salvage",
+      "sha256",
+      "sheet",
+      "shell",
+      "standalone",
+      "sub",
+      "tarp",
+      "this",
+      "truth",
+      "vec3",
+      "why",
+      "write"
+    ]
+  },
+  "source": {
+    "base": "e0b3fecfb363f5f1ee54c4593e899898e428f9fe",
+    "commit_subject": "Port native salvage sheet and tarp construction (#27)",
+    "head": "2fbc37767f6b59d6002a8f38b11ca6d7bc1893d1",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

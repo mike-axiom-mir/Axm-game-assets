@@ -1,0 +1,266 @@
+{
+  "capsule_id": "d01f93a0a1f1c3570be1079dce10401d298f85fe3ffec868103aaae71b502879",
+  "evidence": {
+    "files": [
+      {
+        "additions": 69,
+        "binary": false,
+        "content_sha256": "78cdb6af6789dd439f5f1c0f0bc7f16ab89a4271fc483069f8064132948470fe",
+        "deletions": 0,
+        "path": "docs/NATIVE_PBR_REHEARSAL.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Native PBR rehearsal v0.1",
+          "Current scope",
+          "Acceptance rule",
+          "Example",
+          "Evidence boundary",
+          "Provenance",
+          "Why this matters"
+        ]
+      },
+      {
+        "additions": 59,
+        "binary": false,
+        "content_sha256": "dfcf6a7b9b33700109c9f01783191edf81bf429d585628a4ffb4c47d13af8761",
+        "deletions": 0,
+        "path": "docs/NATIVE_PREVIEW_EVIDENCE.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Native preview evidence v0.1",
+          "What is captured",
+          "Identity",
+          "Use",
+          "Truth boundary",
+          "Provenance"
+        ]
+      },
+      {
+        "additions": 79,
+        "binary": false,
+        "content_sha256": "a7dde0bc9606d5221fc2c2571587dc242aa141bdf0dcca224f08e79fa83ba5de",
+        "deletions": 0,
+        "path": "docs/NATIVE_PREVIEW_RESUME.md",
+        "status": "A",
+        "symbols": [],
+        "topics": [
+          "Crash-resumable native preview evidence v0.1",
+          "Admission model",
+          "Example API",
+          "Do at most one new view this run.",
+          "Later, continue from the admitted checkpoint.",
+          "Deterministic parity proof",
+          "Truth boundary",
+          "Provenance"
+        ]
+      },
+      {
+        "additions": 558,
+        "binary": false,
+        "content_sha256": "b017e0fcc331ca32f8c4eee1cafd683b032d7d9b43773155ae26f088b39ec43e",
+        "deletions": 0,
+        "path": "native_pbr_rehearsal.py",
+        "status": "A",
+        "symbols": [
+          "NativePbrRehearsalError",
+          "_sha256",
+          "_canonical",
+          "_strict_pairs",
+          "_load_json",
+          "_spec_to_json",
+          "_spec_from_manifest",
+          "_source_state",
+          "normalize_policy",
+          "_entry",
+          "_warning_count",
+          "_normal_warnings",
+          "_height_has_variation",
+          "_map_hashes",
+          "propose_repairs",
+          "_comparison",
+          "rehearse_native_pbr",
+          "main"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 131,
+        "binary": false,
+        "content_sha256": "c00040671b52bb190be73aec154be2aa009b006a9ced87ce0462f6246f549a57",
+        "deletions": 0,
+        "path": "native_pbr_rehearsal_test.py",
+        "status": "A",
+        "symbols": [
+          "_sha",
+          "_normal_warnings",
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 172,
+        "binary": false,
+        "content_sha256": "f1ca79c075291560144af555ad2326e940bcb6296360a39813fc5ebbba03909d",
+        "deletions": 0,
+        "path": "native_preview_evidence.py",
+        "status": "A",
+        "symbols": [
+          "NativePreviewEvidenceError",
+          "_sha256",
+          "_canonical",
+          "mesh_digest",
+          "_record",
+          "_write_create_only",
+          "write_verified_preview"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 68,
+        "binary": false,
+        "content_sha256": "efd5d1d014f4575a0e36dbe8a49b746a2f097e3431c5a164cd23ad761dc191e1",
+        "deletions": 0,
+        "path": "native_preview_evidence_test.py",
+        "status": "A",
+        "symbols": [
+          "run"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 434,
+        "binary": false,
+        "content_sha256": "6617ba76fd4d11a7539f33c3c5c1b0445e3bf0fdd828015e6e60f9b769d8172c",
+        "deletions": 0,
+        "path": "native_preview_resumable.py",
+        "status": "A",
+        "symbols": [
+          "NativePreviewResumeError",
+          "_canonical",
+          "_digest",
+          "_sha256",
+          "_strict_pairs",
+          "_reject_constant",
+          "_atomic_write",
+          "_real_output_dir",
+          "_identity",
+          "_checkpoint_digest",
+          "_load_checkpoint",
+          "_regular_file_record",
+          "_verify_completed",
+          "_remove_unadmitted",
+          "_admit_view",
+          "_assemble_preview",
+          "_finalize_evidence",
+          "render_preview_resumable"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 134,
+        "binary": false,
+        "content_sha256": "26d08038e5f2b5dc346c76873a2894b008bf4b8056042e5a836c5ae617cd68ea",
+        "deletions": 0,
+        "path": "native_preview_resumable_test.py",
+        "status": "A",
+        "symbols": [
+          "_sha",
+          "_evidence_paths",
+          "expect_resume_error",
+          "run"
+        ],
+        "topics": []
+      }
+    ],
+    "patch_sha256": "7136e105da17cc4ceda4816d4dc4c2bb0e1c574de999f3c516c333b9a3918c95"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 6,
+    "kinds": [
+      "code",
+      "knowledge",
+      "test-change"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "acceptance",
+      "admission",
+      "admit",
+      "admitted",
+      "api",
+      "assemble",
+      "asset-forge",
+      "atomic",
+      "axm",
+      "boundary",
+      "bounded",
+      "canonical",
+      "captured",
+      "checkpoint",
+      "comparison",
+      "completed",
+      "constant",
+      "continue",
+      "count",
+      "crash",
+      "create",
+      "current",
+      "deterministic",
+      "digest",
+      "dir",
+      "entry",
+      "error",
+      "evidence",
+      "example",
+      "expect",
+      "finalize",
+      "from",
+      "game-assets",
+      "has",
+      "hashes",
+      "height",
+      "identity",
+      "json",
+      "later",
+      "load",
+      "manifest",
+      "map",
+      "matters",
+      "merge",
+      "mesh",
+      "model",
+      "most",
+      "native",
+      "normal",
+      "normalize",
+      "one",
+      "only",
+      "output",
+      "pairs",
+      "parity",
+      "paths",
+      "pbr",
+      "policy",
+      "preview",
+      "proof",
+      "propose",
+      "provenance",
+      "real",
+      "record"
+    ]
+  },
+  "source": {
+    "base": "166ff30a33a1a9e805f74bc2669fcef8ba7bcc8c",
+    "commit_subject": "Merge PR #25: bounded rehearsal and resumable preview evidence",
+    "head": "c17d99b06e1717638b2d820138806390b14db99c",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

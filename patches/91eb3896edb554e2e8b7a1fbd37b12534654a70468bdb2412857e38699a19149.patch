@@ -1,0 +1,442 @@
+diff --git a/docs/NATIVE_FOUND_OBJECT_DETAIL.md b/docs/NATIVE_FOUND_OBJECT_DETAIL.md
+new file mode 100644
+index 0000000..7fd6d62
+--- /dev/null
++++ b/docs/NATIVE_FOUND_OBJECT_DETAIL.md
+@@ -0,0 +1,63 @@
++# Native found-object detail donor
++
++Game Asset Forge now has a small semantic-detail vocabulary selectively adapted from the finished Universal Creation workshop/RTS foundry.
++
++Pinned donor:
++
++`mike-axiom-mir/axm-universal-creation@a5cc708457b7e8f33e794fdac648ae65d15a0fb4`
++
++Relevant donor mechanisms:
++
++- `tools/blender/axm_salvage_personality.py`
++- `src/axm_uc/rts_detail.py`
++
++## Why this donor matters
++
++The workshop that exposed the gap between Universal Creation and the specialized Game Asset Forge was not detailed merely because it had more polygons. It contained small understandable objects and repair history: a kettle, mug, winch, stool, lantern, tied cargo, mismatched fixes and other lived-in construction cues.
++
++Those details are semantic. They help a player read what a place is and how it is used.
++
++`native_found_object_detail.py` ports a bounded set of those reusable mechanisms into Forge-owned native geometry instead of copying the workshop composition itself.
++
++## Current recipes
++
++- kettle
++- mug
++- winch with spokes and drop cable
++- mismatched-leg stool with hubcap-like seat
++- lantern with cage/handle plus optional practical-light metadata
++- tied cargo crate with explicit rope geometry
++
++Every recipe returns named semantic parts with material-family intent and an exact deterministic receipt.
++
++## Practical lights
++
++A lantern can carry a `PracticalLight` record containing position, color, energy and radius hints.
++
++That record is metadata. It explicitly says the target engine must recreate and tune the light. It is not a baked-light or engine-light claim.
++
++## Composition principle
++
++The useful donor pattern is:
++
++`large form -> construction system -> functional substructure -> small semantic objects -> repair/history detail -> materials -> evidence`
++
++The Forge should preserve those layers separately so lower-detail realizations can decide which details to keep, bake, simplify or omit without silently changing asset meaning.
++
++## Truth boundary
++
++These recipes prove deterministic authored geometry for their bounded objects and explicit practical-light metadata.
++
++They do not prove:
++
++- good art direction;
++- correct automatic placement;
++- realism;
++- engine lighting parity;
++- gameplay interaction;
++- collision behavior;
++- target-engine performance;
++- automatic Genome adoption;
++- CANON.
++
++A machine may use these capabilities as building blocks, but selecting and composing them remains a separate design/review problem.
+diff --git a/native_found_object_detail.py b/native_found_object_detail.py
+new file mode 100644
+index 0000000..4c8f176
+--- /dev/null
++++ b/native_found_object_detail.py
+@@ -0,0 +1,283 @@
++#!/usr/bin/env python3
++"""Native found-object/detail vocabulary for dense Game Asset Forge assets.
++
++Selectively adapted from the finished Universal Creation RTS/workshop foundry at
++commit ``a5cc708457b7e8f33e794fdac648ae65d15a0fb4``. The donor mechanisms are
++``tools/blender/axm_salvage_personality.py`` and the generic detail ideas in
++``src/axm_uc/rts_detail.py``.
++
++These functions author real, inspectable geometry for small semantic details.
++They do not choose art direction or claim that more clutter automatically means
++better art. Placement remains an authored/caller decision.
++"""
++from __future__ import annotations
++
++import hashlib
++import json
++import math
++from dataclasses import dataclass
++from typing import Any, Iterable, Sequence
++
++from native_construction_kit import (
++    SemanticPart,
++    beam_segment,
++    build_crate,
++    lathe_profile,
++    pipe_path,
++    rounded_box,
++    torus_ring,
++)
++from native_geometry import Mesh, combine, make_uv_sphere, scale, topology_report, translate
++
++SCHEMA = "axm.game-assets.found-object-detail/v0.1"
++DONOR = {
++    "repo": "mike-axiom-mir/axm-universal-creation",
++    "commit": "a5cc708457b7e8f33e794fdac648ae65d15a0fb4",
++    "mechanisms": ["tools/blender/axm_salvage_personality.py", "src/axm_uc/rts_detail.py"],
++}
++
++
++class FoundObjectDetailError(ValueError):
++    pass
++
++
++@dataclass(frozen=True, slots=True)
++class PracticalLight:
++    name: str
++    position: tuple[float, float, float]
++    color_hint: tuple[float, float, float]
++    energy_hint: float
++    radius_hint: float
++    note: str = "Render practical metadata only; target engine must recreate and tune the light."
++
++
++@dataclass(frozen=True, slots=True)
++class DetailCluster:
++    name: str
++    parts: tuple[SemanticPart, ...]
++    practical_lights: tuple[PracticalLight, ...]
++    receipt: dict[str, Any]
++
++    def combined_mesh(self) -> Mesh:
++        return combine((part.mesh for part in self.parts), name=self.name)
++
++
++def _canonical(value: Any) -> bytes:
++    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
++
++
++def _digest(value: Any) -> str:
++    return "sha256:" + hashlib.sha256(_canonical(value)).hexdigest()
++
++
++def _mesh_digest(mesh: Mesh) -> str:
++    return _digest({"name": mesh.name, "vertices": mesh.vertices, "faces": mesh.faces})
++
++
++def _finite3(value: Sequence[float], label: str) -> tuple[float, float, float]:
++    if len(value) != 3:
++        raise FoundObjectDetailError(f"{label} must contain three values")
++    result = tuple(float(item) for item in value)
++    if not all(math.isfinite(item) for item in result):
++        raise FoundObjectDetailError(f"{label} must contain finite values")
++    return result  # type: ignore[return-value]
++
++
++def _positive(value: float, label: str) -> float:
++    value = float(value)
++    if not math.isfinite(value) or value <= 0:
++        raise FoundObjectDetailError(f"{label} must be finite and positive")
++    return value
++
++
++def _part(part_id: str, mesh: Mesh, material: str, role: str) -> SemanticPart:
++    report = topology_report(mesh)
++    if report["invalid_indices"] or report["degenerate_faces"] or not report["closed_two_manifold_candidate"]:
++        raise FoundObjectDetailError(f"detail part {part_id!r} is not a valid closed shell: {report}")
++    return SemanticPart(part_id, mesh, material, role)
++
++
++def _cluster(name: str, parts: Iterable[SemanticPart], recipe: str, lights: Iterable[PracticalLight] = ()) -> DetailCluster:
++    ordered = tuple(parts)
++    practical = tuple(lights)
++    if not ordered:
++        raise FoundObjectDetailError("detail cluster must contain geometry")
++    ids = [part.part_id for part in ordered]
++    if len(ids) != len(set(ids)):
++        raise FoundObjectDetailError("detail part ids must be unique")
++    for light in practical:
++        _finite3(light.position, f"light {light.name} position")
++        _finite3(light.color_hint, f"light {light.name} color")
++        _positive(light.energy_hint, f"light {light.name} energy")
++        _positive(light.radius_hint, f"light {light.name} radius")
++    receipt: dict[str, Any] = {
++        "schema": SCHEMA,
++        "name": name,
++        "recipe": recipe,
++        "coordinate_system": "Y-up",
++        "parts": [
++            {
++                "part_id": part.part_id,
++                "material_family": part.material_family,
++                "semantic_role": part.semantic_role,
++                "mesh_digest": _mesh_digest(part.mesh),
++                "topology": topology_report(part.mesh),
++            }
++            for part in ordered
++        ],
++        "practical_lights": [
++            {
++                "name": light.name,
++                "position": list(light.position),
++                "color_hint": list(light.color_hint),
++                "energy_hint": light.energy_hint,
++                "radius_hint": light.radius_hint,
++                "note": light.note,
++            }
++            for light in practical
++        ],
++        "provenance": {"donor": DONOR, "implementation": "AXM Game Asset Forge native detail adaptation"},
++        "truth_boundary": {
++            "authored_geometry": True,
++            "light_metadata_is_engine_light": False,
++            "aesthetic_quality_proven": False,
++            "automatic_detail_placement": False,
++            "automatic_genome_mutation": False,
++            "automatic_canon": False,
++        },
++    }
++    receipt["receipt_digest"] = _digest(receipt)
++    return DetailCluster(name, ordered, practical, receipt)
++
++
++def _ellipsoid(name: str, center: Sequence[float], size: Sequence[float]) -> Mesh:
++    c = _finite3(center, "ellipsoid center")
++    if len(size) != 3:
++        raise FoundObjectDetailError("ellipsoid size must contain three values")
++    sx, sy, sz = (_positive(value, f"ellipsoid size[{index}]") for index, value in enumerate(size))
++    sphere = make_uv_sphere(1.0, segments=20, rings=10, name=name)
++    return translate(scale(sphere, (sx, sy, sz), name=name), c, name=name)
++
++
++def build_kettle(
++    *,
++    name: str = "kettle",
++    center: Sequence[float] = (0.0, 0.0, 0.0),
++    size: float = 1.0,
++) -> DetailCluster:
++    c = _finite3(center, "center")
++    s = _positive(size, "size")
++    x, y, z = c
++    parts = [
++        _part("body", _ellipsoid(f"{name}-body", (x, y + .13 * s, z), (.16 * s, .14 * s, .13 * s)), "salvage_metal", "enamel-body"),
++        _part("lid", lathe_profile(((0, 0), (.10 * s, .004 * s), (.10 * s, .025 * s), (0, .025 * s)), center=(x, y + .25 * s, z), segments=20, name=f"{name}-lid"), "steel", "lid"),
++        _part("lid-knob", _ellipsoid(f"{name}-knob", (x, y + .31 * s, z), (.035 * s, .035 * s, .035 * s)), "wood", "lid-knob"),
++        _part("spout", pipe_path(((x + .10*s, y + .10*s, z), (x + .21*s, y + .18*s, z), (x + .25*s, y + .26*s, z)), radius=.032*s, sides=8, name=f"{name}-spout"), "salvage_metal", "spout"),
++        _part("handle", pipe_path(((x - .10*s, y + .20*s, z), (x - .11*s, y + .39*s, z), (x + .10*s, y + .39*s, z), (x + .10*s, y + .20*s, z)), radius=.020*s, sides=7, name=f"{name}-handle"), "steel", "carry-handle"),
++    ]
++    return _cluster(name, parts, "kettle")
++
++
++def build_mug(
++    *,
++    name: str = "mug",
++    center: Sequence[float] = (0.0, 0.0, 0.0),
++    size: float = 1.0,
++) -> DetailCluster:
++    c = _finite3(center, "center")
++    s = _positive(size, "size")
++    x, y, z = c
++    body = lathe_profile(((0, 0), (.055*s, .002*s), (.058*s, .13*s), (0, .13*s)), center=c, segments=18, name=f"{name}-body")
++    handle = torus_ring((x + .061*s, y + .072*s, z), radius=.034*s, tube=.009*s, axis="x", major_segments=16, minor_segments=6, name=f"{name}-handle")
++    parts = [
++        _part("body", body, "salvage_metal", "mug-body"),
++        _part("handle", handle, "salvage_metal", "mug-handle"),
++    ]
++    return _cluster(name, parts, "mug")
++
++
++def build_winch(
++    *,
++    name: str = "winch",
++    center: Sequence[float] = (0.0, 0.0, 0.0),
++    radius: float = .22,
++    cable_drop: float = .9,
++) -> DetailCluster:
++    c = _finite3(center, "center")
++    radius = _positive(radius, "radius")
++    cable_drop = _positive(cable_drop, "cable_drop")
++    x, y, z = c
++    parts: list[SemanticPart] = [
++        _part("wheel", torus_ring(c, radius=radius, tube=radius*.16, axis="z", major_segments=24, minor_segments=7, name=f"{name}-wheel"), "salvage_metal", "reused-winch-wheel")
++    ]
++    for index, angle in enumerate((0.0, math.tau/3, math.tau*2/3)):
++        end = (x + radius*.92*math.cos(angle), y + radius*.92*math.sin(angle), z)
++        parts.append(_part(f"spoke-{index}", beam_segment(c, end, width=radius*.07, depth=radius*.07, name=f"{name}-spoke"), "steel", "winch-spoke"))
++    path = ((x, y, z), (x + .08, y - cable_drop*.45, z), (x + .14, y - cable_drop, z))
++    parts.append(_part("cable", pipe_path(path, radius=max(.008, radius*.055), sides=6, name=f"{name}-cable"), "rubber", "drop-cable"))
++    return _cluster(name, parts, "winch")
++
++
++def build_stool(
++    *,
++    name: str = "stool",
++    center: Sequence[float] = (0.0, 0.0, 0.0),
++    seat_radius: float = .20,
++    height: float = .72,
++) -> DetailCluster:
++    c = _finite3(center, "center")
++    r = _positive(seat_radius, "seat_radius")
++    height = _positive(height, "height")
++    x, y, z = c
++    parts: list[SemanticPart] = []
++    for index, (dx, dz) in enumerate(((-.55, -.35), (.55, -.35), (0, .55))):
++        start = (x + dx*r*1.15, y, z + dz*r*1.15)
++        end = (x + dx*r*.72, y + height*.92, z + dz*r*.72)
++        parts.append(_part(f"leg-{index}", beam_segment(start, end, width=r*.12, depth=r*.12, name=f"{name}-leg"), "wood", "reused-leg"))
++    seat = lathe_profile(((0,0),(r,0),(r,height*.09),(0,height*.09)), center=(x, y + height*.91, z), segments=24, name=f"{name}-seat")
++    parts.append(_part("seat", seat, "salvage_metal", "hubcap-seat"))
++    return _cluster(name, parts, "stool")
++
++
++def build_lantern(
++    *,
++    name: str = "lantern",
++    center: Sequence[float] = (0.0, 0.0, 0.0),
++    size: float = 1.0,
++    practical_light: bool = True,
++) -> DetailCluster:
++    c = _finite3(center, "center")
++    s = _positive(size, "size")
++    x, y, z = c
++    core = lathe_profile(((0,0),(.09*s,0),(.09*s,.29*s),(0,.29*s)), center=(x,y-.145*s,z), segments=18, name=f"{name}-core")
++    parts: list[SemanticPart] = [_part("core", core, "glass", "luminous-glass-envelope")]
++    for index, (dy, radius) in enumerate(((-.19,.13),(-.16,.105),(.17,.14),(.21,.10))):
++        cap = lathe_profile(((0,0),(radius*s,0),(radius*s,.035*s),(0,.035*s)), center=(x,y+dy*s,z), segments=18, name=f"{name}-cap")
++        parts.append(_part(f"cap-{index}", cap, "steel", "lantern-cap"))
++    for index, angle in enumerate((0, math.pi/2, math.pi, math.pi*1.5)):
++        dx=.105*s*math.cos(angle); dz=.105*s*math.sin(angle)
++        cage = beam_segment((x+dx,y-.17*s,z+dz),(x+dx,y+.18*s,z+dz),width=.018*s,depth=.018*s,name=f"{name}-cage")
++        parts.append(_part(f"cage-{index}", cage, "steel", "lantern-cage"))
++    handle = torus_ring((x,y+.33*s,z),radius=.065*s,tube=.010*s,axis="z",major_segments=18,minor_segments=6,name=f"{name}-handle")
++    parts.append(_part("handle", handle, "steel", "lantern-handle"))
++    lights: tuple[PracticalLight, ...] = ()
++    if practical_light:
++        lights = (PracticalLight(f"{name}-practical", (x,y,z), (1.0,.48,.14), 75.0*s, .13*s),)
++    return _cluster(name, parts, "lantern", lights)
++
++
++def build_tied_cargo(
++    *,
++    name: str = "cargo",
++    center: Sequence[float] = (0.0, 0.0, 0.0),
++    size: float = 1.0,
++) -> DetailCluster:
++    c = _finite3(center, "center")
++    s = _positive(size, "size")
++    crate = build_crate(name=f"{name}-crate", center=c, size=(.9*s,.65*s,.62*s))
++    parts = [SemanticPart(f"crate:{part.part_id}", part.mesh, part.material_family, part.semantic_role) for part in crate.parts]
++    x,y,z=c
++    for index, dx in enumerate((-.28*s,.28*s)):
++        path=((x+dx,y-.31*s,z+.34*s),(x+dx,y+.37*s,z+.34*s),(x+dx,y+.37*s,z-.34*s),(x+dx,y-.31*s,z-.34*s))
++        parts.append(_part(f"rope-{index}", pipe_path(path,radius=.018*s,sides=6,name=f"{name}-rope"),"cloth","cargo-binding"))
++    return _cluster(name, parts, "tied-cargo")
+diff --git a/native_found_object_detail_test.py b/native_found_object_detail_test.py
+new file mode 100644
+index 0000000..3bba02a
+--- /dev/null
++++ b/native_found_object_detail_test.py
+@@ -0,0 +1,78 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import tempfile
++import unittest
++from pathlib import Path
++
++from native_found_object_detail import (
++    build_kettle,
++    build_lantern,
++    build_mug,
++    build_stool,
++    build_tied_cargo,
++    build_winch,
++)
++from native_geometry import topology_report
++from native_preview import write_preview
++from native_uv import box_project_world, validate_uv
++
++
++class NativeFoundObjectDetailTests(unittest.TestCase):
++    def assert_cluster_valid(self, cluster) -> None:
++        self.assertGreater(len(cluster.parts), 1)
++        self.assertEqual(cluster.receipt["schema"], "axm.game-assets.found-object-detail/v0.1")
++        self.assertFalse(cluster.receipt["truth_boundary"]["automatic_detail_placement"])
++        self.assertFalse(cluster.receipt["truth_boundary"]["automatic_canon"])
++        self.assertEqual(cluster.receipt["provenance"]["donor"]["commit"], "a5cc708457b7e8f33e794fdac648ae65d15a0fb4")
++        for part in cluster.parts:
++            report = topology_report(part.mesh)
++            self.assertTrue(report["closed_two_manifold_candidate"], (part.part_id, report))
++            self.assertEqual(report["invalid_indices"], 0)
++            self.assertEqual(report["degenerate_faces"], 0)
++            self.assertEqual(validate_uv(part.mesh, box_project_world(part.mesh, world_units_per_tile=.1))["status"], "pass")
++
++    def test_all_bounded_detail_recipes_are_structurally_valid(self) -> None:
++        clusters = (
++            build_kettle(),
++            build_mug(),
++            build_winch(),
++            build_stool(),
++            build_lantern(),
++            build_tied_cargo(),
++        )
++        for cluster in clusters:
++            self.assert_cluster_valid(cluster)
++
++    def test_lantern_keeps_practical_light_as_metadata_not_engine_claim(self) -> None:
++        lantern = build_lantern(center=(1, 2, 3), size=.8)
++        self.assertEqual(len(lantern.practical_lights), 1)
++        light = lantern.receipt["practical_lights"][0]
++        self.assertEqual(light["position"], [1.0, 2.0, 3.0])
++        self.assertIn("target engine", light["note"])
++        self.assertFalse(lantern.receipt["truth_boundary"]["light_metadata_is_engine_light"])
++
++    def test_detail_recipes_are_deterministic(self) -> None:
++        first = build_tied_cargo(center=(.2, .1, -.3), size=.75)
++        second = build_tied_cargo(center=(.2, .1, -.3), size=.75)
++        self.assertEqual(first.receipt["receipt_digest"], second.receipt["receipt_digest"])
++        self.assertEqual(first.combined_mesh().vertices, second.combined_mesh().vertices)
++        self.assertEqual(first.combined_mesh().faces, second.combined_mesh().faces)
++
++    def test_detail_cluster_is_visible_to_existing_preview_evidence_path(self) -> None:
++        cluster = build_kettle(center=(0, .4, 0), size=2.0)
++        with tempfile.TemporaryDirectory() as td:
++            report = write_preview(cluster.combined_mesh(), Path(td) / "preview", size=72)
++            self.assertEqual(len(report["views"]), 3)
++            self.assertTrue((Path(td) / "preview" / "front-silhouette.png").is_file())
++            self.assertTrue((Path(td) / "preview" / "side-normal.png").is_file())
++
++    def test_authored_parameters_change_geometry_and_identity(self) -> None:
++        small = build_winch(radius=.15, cable_drop=.5)
++        large = build_winch(radius=.28, cable_drop=1.1)
++        self.assertNotEqual(small.receipt["receipt_digest"], large.receipt["receipt_digest"])
++        self.assertNotEqual(small.combined_mesh().vertices, large.combined_mesh().vertices)
++
++
++if __name__ == "__main__":
++    unittest.main()
