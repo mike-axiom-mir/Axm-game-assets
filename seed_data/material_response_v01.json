@@ -1,0 +1,152 @@
+{
+  "format": "axm-material-response-pack",
+  "version": "0.1.0",
+  "id": "beyond-doll-realism",
+  "note": "Parametric surface responses, not textures. UC's axm-material-library carries texture entries keyed by channelHint; this pack carries the SCALAR AND LAYER behaviour those textures are modulating. Map each entry into your library as a family (values become constant channels; 'breakup' becomes a roughness/base-color texture) or feed it straight into a renderer that has these inputs. Nothing here is verified against your renderer: treat every entry as declared_contract_match_not_tested until you have looked at it.",
+  "why": "Doll-like realism is almost always the same five absences: (1) light never travels INTO the surface, (2) roughness is one number everywhere, (3) there is no oriented micro-structure, (4) there is no grazing-angle response, (5) surfaces are single-layer. Each family below exists to break one of them.",
+
+  "axes": {
+    "subsurface": "How far light travels inside before leaving. Skin, wax, marble, leaves, milk. Its absence is the single biggest cause of the doll look: without it, skin is painted plastic.",
+    "sheen": "Retroreflective fuzz at grazing angles. Velvet, wool, peach skin, dust on cloth, fine facial vellus hair.",
+    "anisotropy": "Roughness with a direction. Brushed metal, hair, silk, vinyl records, turned wood.",
+    "clearcoat": "A second smooth layer over a rough one. Car paint, varnish, lacquered wood, wet surfaces, eyes.",
+    "breakup": "Micro-variation in roughness and colour that has nothing to do with the shape. The single cheapest anti-CG move.",
+    "transmission": "Light passing through. Glass, resin, thin leaves, ears and nostrils against a light.",
+    "iridescence": "Colour that changes with angle from thin-film interference. Oil, soap, beetle shells, tempered steel.",
+    "layering": "Wear, grime, moisture and age that sit ON a material rather than being baked into it."
+  },
+
+  "families": [
+    {
+      "id": "skin-living",
+      "purpose": "The direct answer to doll-face. Three layers: oily top, dry epidermis, red dermis beneath.",
+      "response": {
+        "base_color": [0.76, 0.57, 0.49],
+        "roughness": 0.52,
+        "metallic": 0.0,
+        "specular": 0.35,
+        "subsurface": { "weight": 0.72, "radius_mm": [2.8, 1.1, 0.7], "tint": [0.85, 0.32, 0.26], "note": "Red travels furthest. Unequal radii per channel is what reads as flesh rather than tinted wax." },
+        "sheen": { "weight": 0.18, "roughness": 0.35, "tint": [1.0, 0.95, 0.92], "note": "Vellus hair. Gives the grazing-angle halo real faces have." },
+        "clearcoat": { "weight": 0.25, "roughness": 0.12, "note": "Sebum. Should be higher on forehead and nose, near zero on cheeks — drive it with a map." },
+        "breakup": { "roughness_variation": 0.14, "color_variation": 0.05, "scale_mm": 1.6, "note": "Pores. Without this, roughness 0.52 everywhere is what the eye reads as plastic." }
+      },
+      "variants": {
+        "thin-areas": { "note": "Ears, nostrils, fingers", "transmission": 0.18, "subsurface": { "weight": 0.85 } },
+        "weathered": { "roughness": 0.64, "breakup": { "roughness_variation": 0.22 }, "clearcoat": { "weight": 0.1 } },
+        "sweating": { "clearcoat": { "weight": 0.7, "roughness": 0.05 }, "note": "Wetness is a clearcoat change, not a base-colour change. Darkening the albedo instead is the classic mistake." }
+      }
+    },
+    {
+      "id": "fabric-velvet",
+      "purpose": "Sheen-dominant. Nothing else looks like this, and its absence makes all cloth read as painted foil.",
+      "response": { "base_color": [0.33, 0.06, 0.12], "roughness": 0.9, "specular": 0.05,
+        "sheen": { "weight": 0.95, "roughness": 0.25, "tint": [1.0, 0.85, 0.85] },
+        "breakup": { "roughness_variation": 0.08, "scale_mm": 0.6 },
+        "note": "Velvet is almost entirely edge light. A flat-lit velvet ball should be nearly black in the centre and bright at the rim." }
+    },
+    {
+      "id": "fabric-worn-cotton",
+      "purpose": "The everyday surface most often rendered as plastic sheeting.",
+      "response": { "base_color": [0.62, 0.6, 0.55], "roughness": 0.86, "specular": 0.12,
+        "sheen": { "weight": 0.35, "roughness": 0.4 },
+        "breakup": { "roughness_variation": 0.18, "color_variation": 0.08, "scale_mm": 2.2 },
+        "layers": [{ "kind": "wear", "weight": 0.3, "where": "edges_and_folds", "roughness_delta": 0.08, "note": "Fibre lift at seams and elbows." }] }
+    },
+    {
+      "id": "metal-brushed",
+      "purpose": "Anisotropy. A brushed metal without direction is just grey plastic with a highlight.",
+      "response": { "base_color": [0.72, 0.73, 0.75], "metallic": 1.0, "roughness": 0.32,
+        "anisotropy": { "strength": 0.8, "direction": "tangent_u", "note": "Highlight must stretch across the grain. Direction should follow the part, not the UV, or curved parts break." },
+        "breakup": { "roughness_variation": 0.1, "scale_mm": 0.3 } }
+    },
+    {
+      "id": "metal-aged-steel",
+      "purpose": "Layered, not uniform: bare metal, oxide, grime — three different materials on one object.",
+      "response": { "base_color": [0.55, 0.55, 0.57], "metallic": 1.0, "roughness": 0.45,
+        "layers": [
+          { "kind": "oxide", "weight": 0.5, "where": "cavities", "base_color": [0.35, 0.18, 0.1], "metallic": 0.0, "roughness": 0.85 },
+          { "kind": "polish", "weight": 0.6, "where": "high_wear_edges", "roughness": 0.15 },
+          { "kind": "grime", "weight": 0.35, "where": "cavities", "base_color": [0.1, 0.09, 0.08], "roughness": 0.9 }
+        ],
+        "note": "Where a layer sits (edges vs cavities) is what makes an object look USED rather than dirtied uniformly." }
+    },
+    {
+      "id": "paint-automotive",
+      "purpose": "Clearcoat over flake. The reference case for two-layer surfaces.",
+      "response": { "base_color": [0.08, 0.13, 0.35], "metallic": 0.0, "roughness": 0.4,
+        "flake": { "weight": 0.5, "size_mm": 0.08, "color": [0.9, 0.9, 0.95], "normal_spread": 0.35 },
+        "clearcoat": { "weight": 1.0, "roughness": 0.03, "ior": 1.5 },
+        "note": "The clearcoat highlight and the flake sparkle must be at different depths. One layer cannot do this." }
+    },
+    {
+      "id": "wood-oiled",
+      "purpose": "Anisotropy plus subsurface plus grain-locked breakup.",
+      "response": { "base_color": [0.38, 0.23, 0.12], "roughness": 0.45,
+        "anisotropy": { "strength": 0.35, "direction": "grain" },
+        "subsurface": { "weight": 0.15, "radius_mm": [0.6, 0.35, 0.2], "note": "Only a little — but it is why real wood glows slightly at thin edges." },
+        "clearcoat": { "weight": 0.4, "roughness": 0.18 },
+        "breakup": { "roughness_variation": 0.2, "color_variation": 0.15, "scale_mm": 4.0, "anisotropic": true } }
+    },
+    {
+      "id": "stone-marble",
+      "purpose": "Subsurface in a hard material — the thing that separates marble from grey plastic.",
+      "response": { "base_color": [0.86, 0.85, 0.82], "roughness": 0.25,
+        "subsurface": { "weight": 0.45, "radius_mm": [3.5, 3.2, 2.8], "tint": [0.95, 0.94, 0.9] },
+        "clearcoat": { "weight": 0.5, "roughness": 0.08 },
+        "breakup": { "color_variation": 0.12, "scale_mm": 30, "note": "Veining is large-scale; pores are small-scale. You need both scales or it reads as a photograph on a ball." } }
+    },
+    {
+      "id": "glass-thick",
+      "purpose": "Transmission with absorption over distance.",
+      "response": { "base_color": [1, 1, 1], "roughness": 0.02, "transmission": 1.0, "ior": 1.52,
+        "absorption": { "color": [0.15, 0.35, 0.3], "distance_mm": 40, "note": "Colour must come from absorption over thickness, not from base colour. That is why real glass edges are green and faces are clear." },
+        "dispersion": 0.02 }
+    },
+    {
+      "id": "leaf-thin",
+      "purpose": "Two-sided translucency — the reason CG foliage looks like cut plastic.",
+      "response": { "base_color": [0.2, 0.35, 0.12], "roughness": 0.4,
+        "transmission": 0.35, "transmission_tint": [0.35, 0.55, 0.15],
+        "sheen": { "weight": 0.2, "roughness": 0.3 },
+        "clearcoat": { "weight": 0.3, "roughness": 0.15, "note": "Cuticle wax." },
+        "note": "Backlit leaves must go BRIGHTER, not darker. If your renderer has no thin-wall transmission, fake it with a back-facing emissive term driven by light direction." }
+    },
+    {
+      "id": "iridescent-shell",
+      "purpose": "Angle-dependent colour. Cheap to add, instantly reads as 'not plastic'.",
+      "response": { "base_color": [0.05, 0.05, 0.06], "metallic": 0.6, "roughness": 0.22,
+        "iridescence": { "weight": 0.8, "thickness_nm": 420, "thickness_variation_nm": 180, "ior": 1.4 } }
+    },
+    {
+      "id": "ceramic-glazed",
+      "purpose": "The honest version of the look everything currently has — so you can tell the difference deliberately.",
+      "response": { "base_color": [0.9, 0.89, 0.86], "roughness": 0.08,
+        "subsurface": { "weight": 0.25, "radius_mm": [1.2, 1.2, 1.1] },
+        "clearcoat": { "weight": 1.0, "roughness": 0.02 },
+        "breakup": { "roughness_variation": 0.04, "scale_mm": 8, "note": "Crazing. Even a perfect glaze is not perfectly uniform." } }
+    },
+    {
+      "id": "rubber-worn",
+      "purpose": "High roughness with real grazing response — not just a dark base colour.",
+      "response": { "base_color": [0.05, 0.05, 0.055], "roughness": 0.82, "specular": 0.3,
+        "sheen": { "weight": 0.15, "roughness": 0.5 },
+        "breakup": { "roughness_variation": 0.25, "scale_mm": 1.2 },
+        "layers": [{ "kind": "polish", "weight": 0.4, "where": "high_wear_edges", "roughness": 0.5, "note": "Tyres and grips shine where hands and roads touch them." }] }
+    }
+  ],
+
+  "if_your_renderer_lacks_these": {
+    "no_subsurface": "Approximate with a wrapped-diffuse term (light wrapping past the terminator by ~0.3) plus a red-tinted rim. It is not correct, but it removes most of the doll signal.",
+    "no_sheen": "Add a Fresnel-weighted term at high grazing angles with the fabric's own colour, weight ~0.2.",
+    "no_anisotropy": "Stretch the roughness map along the grain direction. Crude, visible, still better than isotropic.",
+    "no_clearcoat": "Render a second pass of the same geometry with low roughness and additive blending, masked where the coat is.",
+    "no_layers": "Bake curvature and cavity maps once per asset and use them to blend two complete materials. Most of 'used' is just that blend."
+  },
+
+  "how_to_check_you_have_it": [
+    "A flat-lit sphere of each material should be distinguishable from every other one with the colour removed. If two look the same in greyscale, one of them is not a material, it is a tint.",
+    "Backlight every character: ears, nostrils, fingers and any leaf must brighten. If they darken, you have no transmission.",
+    "Rotate one object 360 degrees under a fixed light. If nothing about the highlight changes shape, you have no anisotropy and no iridescence anywhere in the scene.",
+    "Render a grey-only scene. If it still reads as real, your materials are doing the work. If it collapses into plastic, your colour maps were carrying the realism."
+  ]
+}

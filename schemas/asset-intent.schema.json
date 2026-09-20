@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axm.local/schemas/asset-intent-v0.1.schema.json",
+  "title": "AXM Game Asset Forge Asset Intent",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "axm.game-assets.asset-intent/v0.1"},
+    "prompt": {"type": "string"},
+    "asset_id": {"type": "string"},
+    "family": {
+      "enum": [
+        "character", "weapon", "armor_clothing", "prop", "building",
+        "environment_kit", "vegetation", "material", "vfx"
+      ]
+    },
+    "quality_tier": {
+      "enum": [
+        "prototype", "gameplay", "hero", "hero_closeup",
+        "cinematic", "mass_rts", "mobile"
+      ]
+    },
+    "deliverables": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "array", "items": {"type": "string", "minLength": 1}}
+      ]
+    },
+    "requirements": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "array", "items": {"type": "string", "minLength": 1}}
+      ]
+    },
+    "constraints": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "array", "items": {"type": "string", "minLength": 1}}
+      ]
+    },
+    "source": {"type": "object"}
+  },
+  "anyOf": [
+    {"required": ["family"]},
+    {"required": ["prompt"]}
+  ]
+}

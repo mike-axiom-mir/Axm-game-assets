@@ -31,6 +31,12 @@ Working now:
 - optional MakeHuman `hm08` CC0 seed-data route without depending on MakeHuman application code
 - native UV state, projection, validation and UV-aware OBJ interchange
 - deterministic hard-surface PBR/ORM authoring
+- source-first reusable form recipes with named definitions, repeats, profile extrusion, lofts, lathes, paths and semantic parts
+- bounded intent-to-asset-family planning over the live Genome family vocabulary
+- character source semantics for race/body family, sockets, clothing regions and per-part material-response intent
+- explicit content-addressed reusable-part discovery/pull with geometry dedup and no automatic library admission
+- detailed material-response contracts above texture/channel values, with unverified renderer bindings kept on HOLD
+- proposal-only ingress for newer Universal Creation GLB + creator-source sidecar outputs
 - deterministic organic skin maps with subsurface/thickness state
 - layered eye geometry: sclera, iris, pupil and cornea
 - deterministic iris/sclera material generation and corneal transmission state
@@ -74,7 +80,7 @@ The preference order is:
 4. External DCC/engine bridge for capability not yet internalized or for comparison/validation.
 5. Proprietary service only as an explicit optional bridge, never hidden canonical state.
 
-See `docs/NATIVE_FIRST.md`.
+See `docs/NATIVE_FIRST.md` and `docs/TODAY_CAPABILITY_CONVERGENCE.md`.
 
 ## Why a Game Asset Genome
 

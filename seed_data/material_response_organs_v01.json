@@ -1,0 +1,580 @@
+[
+  {
+    "format": "axm-material-response-organ",
+    "version": "0.1.0",
+    "state_effects": "none",
+    "evidence": "declared_contract_match_not_tested",
+    "id": "surface.anisotropy",
+    "name": "Directional roughness",
+    "purpose": "Roughness that has a direction. Brushed metal, hair, silk, vinyl, turned wood. Without it these are all grey plastic with a round highlight.",
+    "inputs": [
+      {
+        "id": "strength",
+        "type": "scalar",
+        "range": [
+          -1,
+          1
+        ],
+        "default": 0,
+        "means": "how stretched the highlight is; sign flips the axis"
+      },
+      {
+        "id": "direction",
+        "type": "enum",
+        "options": [
+          "tangent_u",
+          "tangent_v",
+          "grain",
+          "custom_vector"
+        ],
+        "default": "tangent_u",
+        "means": "which way the micro-grooves run"
+      },
+      {
+        "id": "rotation",
+        "type": "scalar",
+        "range": [
+          0,
+          1
+        ],
+        "default": 0,
+        "means": "turn the direction within the surface"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "specular_axes",
+        "means": "two roughness values instead of one, along and across the grain"
+      }
+    ],
+    "dependencies": [],
+    "host_binding": {
+      "requires": [
+        "a stable tangent frame per shading point"
+      ],
+      "binding_note": "Direction must follow the PART, not the UV layout. UV-derived tangents break on curved parts and the highlight visibly snaps at seams — this is the most common wrong binding of this organ."
+    },
+    "known_losses": [
+      "A single tangent frame cannot express two grain directions crossing (woven metal mesh, brushed then polished)."
+    ],
+    "fallback": {
+      "when": "host is isotropic only",
+      "do": "stretch the roughness map along the grain direction",
+      "loses": "correct highlight shape at glancing angles; crude but visibly better than isotropic"
+    },
+    "verify": [
+      "Rotate a brushed disc 360 degrees under a fixed light. The highlight must stretch and sweep, not sit still as a round dot."
+    ]
+  },
+  {
+    "format": "axm-material-response-organ",
+    "version": "0.1.0",
+    "state_effects": "none",
+    "evidence": "declared_contract_match_not_tested",
+    "id": "surface.breakup",
+    "name": "Micro-variation",
+    "purpose": "Variation in roughness and colour that has nothing to do with the shape. The cheapest anti-CG move there is: uniform roughness IS the plastic look.",
+    "inputs": [
+      {
+        "id": "roughness_variation",
+        "type": "scalar",
+        "range": [
+          0,
+          1
+        ],
+        "default": 0,
+        "means": "how much roughness wanders around its value"
+      },
+      {
+        "id": "color_variation",
+        "type": "scalar",
+        "range": [
+          0,
+          1
+        ],
+        "default": 0,
+        "means": "how much base colour wanders"
+      },
+      {
+        "id": "scale_mm",
+        "type": "scalar",
+        "default": 2,
+        "means": "size of the variation in real millimetres — pores are ~1.6, wood grain ~4, marble veining ~30"
+      },
+      {
+        "id": "anisotropic",
+        "type": "bool",
+        "default": false,
+        "means": "stretch the variation along the grain"
+      },
+      {
+        "id": "octaves",
+        "type": "int",
+        "range": [
+          1,
+          4
+        ],
+        "default": 2,
+        "means": "how many scales of variation are layered"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "channel_modulation",
+        "means": "per-point offsets applied to roughness and base colour before shading"
+      }
+    ],
+    "dependencies": [],
+    "host_binding": {
+      "requires": [
+        "a deterministic noise source keyed by object position, not screen position"
+      ],
+      "binding_note": "MUST be object-space and deterministic, or the surface crawls when the camera moves and the same asset differs between renders. A seed belongs in the surface record so two renders of one asset match."
+    },
+    "known_losses": [
+      "Procedural breakup cannot express structure a real surface has for a reason (a scar, a weld, a scratch someone made). Those stay texture work."
+    ],
+    "fallback": {
+      "when": "host has no procedural noise in the shader",
+      "do": "bake a tiling roughness-variation texture per material and multiply it in",
+      "loses": "scale independence; a baked map tiles visibly on large surfaces"
+    },
+    "verify": [
+      "Two spheres, identical except one with roughness_variation 0.15. The varied one should look like a thing and the flat one like a render. If you cannot tell them apart, it is not bound.",
+      "Render the same asset twice. The variation must be identical both times."
+    ]
+  },
+  {
+    "format": "axm-material-response-organ",
+    "version": "0.1.0",
+    "state_effects": "none",
+    "evidence": "declared_contract_match_not_tested",
+    "id": "surface.coat",
+    "name": "Clear coat",
+    "purpose": "A second smooth layer over a rougher one. Car paint, varnish, lacquer, wet surfaces, eyes, sebum on skin.",
+    "inputs": [
+      {
+        "id": "weight",
+        "type": "scalar",
+        "range": [
+          0,
+          1
+        ],
+        "default": 0,
+        "means": "how present the coat is; drive it with a map for wetness and sweat"
+      },
+      {
+        "id": "roughness",
+        "type": "scalar",
+        "range": [
+          0,
+          1
+        ],
+        "default": 0.05,
+        "means": "roughness of the coat only, independent of the layer beneath"
+      },
+      {
+        "id": "ior",
+        "type": "scalar",
+        "range": [
+          1,
+          2.5
+        ],
+        "default": 1.5,
+        "means": "index of refraction of the coat"
+      },
+      {
+        "id": "tint",
+        "type": "color",
+        "default": [
+          1,
+          1,
+          1
+        ],
+        "means": "absorption in the coat, for tinted lacquers"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "coat_lobe",
+        "means": "a second specular lobe plus energy removed from the layer beneath"
+      }
+    ],
+    "dependencies": [],
+    "host_binding": {
+      "requires": [
+        "a second specular evaluation per shading point"
+      ],
+      "binding_note": "Wetness is a coat change, not an albedo change. Darkening base colour to fake wet is the classic mistake and it reads as dirt."
+    },
+    "known_losses": [
+      "Light bouncing between coat and base is usually approximated, so deep metallic paint is slightly under-saturated."
+    ],
+    "fallback": {
+      "when": "host has one specular lobe only",
+      "do": "render a second pass of the same geometry, low roughness, additive, masked where the coat is",
+      "loses": "energy conservation; record that the fallback was used"
+    },
+    "verify": [
+      "A car-paint sphere must show two highlights at different sharpness. One highlight means the coat is not bound."
+    ]
+  },
+  {
+    "format": "axm-material-response-organ",
+    "version": "0.1.0",
+    "state_effects": "none",
+    "evidence": "declared_contract_match_not_tested",
+    "id": "surface.iridescence",
+    "name": "Thin-film iridescence",
+    "purpose": "Colour that changes with viewing angle. Oil films, soap, beetle shells, tempered steel, fuel on water. Cheap, and instantly reads as not-plastic.",
+    "inputs": [
+      {
+        "id": "weight",
+        "type": "scalar",
+        "range": [
+          0,
+          1
+        ],
+        "default": 0,
+        "means": "strength of the interference colour"
+      },
+      {
+        "id": "thickness_nm",
+        "type": "scalar",
+        "default": 400,
+        "means": "film thickness in nanometres; this is what sets the hue"
+      },
+      {
+        "id": "thickness_variation_nm",
+        "type": "scalar",
+        "default": 0,
+        "means": "how much thickness wanders, which is what makes the colour swirl"
+      },
+      {
+        "id": "ior",
+        "type": "scalar",
+        "range": [
+          1,
+          3
+        ],
+        "default": 1.4,
+        "means": "index of refraction of the film"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "specular_tint",
+        "means": "an angle-dependent tint applied to the specular lobe only"
+      }
+    ],
+    "dependencies": [],
+    "host_binding": {
+      "requires": [
+        "view angle at the shading point"
+      ],
+      "binding_note": "Tints the specular lobe only. Applying it to diffuse gives a metallic-paint look that is wrong but often shipped."
+    },
+    "known_losses": [
+      "Single-layer film only; real shells are stacked layers and are more saturated than this can express."
+    ],
+    "fallback": {
+      "when": "host has no iridescence",
+      "do": "a view-angle-driven hue ramp on the specular tint",
+      "loses": "physical hue ordering; looks decorative rather than material"
+    },
+    "verify": [
+      "Rotate an iridescent sphere. The hue must sweep. If the colour is fixed, it is not bound."
+    ]
+  },
+  {
+    "format": "axm-material-response-organ",
+    "version": "0.1.0",
+    "state_effects": "none",
+    "evidence": "declared_contract_match_not_tested",
+    "id": "surface.sheen",
+    "name": "Grazing-angle sheen",
+    "purpose": "Retroreflective fuzz at glancing angles. Velvet, wool, dust on cloth, and the fine vellus hair that gives real faces a rim halo.",
+    "inputs": [
+      {
+        "id": "weight",
+        "type": "scalar",
+        "range": [
+          0,
+          1
+        ],
+        "default": 0,
+        "means": "strength of the fuzz lobe"
+      },
+      {
+        "id": "roughness",
+        "type": "scalar",
+        "range": [
+          0,
+          1
+        ],
+        "default": 0.3,
+        "means": "how tight the rim is; low is a sharp edge line, high is a broad glow"
+      },
+      {
+        "id": "tint",
+        "type": "color",
+        "default": [
+          1,
+          1,
+          1
+        ],
+        "means": "colour of the fibre tips, usually paler than the base"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sheen_lobe",
+        "means": "an additive lobe weighted toward grazing angles, energy-conserving against the diffuse term"
+      }
+    ],
+    "dependencies": [],
+    "host_binding": {
+      "requires": [
+        "view and normal at the shading point"
+      ],
+      "binding_note": "Cheapest organ in the set. Bind this first if you bind only one."
+    },
+    "known_losses": [
+      "Single-scatter only: deep pile fabric loses its inter-fibre bounce and reads slightly flat in shadow."
+    ],
+    "fallback": {
+      "when": "host has no sheen lobe",
+      "do": "Fresnel-weighted additive term in the surface's own colour at weight ~0.2",
+      "loses": "the tint being separable from the base colour"
+    },
+    "verify": [
+      "A flat-lit velvet sphere must be nearly black in the centre and bright at the rim. If it looks like dark plastic with a highlight, sheen is not bound."
+    ]
+  },
+  {
+    "format": "axm-material-response-organ",
+    "version": "0.1.0",
+    "state_effects": "none",
+    "evidence": "declared_contract_match_not_tested",
+    "id": "surface.subsurface",
+    "name": "Subsurface transport",
+    "purpose": "Lets light travel a short distance inside a surface before leaving it. Its absence is the single biggest reason skin reads as painted plastic.",
+    "inputs": [
+      {
+        "id": "weight",
+        "type": "scalar",
+        "range": [
+          0,
+          1
+        ],
+        "default": 0,
+        "means": "how much of the diffuse response comes from inside rather than off the surface"
+      },
+      {
+        "id": "radius_mm",
+        "type": "vec3",
+        "default": [
+          1,
+          1,
+          1
+        ],
+        "means": "how far light travels per colour channel, in millimetres of the real object. Unequal per channel is what reads as flesh rather than tinted wax."
+      },
+      {
+        "id": "tint",
+        "type": "color",
+        "default": [
+          1,
+          1,
+          1
+        ],
+        "means": "colour of the light that comes back out, usually redder than the base colour"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "diffuse_transport",
+        "means": "replaces the lambert term with one that wraps past the light terminator and reddens in thin areas"
+      }
+    ],
+    "dependencies": [],
+    "host_binding": {
+      "requires": [
+        "object scale in real units",
+        "per-channel scatter radius",
+        "light direction at the shading point"
+      ],
+      "binding_note": "Radius is in millimetres of the real object, so a host MUST know the object's true scale. A head authored at 200mm and imported at 2 units will scatter like marble unless scale is carried."
+    },
+    "known_losses": [
+      "Screen-space and wrapped approximations lose light that enters one surface and leaves another (light through a nostril, between fingers).",
+      "Most real-time approximations ignore the direction light entered from, so hard rim lighting through thin parts is understated."
+    ],
+    "fallback": {
+      "when": "host has no subsurface transport",
+      "do": "wrapped diffuse: wrap light ~0.3 past the terminator, plus a Fresnel rim tinted by `tint`",
+      "loses": "thin-area glow and correct per-channel falloff; still removes most of the doll signal"
+    },
+    "verify": [
+      "Render a sphere at 100mm with weight 0.7 and radius [2.8,1.1,0.7], lit from one side. The terminator must be soft and red-brown, not a clean grey gradient.",
+      "Backlight an ear-thickness slab. It must brighten and redden. If it darkens, transport is not bound."
+    ]
+  },
+  {
+    "format": "axm-material-response-organ",
+    "version": "0.1.0",
+    "state_effects": "none",
+    "evidence": "declared_contract_match_not_tested",
+    "id": "surface.transmission",
+    "name": "Transmission and absorption",
+    "purpose": "Light passing through: glass, resin, thin leaves, ears and nostrils against the sun.",
+    "inputs": [
+      {
+        "id": "weight",
+        "type": "scalar",
+        "range": [
+          0,
+          1
+        ],
+        "default": 0,
+        "means": "how much light passes through rather than reflecting"
+      },
+      {
+        "id": "ior",
+        "type": "scalar",
+        "range": [
+          1,
+          2.5
+        ],
+        "default": 1.5,
+        "means": "index of refraction"
+      },
+      {
+        "id": "absorption_color",
+        "type": "color",
+        "default": [
+          1,
+          1,
+          1
+        ],
+        "means": "what the material takes out of light over distance"
+      },
+      {
+        "id": "absorption_distance_mm",
+        "type": "scalar",
+        "default": 10,
+        "means": "distance over which that absorption happens"
+      },
+      {
+        "id": "thin_wall",
+        "type": "bool",
+        "default": false,
+        "means": "treat as a sheet with no interior volume: leaves, paper, cloth, ears"
+      },
+      {
+        "id": "dispersion",
+        "type": "scalar",
+        "range": [
+          0,
+          0.2
+        ],
+        "default": 0,
+        "means": "how much the ior varies per colour channel"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "transmitted",
+        "means": "light leaving the far side, attenuated by distance travelled"
+      }
+    ],
+    "dependencies": [],
+    "host_binding": {
+      "requires": [
+        "ray depth or a thin-wall approximation",
+        "object thickness where not thin-walled"
+      ],
+      "binding_note": "Colour must come from absorption over thickness, not from base colour. That is why real glass is green at the edge and clear at the face; base-colour glass is instantly recognisable as fake."
+    },
+    "known_losses": [
+      "Rasterised transmission cannot handle caustics or nested media.",
+      "Thin-wall mode loses refraction entirely, by definition."
+    ],
+    "fallback": {
+      "when": "host has no transmission",
+      "do": "for thin_wall only: a back-facing term driven by the dot of light direction and inverted normal, tinted by absorption_color",
+      "loses": "everything volumetric; adequate for foliage, not for glass"
+    },
+    "verify": [
+      "Backlight a leaf. It must go BRIGHTER than the unlit side. If it darkens, this is not bound.",
+      "A thick glass block must be clear through the faces and coloured through the edges."
+    ]
+  },
+  {
+    "format": "axm-material-response-organ",
+    "version": "0.1.0",
+    "state_effects": "none",
+    "evidence": "declared_contract_match_not_tested",
+    "id": "surface.wear_layer",
+    "name": "Wear layering",
+    "purpose": "Two or three complete surfaces stacked on one object — bare metal, oxide, grime — placed by where an object is worn and where dirt collects. This is what makes something look USED rather than uniformly dirtied.",
+    "inputs": [
+      {
+        "id": "layers",
+        "type": "list",
+        "means": "ordered list of {response, weight, where, mask}"
+      },
+      {
+        "id": "where",
+        "type": "enum",
+        "options": [
+          "high_wear_edges",
+          "cavities",
+          "upward_faces",
+          "folds",
+          "contact_points",
+          "custom_mask"
+        ],
+        "default": "cavities",
+        "means": "the placement rule for a layer"
+      },
+      {
+        "id": "weight",
+        "type": "scalar",
+        "range": [
+          0,
+          1
+        ],
+        "default": 0,
+        "means": "how strongly that layer covers"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "blended_response",
+        "means": "a full response per point, blended from the stack"
+      }
+    ],
+    "dependencies": [
+      "surface.breakup"
+    ],
+    "host_binding": {
+      "requires": [
+        "curvature and cavity maps per asset, baked once",
+        "a per-point blend of complete responses, not of channels"
+      ],
+      "binding_note": "Blend COMPLETE responses, not individual channels. Lerping roughness between rust and steel produces a value that is neither, and the surface reads as a decal."
+    },
+    "known_losses": [
+      "Placement is geometric, so it cannot know history: which edge was actually gripped, where the rain ran. Those want a painted mask."
+    ],
+    "fallback": {
+      "when": "host cannot blend full responses",
+      "do": "pick the dominant layer per point with a hard threshold rather than blending",
+      "loses": "transition softness; reads as stencilled but stays honest"
+    },
+    "verify": [
+      "An aged-steel object must be brightest on the edges hands touch and darkest in the cavities. If wear is even everywhere, placement is not bound."
+    ]
+  }
+]

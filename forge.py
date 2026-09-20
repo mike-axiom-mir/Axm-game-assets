@@ -371,6 +371,14 @@ def cmd_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_route_intent(args: argparse.Namespace) -> int:
+    from asset_intent_router import route_asset_intent
+
+    result = route_asset_intent(load(args.request))
+    print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+    return 0 if result.get("status") == "PLANNED_NOT_EXECUTED" else 2
+
+
 def cmd_audit(args: argparse.Namespace) -> int:
     report = audit(load(args.genome))
     for gate in report["gates"]:
@@ -433,6 +441,7 @@ def parser() -> argparse.ArgumentParser:
     p = sub.add_parser("init"); p.add_argument("request"); p.add_argument("output"); p.set_defaults(fn=cmd_init)
     p = sub.add_parser("recover-init"); p.add_argument("request"); p.add_argument("output"); p.set_defaults(fn=cmd_recover_init)
     p = sub.add_parser("plan"); p.add_argument("recipe"); p.set_defaults(fn=cmd_plan)
+    p = sub.add_parser("route-intent"); p.add_argument("request"); p.set_defaults(fn=cmd_route_intent)
     p = sub.add_parser("audit"); p.add_argument("genome"); p.set_defaults(fn=cmd_audit)
     p = sub.add_parser("doctor"); p.set_defaults(fn=cmd_doctor)
     p = sub.add_parser("capability"); p.add_argument("capability"); p.add_argument("--registry", default="capability-registry.json"); p.add_argument("--hardware", required=True); p.add_argument("--jurisdiction"); p.set_defaults(fn=cmd_capability)
