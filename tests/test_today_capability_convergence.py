@@ -5,8 +5,12 @@ import hashlib
 import json
 from pathlib import Path
 import struct
+import subprocess
+import sys
 import tempfile
 import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
 
 from asset_intent_router import route_asset_intent
 from native_character_source_profile import (
@@ -143,6 +147,27 @@ class TodayConvergenceTests(unittest.TestCase):
         self.assertFalse(plan["automatic_genome_mutation"])
         self.assertFalse(plan["automatic_vault_admission"])
         self.assertFalse(plan["automatic_canon"])
+
+    def test_forge_cli_exposes_intent_route_without_executing_asset_build(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            request = Path(td) / "intent.json"
+            request.write_text(json.dumps({
+                "schema": "axm.game-assets.asset-intent/v0.1",
+                "prompt": "Create a vegetation tree asset with detailed leaf material",
+                "asset_id": "tree-proof",
+            }), encoding="utf-8")
+            completed = subprocess.run(
+                [sys.executable, str(ROOT / "forge.py"), "route-intent", str(request)],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result["status"], "PLANNED_NOT_EXECUTED")
+            self.assertEqual(result["selected_family"], "vegetation")
+            self.assertFalse(result["automatic_execution"])
 
     def test_intent_router_holds_ambiguous_multi_family_language(self) -> None:
         result = route_asset_intent({
