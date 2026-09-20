@@ -252,7 +252,7 @@ class TodayConvergenceTests(unittest.TestCase):
                 "automatic_canon_admission": False,
                 "recipe": {
                     "schema": "axm.character-recipe/v0.1",
-                    "name": "bonsai-race-proof",
+                    "name": "display-name-not-an-asset-id",
                 },
                 "recipe_sha256": "0" * 64,
                 "character": {
@@ -286,9 +286,12 @@ class TodayConvergenceTests(unittest.TestCase):
                 json.dumps(source, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )
-            proposal = build_universal_creation_source_proposal(asset)
+            proposal = build_universal_creation_source_proposal(
+                asset, expected_asset_id="bonsai-race-proof"
+            )
             self.assertEqual(proposal["schema"], SOURCE_PROPOSAL_SCHEMA)
             self.assertEqual(proposal["status"], "PROPOSAL_ONLY")
+            self.assertEqual(proposal["asset"]["id"], "bonsai-race-proof")
             retained = proposal["verified_source"]["retained"]
             self.assertEqual(retained["character"]["body_family"], "rooted-small-tree")
             self.assertEqual(retained["sockets"][0]["id"], "tool-r")
