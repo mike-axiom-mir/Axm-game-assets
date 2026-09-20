@@ -118,7 +118,7 @@ def _resolve(value: Any, env: dict[str, float], label: str) -> Any:
         return tuple(_resolve(item, env, f"{label}[]") for item in value)
     if isinstance(value, dict):
         return {key: _resolve(item, env, f"{label}.{key}") for key, item in value.items()}
-    return copy.deepcopy(value)
+    return deepcopy(value)
 
 
 def _scale(value: Any, label: str) -> tuple[float, float, float]:
