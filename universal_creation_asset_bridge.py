@@ -685,7 +685,7 @@ def build_universal_creation_source_proposal(
     elif isinstance(character.get("asset_id"), str) and character.get("asset_id").strip():
         provider_asset_id = character.get("asset_id").strip()
     elif isinstance(recipe, dict):
-        for key in ("asset_id", "id", "name"):
+        for key in ("asset_id", "id"):
             if isinstance(recipe.get(key), str) and recipe.get(key).strip():
                 provider_asset_id = recipe.get(key).strip()
                 break
