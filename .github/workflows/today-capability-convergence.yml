@@ -9,6 +9,7 @@ on:
       - 'native_form_recipe.py'
       - 'native_material_response.py'
       - 'native_character_source_profile.py'
+      - 'native_reusable_part_library.py'
       - 'seed_data/material_response_v01.json'
       - 'seed_data/material_response_organs_v01.json'
       - 'universal_creation_asset_bridge.py'
@@ -29,7 +30,7 @@ jobs:
           python-version: '3.11'
       - name: Compile changed Python
         run: |
-          python -m py_compile forge.py asset_intent_router.py native_form_recipe.py native_material_response.py native_character_source_profile.py universal_creation_asset_bridge.py tests/test_today_capability_convergence.py
+          python -m py_compile forge.py asset_intent_router.py native_form_recipe.py native_material_response.py native_character_source_profile.py native_reusable_part_library.py universal_creation_asset_bridge.py tests/test_today_capability_convergence.py
       - name: Run convergence tests
         run: python -m unittest -v tests.test_today_capability_convergence
       - name: Preserve legacy UC ingress behavior
