@@ -153,7 +153,7 @@ class TodayConvergenceTests(unittest.TestCase):
             request = Path(td) / "intent.json"
             request.write_text(json.dumps({
                 "schema": "axm.game-assets.asset-intent/v0.1",
-                "prompt": "Create a vegetation tree asset with detailed leaf material",
+                "prompt": "Create a vegetation tree asset with detailed leaves",
                 "asset_id": "tree-proof",
             }), encoding="utf-8")
             completed = subprocess.run(
