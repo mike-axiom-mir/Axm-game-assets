@@ -36,8 +36,10 @@ MorphTile and today's UC work reinforced that the strongest reusable unit is oft
 - rings;
 - rounded boxes;
 - reusable named definitions;
+- named numeric definition parameters and per-use overrides;
+- bounded repeat loops with loop variables;
 - repeated definitions;
-- per-use translation / rotation / scale;
+- nested translation / rotation / scale composition;
 - semantic part ids, material families and roles.
 
 The output remains ordinary Forge `Mesh` / `ConstructionAssembly` state. The recipe is source authority and the mesh is a realization.
@@ -98,7 +100,7 @@ It can select one asset family when:
 
 Ambiguous language stays HOLD. A character holding a weapon does not silently decide whether the request is a character asset or a weapon asset.
 
-The plan points at current Forge manufacturing blocks and never equates planning with execution.
+The plan points at current Forge manufacturing blocks and never equates planning with execution. It is callable through `python forge.py route-intent request.json`, so humans and AI can use the same bounded planning contract without memorizing internal module names.
 
 ## What was intentionally not absorbed
 
