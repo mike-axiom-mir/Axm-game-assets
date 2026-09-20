@@ -533,6 +533,8 @@ def compile_form_recipe(raw: Any) -> ConstructionAssembly:
         "parts": source_index,
         "part_count": len(parts),
         "definitions_declared": len(definitions),
+        "parameterized_definitions": sum(bool(body.get("params")) for body in definitions.values()),
+        "root_vars": deepcopy(root_vars),
         "metadata": deepcopy(raw.get("metadata", {})),
         "provenance": {
             "implementation": "AXM Game Asset Forge native form recipe compiler",
@@ -569,8 +571,12 @@ def form_recipe_summary() -> dict[str, Any]:
             "rounded-box",
         ],
         "reusable_definitions": True,
+        "named_numeric_parameters": True,
+        "per_use_parameter_overrides": True,
         "bounded_repeat": True,
+        "loop_variables": True,
         "per_use_transform": True,
+        "nested_transform_composition": True,
         "source_authority": True,
         "runtime_dependencies": [],
         "truth": (
