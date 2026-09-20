@@ -132,7 +132,7 @@ The plan points at current Forge manufacturing blocks and never equates planning
 
 A finished Forge asset can be permanent in its own Genome/source state without being promoted into a global reusable library.
 
-Reusable part discovery and any future Vault/library remain explicit admission steps. This preserves the distinction learned today:
+Reusable part discovery/pull is now explicit; any future broader Vault/blueprint layer remains a separate admission/composition step. This preserves the distinction learned today:
 
 **asset persistence != reusable-library storage != blueprint/composition references.**
 
