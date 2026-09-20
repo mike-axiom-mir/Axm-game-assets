@@ -1,0 +1,75 @@
+{
+  "capsule_id": "cb49227b18571ee4d1e76075cddee650bcffa2f6c749de2893527a1c47032e2c",
+  "evidence": {
+    "files": [
+      {
+        "additions": 559,
+        "binary": false,
+        "content_sha256": "b7aa185427077c1ef3358b1ad2161da96b53f1d7d170945164272a84280cc41e",
+        "deletions": 0,
+        "path": "native_kettlejack_character_v2.py",
+        "status": "A",
+        "symbols": [
+          "_sha",
+          "_smooth",
+          "stylize_body_v2",
+          "_ellipsoid",
+          "_head_region",
+          "_extra_materials",
+          "_visual_accessories",
+          "_group_accessories",
+          "write_kettlejack_v2_package",
+          "main"
+        ],
+        "topics": []
+      }
+    ],
+    "patch_sha256": "595c2d6b5ccf3dd504b8ed1c563a10148fe6d3eaef2d5068109ea84d4af8b864"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 3,
+    "kinds": [
+      "code"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "accessories",
+      "add",
+      "asset-forge",
+      "axm",
+      "body",
+      "builder",
+      "character",
+      "driven",
+      "ellipsoid",
+      "extra",
+      "game-assets",
+      "group",
+      "head",
+      "kettlejack",
+      "materials",
+      "native",
+      "package",
+      "region",
+      "render",
+      "sha",
+      "smooth",
+      "standalone",
+      "stylize",
+      "visual",
+      "write"
+    ]
+  },
+  "source": {
+    "base": "ee292dc2d6df253ee2bf69401536909dc38ef8ab",
+    "commit_subject": "Add render-driven Kettlejack v0.2 builder",
+    "head": "99b97d8d888068d4db3fdafc7d76dd3ee3055a47",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

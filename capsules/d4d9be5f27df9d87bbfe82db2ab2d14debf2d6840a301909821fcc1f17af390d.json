@@ -1,0 +1,35 @@
+{
+  "capsule_id": "d4d9be5f27df9d87bbfe82db2ab2d14debf2d6840a301909821fcc1f17af390d",
+  "evidence": {
+    "files": [],
+    "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 0,
+    "kinds": [],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "add",
+      "asset-forge",
+      "axm",
+      "game-assets",
+      "kettlejack",
+      "rehearsal",
+      "standalone",
+      "visual",
+      "workflow"
+    ]
+  },
+  "source": {
+    "base": "46a540d2491b8d050becd7a87691cabc797daa46",
+    "commit_subject": "Add Kettlejack visual rehearsal workflow",
+    "head": "11d9482fe510012203393d861f3fa09649d2bfb7",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

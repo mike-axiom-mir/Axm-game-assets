@@ -1,0 +1,1133 @@
+diff --git a/native_kettlejack_character.py b/native_kettlejack_character.py
+new file mode 100644
+index 0000000..4ca5d5d
+--- /dev/null
++++ b/native_kettlejack_character.py
+@@ -0,0 +1,573 @@
++#!/usr/bin/env python3
++"""Kettlejack: first end-to-end AXM Game Asset Forge animated character proof.
++
++The generated concept art is treated as design intent, not a geometry oracle.
++This build uses only inspectable Game Asset Forge capabilities: the pinned HM08
++body substrate, native humanoid rig/skin, procedural materials, construction
++organs, found-object detail, explicit semantic attachments and glTF delivery.
++
++The result is a real multi-material skinned glTF with authored clips. It is a
++proving game asset, not a claim of pixel-faithful concept reconstruction, final
++deformation quality, production retopology, or automatic CANON.
++"""
++from __future__ import annotations
++
++import hashlib
++import json
++import math
++from dataclasses import replace
++from pathlib import Path
++from typing import Any, Iterable
++
++from native_animation import AnimationClip, AnimationTrack, validate_animation_clip
++from native_construction_kit import beam_segment, lathe_profile, pipe_path, rounded_box, torus_ring
++from native_found_object_detail import build_kettle
++from native_geometry import Mesh, bounds, combine, scale, topology_report, translate
++from native_hm08_humanoid_rig import (
++    axis_angle_quaternion,
++    build_hm08_humanoid_skeleton,
++    derive_hm08_rig_landmarks,
++)
++from native_hm08_humanoid_skin_v2 import build_hm08_skin_weights_v2
++from native_hm08_undersuit import _load_identity_body, build_hm08_undersuit
++from native_skin import Skeleton, validate_skeleton
++from native_skin_material import SkinMaterialSpec, write_skin_material
++from native_skinned_multi_gltf import (
++    SkinnedMaterialPrimitive,
++    rigid_skin_weights,
++    write_skinned_multi_gltf,
++)
++from native_surface_families import write_surface_family
++from native_uv import box_project_world, validate_uv
++
++SCHEMA = "axm.game-assets.kettlejack-character/v0.1"
++ASSET_NAME = "kettlejack_game_character_v0_1"
++TARGET_HEIGHT_M = 1.30
++
++DESIGN_INTENT = {
++    "name": "Kettlejack",
++    "role": "salvage-tech adventurer",
++    "personality": ["cheerful", "mischievous", "ingenious"],
++    "silhouette": [
++        "small stylized biped",
++        "large readable head/goggles",
++        "kettle backpack",
++        "oversized wrench staff",
++        "asymmetric mechanical right leg",
++    ],
++    "materials": ["patched cloth", "worn utility shapes", "painted salvage metal", "steel", "rubber"],
++    "required_readable_features": [
++        "orange scarf/collar",
++        "tool-belt ring",
++        "hubcap shoulder plate",
++        "goggles",
++        "kettle boiler backpack",
++        "wrench staff",
++        "spring mechanical right leg",
++        "heavy left work boot",
++    ],
++    "reference_truth": (
++        "Intent transcribed from the generated Kettlejack concept sheet in the originating chat. "
++        "The image is not parsed as exact hidden geometry, topology, material measurement, or animation data."
++    ),
++}
++
++MATERIAL_RECIPES = {
++    "skin": {"kind": "skin", "base_rgb": (190, 137, 105)},
++    "outfit": {"kind": "cloth", "base_rgb": (80, 88, 66)},
++    "scarf": {"kind": "cloth", "base_rgb": (171, 76, 38)},
++    "steel": {"kind": "steel", "base_rgb": (166, 172, 166)},
++    "rust_red": {"kind": "salvage_metal", "base_rgb": (150, 60, 43)},
++    "ivory_metal": {"kind": "salvage_metal", "base_rgb": (205, 197, 174)},
++    "yellow_metal": {"kind": "salvage_metal", "base_rgb": (207, 139, 35)},
++    "rubber": {"kind": "rubber", "base_rgb": (34, 38, 39)},
++    "wood": {"kind": "wood", "base_rgb": (116, 77, 46)},
++}
++
++METALLIC_FACTORS = {
++    "skin": 0.0,
++    "outfit": 0.0,
++    "scarf": 0.0,
++    "steel": 1.0,
++    "rust_red": 1.0,
++    "ivory_metal": 1.0,
++    "yellow_metal": 1.0,
++    "rubber": 0.0,
++    "wood": 0.0,
++}
++
++
++def _sha(data: bytes) -> str:
++    return "sha256:" + hashlib.sha256(data).hexdigest()
++
++
++def _sha_file(path: Path) -> str:
++    return _sha(path.read_bytes())
++
++
++def _smooth(edge0: float, edge1: float, value: float) -> float:
++    if edge1 <= edge0:
++        return 0.0
++    t = max(0.0, min(1.0, (value - edge0) / (edge1 - edge0)))
++    return t * t * (3.0 - 2.0 * t)
++
++
++def stylize_body(source: Mesh) -> tuple[Mesh, dict[str, Any]]:
++    """Apply a bounded, topology-preserving stylization before rig derivation."""
++    lo, hi = bounds(source)
++    height = hi[1] - lo[1]
++    center_z = (lo[2] + hi[2]) * 0.5
++    vertices = []
++    max_head_scale = 1.0
++    for x, y, z in source.vertices:
++        t = (y - lo[1]) / max(height, 1e-12)
++        head = _smooth(0.82, 0.95, t)
++        torso = _smooth(0.48, 0.70, t) * (1.0 - _smooth(0.82, 0.90, t))
++        lower = 1.0 - _smooth(0.42, 0.56, t)
++        x_scale = 1.0 + 0.22 * head + 0.035 * torso - 0.035 * lower
++        z_scale = 1.0 + 0.18 * head + 0.025 * torso
++        max_head_scale = max(max_head_scale, 1.0 + 0.22 * head)
++        vertices.append((x * x_scale, y, center_z + (z - center_z) * z_scale))
++    mesh = Mesh("kettlejack_stylized_hm08_source", vertices, list(source.faces))
++    report = topology_report(mesh)
++    if report["invalid_indices"] or report["degenerate_faces"]:
++        raise ValueError(f"stylization damaged topology: {report}")
++    return mesh, {
++        "method": "bounded topology-preserving regional x/z scaling",
++        "source_height_m": height,
++        "maximum_head_width_scale": max_head_scale,
++        "topology": report,
++        "truth": "Authored stylization from Kettlejack design intent; not image-reconstructed geometry.",
++    }
++
++
++def _scale_skeleton(skeleton: Skeleton, factor: float, ground_offset: float) -> Skeleton:
++    joints = []
++    for joint in skeleton.joints:
++        tx, ty, tz = joint.translation
++        translation = (tx * factor, ty * factor, tz * factor)
++        if joint.parent is None:
++            translation = (translation[0], translation[1] + ground_offset, translation[2])
++        joints.append(replace(joint, translation=translation))
++    result = Skeleton(joints)
++    report = validate_skeleton(result)
++    if report["status"] != "pass":
++        raise ValueError(f"scaled skeleton invalid: {report}")
++    return result
++
++
++def _scaled_point(point: tuple[float, float, float], factor: float, ground_offset: float):
++    return point[0] * factor, point[1] * factor + ground_offset, point[2] * factor
++
++
++def _qmul(a, b):
++    ax, ay, az, aw = a
++    bx, by, bz, bw = b
++    return (
++        aw*bx + ax*bw + ay*bz - az*by,
++        aw*by - ax*bz + ay*bw + az*bx,
++        aw*bz + ax*by - ay*bx + az*bw,
++        aw*bw - ax*bx - ay*by - az*bz,
++    )
++
++
++def _pose_quat(*, x: float = 0.0, y: float = 0.0, z: float = 0.0):
++    q = (0.0, 0.0, 0.0, 1.0)
++    for axis, angle in (((1.0,0.0,0.0), x), ((0.0,1.0,0.0), y), ((0.0,0.0,1.0), z)):
++        if abs(angle) > 1e-12:
++            q = _qmul(q, axis_angle_quaternion(axis, angle))
++    length = math.sqrt(sum(v*v for v in q))
++    return tuple(v/length for v in q)
++
++
++def _rot_track(index: int, times: list[float], poses: list[dict[str, float]]) -> AnimationTrack:
++    return AnimationTrack(index, "rotation", times, [_pose_quat(**pose) for pose in poses])
++
++
++def build_kettlejack_clips(name_to_index: dict[str, int]) -> tuple[AnimationClip, ...]:
++    idle_t = [0.0, 0.8, 1.6]
++    idle = AnimationClip("idle", [
++        _rot_track(name_to_index["left_upper_arm"], idle_t, [{"z":56},{"z":59},{"z":56}]),
++        _rot_track(name_to_index["right_upper_arm"], idle_t, [{"z":-57},{"z":-60},{"z":-57}]),
++        _rot_track(name_to_index["left_forearm"], idle_t, [{"z":16},{"z":20},{"z":16}]),
++        _rot_track(name_to_index["right_forearm"], idle_t, [{"z":-18},{"z":-15},{"z":-18}]),
++        _rot_track(name_to_index["head"], idle_t, [{"y":-3},{"y":4},{"y":-3}]),
++        _rot_track(name_to_index["spine_mid"], idle_t, [{"y":-1.5},{"y":1.5},{"y":-1.5}]),
++    ])
++
++    run_t = [0.0, 0.2, 0.4, 0.6, 0.8]
++    run = AnimationClip("run", [
++        _rot_track(name_to_index["left_thigh"], run_t, [{"x":-25},{"x":0},{"x":25},{"x":0},{"x":-25}]),
++        _rot_track(name_to_index["right_thigh"], run_t, [{"x":25},{"x":0},{"x":-25},{"x":0},{"x":25}]),
++        _rot_track(name_to_index["left_shin"], run_t, [{"x":35},{"x":12},{"x":-8},{"x":12},{"x":35}]),
++        _rot_track(name_to_index["right_shin"], run_t, [{"x":-8},{"x":12},{"x":35},{"x":12},{"x":-8}]),
++        _rot_track(name_to_index["left_upper_arm"], run_t, [{"x":22,"z":58},{"z":58},{"x":-22,"z":58},{"z":58},{"x":22,"z":58}]),
++        _rot_track(name_to_index["right_upper_arm"], run_t, [{"x":-22,"z":-58},{"z":-58},{"x":22,"z":-58},{"z":-58},{"x":-22,"z":-58}]),
++        _rot_track(name_to_index["spine_mid"], run_t, [{"y":-5},{"y":0},{"y":5},{"y":0},{"y":-5}]),
++    ])
++
++    jump_t = [0.0, 0.24, 0.52, 0.82]
++    jump = AnimationClip("jump", [
++        _rot_track(name_to_index["left_thigh"], jump_t, [{"x":5},{"x":-34},{"x":18},{"x":5}]),
++        _rot_track(name_to_index["right_thigh"], jump_t, [{"x":-5},{"x":-20},{"x":34},{"x":-5}]),
++        _rot_track(name_to_index["left_shin"], jump_t, [{"x":5},{"x":52},{"x":24},{"x":5}]),
++        _rot_track(name_to_index["right_shin"], jump_t, [{"x":5},{"x":40},{"x":58},{"x":5}]),
++        _rot_track(name_to_index["left_upper_arm"], jump_t, [{"z":55},{"x":-12,"z":28},{"x":8,"z":35},{"z":55}]),
++        _rot_track(name_to_index["right_upper_arm"], jump_t, [{"z":-55},{"x":12,"z":-25},{"x":-8,"z":-33},{"z":-55}]),
++    ])
++
++    attack_t = [0.0, 0.18, 0.38, 0.62, 0.88]
++    attack = AnimationClip("wrench_swing", [
++        _rot_track(name_to_index["right_upper_arm"], attack_t, [
++            {"y":45,"z":-50},{"y":75,"z":-30},{"y":-55,"z":-18},{"y":-85,"z":-44},{"y":45,"z":-50}
++        ]),
++        _rot_track(name_to_index["right_forearm"], attack_t, [
++            {"y":18,"z":-20},{"y":42,"z":-8},{"y":-28,"z":-36},{"y":-12,"z":-20},{"y":18,"z":-20}
++        ]),
++        _rot_track(name_to_index["chest"], attack_t, [{"y":-12},{"y":-30},{"y":34},{"y":22},{"y":-12}]),
++        _rot_track(name_to_index["spine_mid"], attack_t, [{"y":-8},{"y":-20},{"y":25},{"y":14},{"y":-8}]),
++        _rot_track(name_to_index["left_upper_arm"], attack_t, [{"z":58},{"z":68},{"z":48},{"z":55},{"z":58}]),
++    ])
++
++    victory_t = [0.0, 0.35, 0.7, 1.05]
++    victory = AnimationClip("victory", [
++        _rot_track(name_to_index["left_upper_arm"], victory_t, [{"z":55},{"z":125},{"z":105},{"z":55}]),
++        _rot_track(name_to_index["right_upper_arm"], victory_t, [{"z":-55},{"z":-120},{"z":-100},{"z":-55}]),
++        _rot_track(name_to_index["left_thigh"], victory_t, [{"x":0},{"x":-18},{"x":8},{"x":0}]),
++        _rot_track(name_to_index["right_shin"], victory_t, [{"x":0},{"x":48},{"x":28},{"x":0}]),
++        _rot_track(name_to_index["head"], victory_t, [{"y":0},{"y":-10},{"y":8},{"y":0}]),
++    ])
++    return idle, run, jump, attack, victory
++
++
++def _write_materials(root: Path, texture_size: int) -> dict[str, dict[str, str]]:
++    textures = root / "textures"
++    outputs: dict[str, dict[str, str]] = {}
++    skin_dir = textures / "skin"
++    skin = write_skin_material(
++        skin_dir,
++        size=texture_size,
++        seed=1717,
++        spec=SkinMaterialSpec(base_rgb=(190,137,105), undertone_rgb=(158,82,67), freckle_density=.055),
++    )
++    outputs["skin"] = {
++        "base_color": "textures/skin/base_color.png",
++        "normal": "textures/skin/normal.png",
++        "orm": "textures/skin/orm.png",
++        "manifest": str(skin["manifest_sha256"]),
++    }
++
++    for index, (name, recipe) in enumerate(MATERIAL_RECIPES.items()):
++        if name == "skin":
++            continue
++        kind = str(recipe["kind"])
++        target = textures / name
++        manifest = write_surface_family(
++            target,
++            kind=kind,
++            size=texture_size,
++            seed=2200 + index * 97,
++            name=f"kettlejack-{name}",
++            base_rgb=recipe["base_rgb"],
++            scale=1.15 if kind in {"cloth","wood"} else 1.0,
++        )
++        outputs[name] = {
++            "base_color": f"textures/{name}/base_color.png",
++            "normal": f"textures/{name}/normal.png",
++            "orm": f"textures/{name}/orm.png",
++            "manifest": str(manifest["manifest_digest"]),
++        }
++    return outputs
++
++
++def _accessory_meshes(
++    landmarks: dict[str, tuple[float,float,float]],
++    body: Mesh,
++) -> list[tuple[Mesh, str, str, str]]:
++    """Return mesh, joint name, material family, semantic role."""
++    lo, hi = bounds(body)
++    rows: list[tuple[Mesh,str,str,str]] = []
++    head = landmarks["head"]
++    neck = landmarks["neck"]
++    pelvis = landmarks["pelvis"]
++    left_shoulder = landmarks["left_upper_arm"]
++    right_hand = landmarks["right_hand"]
++    right_shin = landmarks["right_shin"]
++    right_foot = landmarks["right_foot"]
++    left_foot = landmarks["left_foot"]
++
++    rows.append((
++        torus_ring((0.0, neck[1]-.015, neck[2]), radius=.095, tube=.025, axis="y", ratio=.72, major_segments=24, minor_segments=7, name="kettlejack-scarf"),
++        "chest", "scarf", "orange-scarf"
++    ))
++    rows.append((
++        torus_ring((0.0, pelvis[1]+.035, pelvis[2]), radius=.145, tube=.025, axis="y", ratio=.62, major_segments=24, minor_segments=7, name="kettlejack-tool-belt"),
++        "pelvis", "wood", "tool-belt"
++    ))
++
++    front_z = hi[2] + .018
++    for side, dx in (("left",-.055),("right",.055)):
++        rows.append((
++            torus_ring((head[0]+dx, head[1]+.025, front_z), radius=.043, tube=.010, axis="z", major_segments=18, minor_segments=6, name=f"kettlejack-goggle-{side}"),
++            "head", "steel", "goggle-rim"
++        ))
++    rows.append((
++        beam_segment((-.020,head[1]+.025,front_z),(.020,head[1]+.025,front_z),width=.012,depth=.012,name="kettlejack-goggle-bridge"),
++        "head", "steel", "goggle-bridge"
++    ))
++
++    hub = lathe_profile(
++        ((0.0,0.0),(.085,0.0),(.105,.010),(.092,.024),(.055,.032),(0.0,.034)),
++        center=(left_shoulder[0], left_shoulder[1]+.015, hi[2]+.025),
++        axis="z",
++        segments=24,
++        name="kettlejack-hubcap-shoulder",
++    )
++    rows.append((hub, "left_upper_arm", "ivory_metal", "hubcap-shoulder"))
++
++    kettle_center = (0.0, landmarks["chest"][1]-.15, lo[2]-.055)
++    kettle = build_kettle(name="kettlejack-kettle-pack", center=kettle_center, size=.72)
++    family_map = {"salvage_metal":"ivory_metal", "steel":"steel", "wood":"wood"}
++    for part in kettle.parts:
++        rows.append((part.mesh, "chest", family_map.get(part.material_family, "steel"), f"kettle-pack:{part.semantic_role}"))
++
++    shin_x, shin_y, shin_z = right_shin
++    foot_x, foot_y, foot_z = right_foot
++    rows.append((
++        pipe_path(((shin_x,shin_y-.01,shin_z),(foot_x,foot_y+.035,foot_z)),radius=.023,sides=10,name="kettlejack-mech-leg-strut"),
++        "right_shin","steel","mechanical-leg-strut"
++    ))
++    for index in range(6):
++        t=(index+1)/7.0
++        center=(shin_x+(foot_x-shin_x)*t, shin_y+(foot_y-shin_y)*t, shin_z+(foot_z-shin_z)*t)
++        rows.append((
++            torus_ring(center,radius=.055,tube=.010,axis="y",major_segments=18,minor_segments=6,name=f"kettlejack-mech-spring-{index}"),
++            "right_shin","yellow_metal","mechanical-leg-spring"
++        ))
++    rows.append((
++        rounded_box((foot_x, max(.055,foot_y+.015), foot_z+.045),(.16,.09,.25),chamfer=.025,name="kettlejack-mech-foot"),
++        "right_foot","yellow_metal","mechanical-foot"
++    ))
++    rows.append((
++        rounded_box((left_foot[0], max(.055,left_foot[1]+.015), left_foot[2]+.045),(.18,.10,.27),chamfer=.028,name="kettlejack-work-boot"),
++        "left_foot","rubber","heavy-work-boot"
++    ))
++
++    wx, _wy, wz = right_hand
++    shaft_bottom = .08
++    shaft_top = min(hi[1]+.20, 1.46)
++    rows.append((
++        pipe_path(((wx,shaft_bottom,wz+.045),(wx,shaft_top,wz+.045)),radius=.020,sides=8,name="kettlejack-wrench-shaft"),
++        "right_hand","rust_red","wrench-staff-shaft"
++    ))
++    hub_y=shaft_top-.015
++    rows.append((
++        torus_ring((wx,hub_y,wz+.045),radius=.060,tube=.020,axis="z",major_segments=18,minor_segments=6,name="kettlejack-wrench-head-hub"),
++        "right_hand","steel","wrench-head"
++    ))
++    rows.append((
++        beam_segment((wx-.035,hub_y+.025,wz+.045),(wx-.120,hub_y+.115,wz+.045),width=.045,depth=.035,name="kettlejack-wrench-left-jaw"),
++        "right_hand","rust_red","wrench-jaw"
++    ))
++    rows.append((
++        beam_segment((wx+.035,hub_y+.025,wz+.045),(wx+.120,hub_y+.115,wz+.045),width=.045,depth=.035,name="kettlejack-wrench-right-jaw"),
++        "right_hand","rust_red","wrench-jaw"
++    ))
++    return rows
++
++
++def _group_accessories(rows: Iterable[tuple[Mesh,str,str,str]]):
++    grouped: dict[tuple[str,str], dict[str, Any]] = {}
++    for mesh, joint, family, role in rows:
++        key=(joint,family)
++        bucket=grouped.setdefault(key,{"meshes":[],"roles":[]})
++        bucket["meshes"].append(mesh)
++        bucket["roles"].append(role)
++    result=[]
++    for (joint,family), bucket in sorted(grouped.items()):
++        mesh=combine(bucket["meshes"],name=f"kettlejack-{joint}-{family}")
++        result.append((mesh,joint,family,"+".join(sorted(set(bucket["roles"])))))
++    return result
++
++
++def write_kettlejack_package(
++    output: str | Path,
++    *,
++    texture_size: int = 64,
++    target_height_m: float = TARGET_HEIGHT_M,
++) -> dict[str, Any]:
++    root=Path(output)
++    root.mkdir(parents=True,exist_ok=True)
++    if any(root.iterdir()):
++        raise FileExistsError(f"Kettlejack output must start empty: {root}")
++    if not 1.15 <= target_height_m <= 1.60:
++        raise ValueError("Kettlejack target height must stay within [1.15,1.60] m")
++
++    source_body, body_uv, target_state = _load_identity_body()
++    styled, stylization = stylize_body(source_body)
++    if validate_uv(styled, body_uv)["status"] != "pass":
++        raise ValueError("stylized body UV state invalid")
++
++    skeleton, rig_evidence, name_to_index = build_hm08_humanoid_skeleton(styled)
++    landmarks = derive_hm08_rig_landmarks(styled)
++    body_weights, skin_evidence = build_hm08_skin_weights_v2(styled, skeleton, landmarks, name_to_index)
++
++    undersuit, undersuit_uv, undersuit_evidence = build_hm08_undersuit(styled, body_uv)
++    undersuit_weights, undersuit_skin_evidence = build_hm08_skin_weights_v2(
++        undersuit, skeleton, landmarks, name_to_index
++    )
++
++    lo, hi=bounds(styled)
++    source_height=hi[1]-lo[1]
++    factor=target_height_m/source_height
++    scaled_body=scale(styled,factor,name="kettlejack-body")
++    scaled_undersuit=scale(undersuit,factor,name="kettlejack-outfit")
++    scaled_lo,_scaled_hi=bounds(scaled_body)
++    ground_offset=-scaled_lo[1]
++    body=translate(scaled_body,(0.0,ground_offset,0.0),name="kettlejack-body")
++    outfit=translate(scaled_undersuit,(0.0,ground_offset,0.0),name="kettlejack-outfit")
++    scaled_skeleton=_scale_skeleton(skeleton,factor,ground_offset)
++    scaled_landmarks={
++        name:_scaled_point(point,factor,ground_offset)
++        for name,point in landmarks.items()
++    }
++    grounded_lo,grounded_hi=bounds(body)
++    actual_height=grounded_hi[1]-grounded_lo[1]
++    if abs(actual_height-target_height_m)>1e-9 or abs(grounded_lo[1])>1e-9:
++        raise ValueError("target scale/grounding drifted")
++
++    materials=_write_materials(root,texture_size)
++
++    primitives=[
++        SkinnedMaterialPrimitive(
++            body,body_uv,body_weights,
++            "Kettlejack_Skin",
++            materials["skin"]["base_color"],materials["skin"]["normal"],materials["skin"]["orm"],
++            metallic_factor=0.0,roughness_factor=1.0,semantic_role="body-and-face",
++        ),
++        SkinnedMaterialPrimitive(
++            outfit,undersuit_uv,undersuit_weights,
++            "Kettlejack_Patched_Outfit",
++            materials["outfit"]["base_color"],materials["outfit"]["normal"],materials["outfit"]["orm"],
++            metallic_factor=0.0,roughness_factor=1.0,double_sided=True,semantic_role="patched-work-clothes",
++        ),
++    ]
++
++    accessory_rows=_accessory_meshes(scaled_landmarks,body)
++    grouped=_group_accessories(accessory_rows)
++    accessory_evidence=[]
++    for mesh,joint_name,family,role in grouped:
++        uv=box_project_world(mesh,world_units_per_tile=.14)
++        uv_report=validate_uv(mesh,uv)
++        topology=topology_report(mesh)
++        if uv_report["status"]!="pass" or topology["invalid_indices"] or topology["degenerate_faces"]:
++            raise ValueError(f"accessory {role} invalid: uv={uv_report} topology={topology}")
++        joint=name_to_index[joint_name]
++        primitive=SkinnedMaterialPrimitive(
++            mesh,uv,rigid_skin_weights(mesh,joint),
++            f"Kettlejack_{family}_{joint_name}",
++            materials[family]["base_color"],materials[family]["normal"],materials[family]["orm"],
++            metallic_factor=METALLIC_FACTORS[family],
++            roughness_factor=1.0,
++            semantic_role=role,
++        )
++        primitives.append(primitive)
++        accessory_evidence.append({
++            "mesh":mesh.name,"joint":joint_name,"joint_index":joint,"material_family":family,
++            "semantic_role":role,"topology":topology,"uv":uv_report,
++        })
++
++    clips=build_kettlejack_clips(name_to_index)
++    clip_evidence=[]
++    for clip in clips:
++        report=validate_animation_clip(clip,scaled_skeleton)
++        if report["status"]!="pass":
++            raise ValueError(f"Kettlejack clip {clip.name} invalid: {report}")
++        clip_evidence.append({"name":clip.name,**report})
++
++    delivery=write_skinned_multi_gltf(primitives,scaled_skeleton,root,clips,name=ASSET_NAME)
++
++    package: dict[str, Any]={
++        "schema":SCHEMA,
++        "asset_id":"kettlejack",
++        "asset_name":"Kettlejack",
++        "candidate_role":"animated_game_character_proving_asset",
++        "design_intent":DESIGN_INTENT,
++        "height_m":actual_height,
++        "ground_y_m":grounded_lo[1],
++        "source":{
++            "substrate":"seed_data/hm08_full_body_v0.1",
++            "identity_target_state":target_state,
++            "canonical_source_mutated":False,
++        },
++        "stylization":stylization,
++        "rig":rig_evidence,
++        "skin":skin_evidence,
++        "outfit":{"construction":undersuit_evidence,"skin":undersuit_skin_evidence},
++        "clips":clip_evidence,
++        "accessories":accessory_evidence,
++        "materials":materials,
++        "delivery":delivery,
++        "acceptance":{
++            "target_height_grounded":abs(actual_height-target_height_m)<=1e-9 and abs(grounded_lo[1])<=1e-9,
++            "skeleton_valid":validate_skeleton(scaled_skeleton)["status"]=="pass",
++            "five_authored_clips":len(clips)==5,
++            "multi_material_character":delivery["primitive_count"]>=8,
++            "structural_gltf":delivery["validation"]["status"]=="pass",
++            "required_design_features_present":all(any(
++                needle in row["semantic_role"] for row in accessory_evidence
++            ) for needle in ("scarf","tool-belt","goggle","hubcap","kettle-pack","mechanical-leg","wrench")),
++        },
++        "truth":{
++            "real_3d_geometry":True,
++            "real_skeleton":True,
++            "real_skin_weights":True,
++            "real_animation_tracks":True,
++            "real_multi_material_gltf":True,
++            "concept_pixel_faithful":False,
++            "visual_match_proven":False,
++            "production_deformation_proven":False,
++            "engine_import_proven_in_this_build":False,
++            "automatic_genome_mutation":False,
++            "automatic_release":False,
++            "automatic_canon":False,
++            "notes":[
++                "The generated concept is a design target; no unsupported image-to-hidden-geometry claim is made.",
++                "Rigid accessories use explicit one-joint skinning so they follow the shared skeleton while staying structurally inspectable.",
++                "No finger chains, cloth simulation, facial animation, gameplay controller, or final art acceptance is claimed in v0.1.",
++            ],
++        },
++    }
++    if not all(package["acceptance"].values()):
++        raise ValueError(f"Kettlejack acceptance failed: {package['acceptance']}")
++
++    files={}
++    for path in sorted(root.rglob("*")):
++        if path.is_file() and path.name!="kettlejack-package.json":
++            files[path.relative_to(root).as_posix()]=_sha_file(path)
++    package["files"]=files
++    payload=(json.dumps(package,indent=2,sort_keys=True,ensure_ascii=False)+"\n").encode("utf-8")
++    (root/"kettlejack-package.json").write_bytes(payload)
++    package["package_sha256"]=_sha(payload)
++    return package
++
++
++if __name__=="__main__":
++    import argparse
++    parser=argparse.ArgumentParser(description="Build the Kettlejack animated Game Asset Forge proving character")
++    parser.add_argument("output",type=Path)
++    parser.add_argument("--texture-size",type=int,default=64)
++    parser.add_argument("--height",type=float,default=TARGET_HEIGHT_M)
++    args=parser.parse_args()
++    result=write_kettlejack_package(args.output,texture_size=args.texture_size,target_height_m=args.height)
++    print(json.dumps({
++        "schema":result["schema"],
++        "asset_id":result["asset_id"],
++        "height_m":result["height_m"],
++        "clips":[row["name"] for row in result["clips"]],
++        "primitives":result["delivery"]["primitive_count"],
++        "triangles":result["delivery"]["triangles"],
++        "gltf_sha256":result["delivery"]["gltf_sha256"],
++        "package_sha256":result["package_sha256"],
++        "acceptance":result["acceptance"],
++    },sort_keys=True))
+diff --git a/native_kettlejack_character_test.py b/native_kettlejack_character_test.py
+new file mode 100644
+index 0000000..4b62733
+--- /dev/null
++++ b/native_kettlejack_character_test.py
+@@ -0,0 +1,55 @@
++#!/usr/bin/env python3
++import json
++import tempfile
++import unittest
++from pathlib import Path
++
++from native_kettlejack_character import ASSET_NAME, SCHEMA, write_kettlejack_package
++
++
++class KettlejackCharacterTests(unittest.TestCase):
++    def test_build_real_animated_game_character_package(self):
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td) / "kettlejack"
++            package = write_kettlejack_package(root, texture_size=32)
++            self.assertEqual(package["schema"], SCHEMA)
++            self.assertEqual(package["asset_id"], "kettlejack")
++            self.assertAlmostEqual(package["height_m"], 1.30, places=8)
++            self.assertTrue(all(package["acceptance"].values()), package["acceptance"])
++            self.assertEqual([row["name"] for row in package["clips"]],
++                             ["idle", "run", "jump", "wrench_swing", "victory"])
++            self.assertGreaterEqual(package["delivery"]["primitive_count"], 8)
++            self.assertEqual(package["delivery"]["validation"]["status"], "pass")
++            self.assertEqual(package["delivery"]["joints"], 23)
++            self.assertTrue(package["truth"]["real_skeleton"])
++            self.assertTrue(package["truth"]["real_skin_weights"])
++            self.assertTrue(package["truth"]["real_animation_tracks"])
++            self.assertFalse(package["truth"]["concept_pixel_faithful"])
++            self.assertFalse(package["truth"]["automatic_canon"])
++
++            gltf = root / f"{ASSET_NAME}.gltf"
++            binary = root / f"{ASSET_NAME}.bin"
++            manifest = root / "kettlejack-package.json"
++            self.assertTrue(gltf.is_file())
++            self.assertTrue(binary.is_file())
++            self.assertTrue(manifest.is_file())
++            document = json.loads(gltf.read_text())
++            self.assertEqual(len(document["animations"]), 5)
++            self.assertEqual([item["name"] for item in document["animations"]],
++                             ["idle", "run", "jump", "wrench_swing", "victory"])
++            self.assertGreaterEqual(len(document["materials"]), 8)
++            self.assertEqual(len(document["skins"][0]["joints"]), 23)
++            roles = [p["extras"]["axm"]["semantic_role"]
++                     for p in document["meshes"][0]["primitives"]]
++            for needle in ("patched-work-clothes", "scarf", "goggle", "hubcap",
++                           "kettle-pack", "mechanical-leg", "wrench"):
++                self.assertTrue(any(needle in role for role in roles), (needle, roles))
++            for primitive in document["meshes"][0]["primitives"]:
++                self.assertIn("JOINTS_0", primitive["attributes"])
++                self.assertIn("WEIGHTS_0", primitive["attributes"])
++            with self.assertRaises(FileExistsError):
++                write_kettlejack_package(root, texture_size=32)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/native_skinned_multi_gltf.py b/native_skinned_multi_gltf.py
+new file mode 100644
+index 0000000..a6f4148
+--- /dev/null
++++ b/native_skinned_multi_gltf.py
+@@ -0,0 +1,407 @@
++#!/usr/bin/env python3
++"""Dependency-free multi-material skinned glTF 2.0 compiler for AXM characters.
++
++This is the reusable bridge between the existing single-material character
++compiler and the multi-material rigid compiler. Every primitive keeps its own
++mesh/UV/material/skin state while sharing one skeleton and animation set.
++
++Passing this structural gate does not prove visual quality, deformation quality,
++engine performance, gameplay fit, or CANON.
++"""
++from __future__ import annotations
++
++import json
++import struct
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Any, Sequence
++
++from native_animation import AnimationClip, validate_animation_clip
++from native_geometry import Mesh, vertex_normals
++from native_gltf import _add_view, _align4, _pack_vec, _sha256, _tangents, validate_gltf
++from native_skin import (
++    Skeleton,
++    SkinWeights,
++    flatten_matrix_column_major,
++    inverse_bind_matrices,
++    validate_skeleton,
++    validate_skin_weights,
++)
++from native_uv import UVMap, validate_uv
++
++
++@dataclass(frozen=True, slots=True)
++class SkinnedMaterialPrimitive:
++    mesh: Mesh
++    uvmap: UVMap
++    skin_weights: SkinWeights
++    material_name: str
++    base_color_uri: str
++    normal_uri: str
++    orm_uri: str
++    metallic_factor: float = 1.0
++    roughness_factor: float = 1.0
++    double_sided: bool = False
++    base_color_factor: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0)
++    alpha_mode: str | None = None
++    alpha_cutoff: float | None = None
++    semantic_role: str = "character-surface"
++
++
++def rigid_skin_weights(mesh: Mesh, joint_index: int) -> SkinWeights:
++    """Bind every vertex of a rigid accessory to exactly one skeleton joint."""
++    if type(joint_index) is not int or joint_index < 0:
++        raise ValueError("joint_index must be a non-negative integer")
++    return SkinWeights(
++        [(joint_index, 0, 0, 0) for _ in mesh.vertices],
++        [(1.0, 0.0, 0.0, 0.0) for _ in mesh.vertices],
++    )
++
++
++def _expanded(mesh: Mesh, uvmap: UVMap):
++    report = validate_uv(mesh, uvmap)
++    if report["status"] != "pass":
++        raise ValueError(f"invalid UV state: {report}")
++    normals = vertex_normals(mesh)
++    positions = []
++    expanded_normals = []
++    texcoords = []
++    indices = []
++    source_indices = []
++    for face, uvface in zip(mesh.faces, uvmap.face_uvs):
++        if len(face) < 3:
++            continue
++        for corner in range(1, len(face) - 1):
++            for local in (0, corner, corner + 1):
++                vertex_index = face[local]
++                uv_index = uvface[local]
++                positions.append(mesh.vertices[vertex_index])
++                expanded_normals.append(normals[vertex_index])
++                texcoords.append(uvmap.uvs[uv_index])
++                source_indices.append(vertex_index)
++                indices.append(len(indices))
++    return positions, expanded_normals, texcoords, indices, source_indices
++
++
++def _pack_u16_vec4(values: Sequence[tuple[int, int, int, int]]) -> bytes:
++    flat = [component for row in values for component in row]
++    if any(value < 0 or value > 65535 for value in flat):
++        raise ValueError("joint index exceeds unsigned-short glTF storage")
++    return struct.pack("<" + "H" * len(flat), *flat)
++
++
++def compile_skinned_multi_gltf(
++    primitives: Sequence[SkinnedMaterialPrimitive],
++    skeleton: Skeleton,
++    animations: Sequence[AnimationClip] = (),
++    *,
++    name: str,
++    buffer_uri: str,
++) -> tuple[dict[str, Any], bytes]:
++    if not primitives:
++        raise ValueError("skinned multi glTF requires at least one primitive")
++    if not name.strip():
++        raise ValueError("character name must be non-empty")
++
++    skeleton_report = validate_skeleton(skeleton)
++    if skeleton_report["status"] != "pass":
++        raise ValueError(f"invalid skeleton: {skeleton_report}")
++    for clip in animations:
++        report = validate_animation_clip(clip, skeleton)
++        if report["status"] != "pass":
++            raise ValueError(f"invalid animation {clip.name}: {report}")
++
++    blob = bytearray()
++    views: list[dict[str, Any]] = []
++    accessors: list[dict[str, Any]] = []
++    gltf_primitives: list[dict[str, Any]] = []
++    materials: list[dict[str, Any]] = []
++    images: list[dict[str, Any]] = []
++    textures: list[dict[str, Any]] = []
++    primitive_evidence: list[dict[str, Any]] = []
++    total_triangles = 0
++    total_compiled_vertices = 0
++
++    def add_float(
++        values: Sequence[tuple[float, ...]],
++        gltf_type: str,
++        component_count: int,
++        *,
++        target: int | None = 34962,
++        include_bounds: bool = False,
++    ) -> int:
++        rows = [tuple(float(value) for value in row) for row in values]
++        view_index = _add_view(blob, _pack_vec(rows), views, target=target)
++        accessor: dict[str, Any] = {
++            "bufferView": view_index,
++            "byteOffset": 0,
++            "componentType": 5126,
++            "count": len(rows),
++            "type": gltf_type,
++        }
++        if include_bounds:
++            accessor["min"] = [min(row[i] for row in rows) for i in range(component_count)]
++            accessor["max"] = [max(row[i] for row in rows) for i in range(component_count)]
++        accessors.append(accessor)
++        return len(accessors) - 1
++
++    for material_index, spec in enumerate(primitives):
++        if not spec.material_name.strip():
++            raise ValueError(f"primitive {material_index} needs a material name")
++        if spec.alpha_mode not in (None, "OPAQUE", "MASK", "BLEND"):
++            raise ValueError(f"unsupported alpha mode {spec.alpha_mode!r}")
++        if spec.alpha_cutoff is not None and spec.alpha_mode != "MASK":
++            raise ValueError("alpha_cutoff is only valid with alpha_mode='MASK'")
++        if len(spec.base_color_factor) != 4 or any(
++            value < 0.0 or value > 1.0 for value in spec.base_color_factor
++        ):
++            raise ValueError("base_color_factor must contain four values within [0,1]")
++
++        weight_report = validate_skin_weights(
++            spec.skin_weights,
++            vertex_count=len(spec.mesh.vertices),
++            joint_count=len(skeleton.joints),
++        )
++        if weight_report["status"] != "pass":
++            raise ValueError(f"primitive {material_index} has invalid skin weights: {weight_report}")
++
++        positions, normals, texcoords, indices, source_indices = _expanded(spec.mesh, spec.uvmap)
++        if not positions:
++            raise ValueError(f"primitive {material_index} ({spec.mesh.name}) produced no triangles")
++        tangents = _tangents(positions, normals, texcoords)
++        expanded_joints = [spec.skin_weights.joints[index] for index in source_indices]
++        expanded_weights = [spec.skin_weights.weights[index] for index in source_indices]
++
++        position_accessor = add_float(positions, "VEC3", 3, include_bounds=True)
++        normal_accessor = add_float(normals, "VEC3", 3)
++        uv_accessor = add_float(texcoords, "VEC2", 2)
++        tangent_accessor = add_float(tangents, "VEC4", 4)
++
++        joint_view = _add_view(blob, _pack_u16_vec4(expanded_joints), views, target=34962)
++        accessors.append({
++            "bufferView": joint_view,
++            "byteOffset": 0,
++            "componentType": 5123,
++            "count": len(expanded_joints),
++            "type": "VEC4",
++        })
++        joints_accessor = len(accessors) - 1
++        weights_accessor = add_float(expanded_weights, "VEC4", 4)
++
++        index_payload = struct.pack("<" + "I" * len(indices), *indices)
++        index_view = _add_view(blob, index_payload, views, target=34963)
++        accessors.append({
++            "bufferView": index_view,
++            "byteOffset": 0,
++            "componentType": 5125,
++            "count": len(indices),
++            "type": "SCALAR",
++            "min": [0],
++            "max": [len(indices) - 1],
++        })
++        index_accessor = len(accessors) - 1
++
++        base_image = len(images)
++        images.extend([
++            {"uri": spec.base_color_uri},
++            {"uri": spec.orm_uri},
++            {"uri": spec.normal_uri},
++        ])
++        base_texture = len(textures)
++        textures.extend([
++            {"sampler": 0, "source": base_image},
++            {"sampler": 0, "source": base_image + 1},
++            {"sampler": 0, "source": base_image + 2},
++        ])
++
++        material: dict[str, Any] = {
++            "name": spec.material_name,
++            "doubleSided": bool(spec.double_sided),
++            "pbrMetallicRoughness": {
++                "baseColorTexture": {"index": base_texture},
++                "baseColorFactor": [float(value) for value in spec.base_color_factor],
++                "metallicRoughnessTexture": {"index": base_texture + 1},
++                "metallicFactor": float(spec.metallic_factor),
++                "roughnessFactor": float(spec.roughness_factor),
++            },
++            "normalTexture": {"index": base_texture + 2},
++            "occlusionTexture": {"index": base_texture + 1},
++        }
++        if spec.alpha_mode is not None:
++            material["alphaMode"] = spec.alpha_mode
++        if spec.alpha_cutoff is not None:
++            material["alphaCutoff"] = float(spec.alpha_cutoff)
++        materials.append(material)
++
++        gltf_primitives.append({
++            "attributes": {
++                "POSITION": position_accessor,
++                "NORMAL": normal_accessor,
++                "TEXCOORD_0": uv_accessor,
++                "TANGENT": tangent_accessor,
++                "JOINTS_0": joints_accessor,
++                "WEIGHTS_0": weights_accessor,
++            },
++            "indices": index_accessor,
++            "material": material_index,
++            "mode": 4,
++            "extras": {
++                "axm": {
++                    "source_mesh": spec.mesh.name,
++                    "semantic_role": spec.semantic_role,
++                }
++            },
++        })
++        triangle_count = len(indices) // 3
++        total_triangles += triangle_count
++        total_compiled_vertices += len(positions)
++        primitive_evidence.append({
++            "mesh": spec.mesh.name,
++            "semantic_role": spec.semantic_role,
++            "material": spec.material_name,
++            "source_vertices": len(spec.mesh.vertices),
++            "compiled_vertices": len(positions),
++            "triangles": triangle_count,
++            "skin_validation": weight_report,
++        })
++
++    inverse_binds = [flatten_matrix_column_major(matrix) for matrix in inverse_bind_matrices(skeleton)]
++    inverse_bind_accessor = add_float(inverse_binds, "MAT4", 16, target=None)
++
++    animation_entries: list[dict[str, Any]] = []
++    path_types = {"translation": ("VEC3", 3), "rotation": ("VEC4", 4), "scale": ("VEC3", 3)}
++    for clip in animations:
++        samplers: list[dict[str, Any]] = []
++        channels: list[dict[str, Any]] = []
++        for track in clip.tracks:
++            input_accessor = add_float(
++                [(float(time),) for time in track.times],
++                "SCALAR",
++                1,
++                target=None,
++                include_bounds=True,
++            )
++            output_type, output_width = path_types[track.path]
++            output_accessor = add_float(
++                [tuple(float(component) for component in value) for value in track.values],
++                output_type,
++                output_width,
++                target=None,
++            )
++            sampler_index = len(samplers)
++            samplers.append({
++                "input": input_accessor,
++                "output": output_accessor,
++                "interpolation": track.interpolation,
++            })
++            channels.append({
++                "sampler": sampler_index,
++                "target": {"node": track.joint + 1, "path": track.path},
++            })
++        animation_entries.append({"name": clip.name, "samplers": samplers, "channels": channels})
++
++    _align4(blob)
++
++    nodes: list[dict[str, Any]] = [{"name": name, "mesh": 0, "skin": 0}]
++    for joint in skeleton.joints:
++        nodes.append({
++            "name": joint.name,
++            "translation": list(joint.translation),
++            "rotation": list(joint.rotation),
++            "scale": list(joint.scale),
++        })
++    for index, joint in enumerate(skeleton.joints):
++        if joint.parent is not None:
++            nodes[joint.parent + 1].setdefault("children", []).append(index + 1)
++    root_joint = int(skeleton_report["roots"][0])
++
++    document: dict[str, Any] = {
++        "asset": {"version": "2.0", "generator": "AXM Game Asset Forge native_skinned_multi_gltf v0.1"},
++        "scene": 0,
++        "scenes": [{"nodes": [0, root_joint + 1]}],
++        "nodes": nodes,
++        "meshes": [{"name": name, "primitives": gltf_primitives}],
++        "skins": [{
++            "name": f"{name}_skin",
++            "inverseBindMatrices": inverse_bind_accessor,
++            "joints": [index + 1 for index in range(len(skeleton.joints))],
++            "skeleton": root_joint + 1,
++        }],
++        "buffers": [{"uri": buffer_uri, "byteLength": len(blob)}],
++        "bufferViews": views,
++        "accessors": accessors,
++        "samplers": [{"magFilter": 9729, "minFilter": 9987, "wrapS": 10497, "wrapT": 10497}],
++        "images": images,
++        "textures": textures,
++        "materials": materials,
++        "animations": animation_entries,
++        "extras": {
++            "axm": {
++                "compiler": "native_skinned_multi_gltf",
++                "primitive_count": len(gltf_primitives),
++                "material_count": len(materials),
++                "source_vertices": sum(len(spec.mesh.vertices) for spec in primitives),
++                "compiled_vertices": total_compiled_vertices,
++                "triangles": total_triangles,
++                "joints": len(skeleton.joints),
++                "animations": [clip.name for clip in animations],
++                "primitive_evidence": primitive_evidence,
++                "truth": (
++                    "Multi-material skinned character delivery. Every primitive has explicit UV/material/skin "
++                    "state and shares one validated skeleton/animation set. Rigid accessories may be represented "
++                    "by one-joint skinning. This is structural delivery evidence, not deformation, visual-quality, "
++                    "engine-performance, gameplay, release, or CANON evidence."
++                ),
++            }
++        },
++    }
++    return document, bytes(blob)
++
++
++def write_skinned_multi_gltf(
++    primitives: Sequence[SkinnedMaterialPrimitive],
++    skeleton: Skeleton,
++    output: str | Path,
++    animations: Sequence[AnimationClip] = (),
++    *,
++    name: str,
++) -> dict[str, Any]:
++    root = Path(output)
++    root.mkdir(parents=True, exist_ok=True)
++    gltf_name = f"{name}.gltf"
++    binary_name = f"{name}.bin"
++    if (root / gltf_name).exists() or (root / binary_name).exists():
++        raise FileExistsError("skinned character delivery is create-only")
++    for spec in primitives:
++        for uri in (spec.base_color_uri, spec.normal_uri, spec.orm_uri):
++            path = root / uri
++            if not path.is_file():
++                raise FileNotFoundError(path)
++
++    document, binary = compile_skinned_multi_gltf(
++        primitives,
++        skeleton,
++        animations,
++        name=name,
++        buffer_uri=binary_name,
++    )
++    (root / binary_name).write_bytes(binary)
++    gltf_bytes = (json.dumps(document, indent=2, sort_keys=True) + "\n").encode("utf-8")
++    (root / gltf_name).write_bytes(gltf_bytes)
++    report = validate_gltf(document, binary, root)
++    if report["status"] != "pass":
++        raise ValueError(f"skinned multi-material glTF failed validation: {report}")
++    return {
++        "gltf": gltf_name,
++        "binary": binary_name,
++        "gltf_sha256": _sha256(gltf_bytes),
++        "binary_sha256": _sha256(binary),
++        "validation": report,
++        "primitive_count": len(primitives),
++        "material_count": len(primitives),
++        "triangles": document["extras"]["axm"]["triangles"],
++        "compiled_vertices": document["extras"]["axm"]["compiled_vertices"],
++        "joints": len(skeleton.joints),
++        "animations": [clip.name for clip in animations],
++        "material_names": [spec.material_name for spec in primitives],
++    }
+diff --git a/native_skinned_multi_gltf_test.py b/native_skinned_multi_gltf_test.py
+new file mode 100644
+index 0000000..b039ed9
+--- /dev/null
++++ b/native_skinned_multi_gltf_test.py
+@@ -0,0 +1,74 @@
++#!/usr/bin/env python3
++import json
++import tempfile
++import unittest
++from pathlib import Path
++
++from native_animation import AnimationClip, AnimationTrack
++from native_geometry import make_box, translate
++from native_hm08_humanoid_rig import axis_angle_quaternion
++from native_skin import Joint, Skeleton
++from native_skinned_multi_gltf import (
++    SkinnedMaterialPrimitive,
++    rigid_skin_weights,
++    write_skinned_multi_gltf,
++)
++from native_surface_families import write_surface_family
++from native_uv import box_project_world
++
++
++class SkinnedMultiGltfTests(unittest.TestCase):
++    def test_two_materials_shared_skin_and_animation(self):
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            write_surface_family(root / "textures" / "cloth", kind="cloth", size=16, seed=1)
++            write_surface_family(root / "textures" / "steel", kind="steel", size=16, seed=2)
++            skeleton = Skeleton([
++                Joint("root"),
++                Joint("child", parent=0, translation=(0.0, 0.5, 0.0)),
++            ])
++            lower = make_box((0.5, 0.5, 0.5), name="lower")
++            upper = translate(make_box((0.3, 0.3, 0.3), name="upper"), (0.0, 0.65, 0.0), name="upper")
++            clip = AnimationClip("wave", [
++                AnimationTrack(
++                    1, "rotation", [0.0, 0.5, 1.0],
++                    [
++                        axis_angle_quaternion((0,0,1), 0),
++                        axis_angle_quaternion((0,0,1), 30),
++                        axis_angle_quaternion((0,0,1), 0),
++                    ],
++                )
++            ])
++            primitives = [
++                SkinnedMaterialPrimitive(
++                    lower, box_project_world(lower),
++                    rigid_skin_weights(lower, 0),
++                    "cloth", "textures/cloth/base_color.png", "textures/cloth/normal.png", "textures/cloth/orm.png",
++                    metallic_factor=0.0, semantic_role="body",
++                ),
++                SkinnedMaterialPrimitive(
++                    upper, box_project_world(upper),
++                    rigid_skin_weights(upper, 1),
++                    "steel", "textures/steel/base_color.png", "textures/steel/normal.png", "textures/steel/orm.png",
++                    semantic_role="accessory",
++                ),
++            ]
++            result = write_skinned_multi_gltf(primitives, skeleton, root, [clip], name="fixture")
++            self.assertEqual(result["validation"]["status"], "pass")
++            self.assertEqual(result["primitive_count"], 2)
++            self.assertEqual(result["animations"], ["wave"])
++            doc = json.loads((root / "fixture.gltf").read_text())
++            self.assertEqual(len(doc["meshes"][0]["primitives"]), 2)
++            self.assertEqual(len(doc["materials"]), 2)
++            self.assertEqual(len(doc["skins"][0]["joints"]), 2)
++            self.assertEqual([a["name"] for a in doc["animations"]], ["wave"])
++            for primitive in doc["meshes"][0]["primitives"]:
++                self.assertIn("JOINTS_0", primitive["attributes"])
++                self.assertIn("WEIGHTS_0", primitive["attributes"])
++                self.assertIn("TANGENT", primitive["attributes"])
++            with self.assertRaises(FileExistsError):
++                write_skinned_multi_gltf(primitives, skeleton, root, [clip], name="fixture")
++
++
++if __name__ == "__main__":
++    unittest.main()

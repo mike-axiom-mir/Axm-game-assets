@@ -1,0 +1,2311 @@
+diff --git a/asset_genomes/families.json b/asset_genomes/families.json
+index 9219d55..40e9e70 100644
+--- a/asset_genomes/families.json
++++ b/asset_genomes/families.json
+@@ -1,15 +1,145 @@
+ {
+   "schema": "axm.asset-genome-families.v0.1",
+   "families": [
+-    {"id": "character", "editable_domains": ["body", "face", "hair", "skin", "eyes", "clothing", "armor", "rig", "animation", "lod"]},
+-    {"id": "weapon", "editable_domains": ["frame", "barrel", "stock", "grip", "magazine", "attachments", "materials", "wear", "sockets", "vfx", "lod"]},
+-    {"id": "armor_clothing", "editable_domains": ["fit", "layers", "cloth", "rigid_parts", "materials", "damage", "simulation", "lod"]},
+-    {"id": "prop", "editable_domains": ["components", "materials", "wear", "damage", "collision", "lod"]},
+-    {"id": "building", "editable_domains": ["footprint", "floors", "facade", "roof", "openings", "interior", "damage", "materials", "collision", "lod"]},
+-    {"id": "environment_kit", "editable_domains": ["biome", "modules", "scatter", "materials", "weathering", "transitions", "lod"]},
+-    {"id": "vegetation", "editable_domains": ["species", "growth", "trunk", "branches", "leaves", "season", "health", "wind", "lod"]},
+-    {"id": "material", "editable_domains": ["base_color", "roughness", "metallic", "microdetail", "wear", "dirt", "scale", "packing"]},
+-    {"id": "vfx", "editable_domains": ["emitter", "shape", "timing", "direction", "particles", "color", "budget"]}
++    {
++      "id": "character",
++      "editable_domains": [
++        "race",
++        "body_family",
++        "semantic_parts",
++        "sockets",
++        "clothing_regions",
++        "body",
++        "face",
++        "hair",
++        "skin",
++        "eyes",
++        "clothing",
++        "armor",
++        "rig",
++        "animation",
++        "lod",
++        "material_response"
++      ]
++    },
++    {
++      "id": "weapon",
++      "editable_domains": [
++        "frame",
++        "barrel",
++        "stock",
++        "grip",
++        "magazine",
++        "attachments",
++        "materials",
++        "wear",
++        "sockets",
++        "vfx",
++        "lod"
++      ]
++    },
++    {
++      "id": "armor_clothing",
++      "editable_domains": [
++        "fit",
++        "layers",
++        "cloth",
++        "rigid_parts",
++        "materials",
++        "damage",
++        "simulation",
++        "lod",
++        "body_family_fit",
++        "attachment_regions",
++        "material_response"
++      ]
++    },
++    {
++      "id": "prop",
++      "editable_domains": [
++        "components",
++        "materials",
++        "wear",
++        "damage",
++        "collision",
++        "lod"
++      ]
++    },
++    {
++      "id": "building",
++      "editable_domains": [
++        "footprint",
++        "floors",
++        "facade",
++        "roof",
++        "openings",
++        "interior",
++        "damage",
++        "materials",
++        "collision",
++        "lod"
++      ]
++    },
++    {
++      "id": "environment_kit",
++      "editable_domains": [
++        "biome",
++        "modules",
++        "scatter",
++        "materials",
++        "weathering",
++        "transitions",
++        "lod"
++      ]
++    },
++    {
++      "id": "vegetation",
++      "editable_domains": [
++        "species",
++        "growth",
++        "trunk",
++        "branches",
++        "leaves",
++        "season",
++        "health",
++        "wind",
++        "lod",
++        "material_response"
++      ]
++    },
++    {
++      "id": "material",
++      "editable_domains": [
++        "base_color",
++        "roughness",
++        "metallic",
++        "microdetail",
++        "wear",
++        "dirt",
++        "scale",
++        "packing",
++        "response_family",
++        "subsurface",
++        "sheen",
++        "anisotropy",
++        "clearcoat",
++        "transmission",
++        "iridescence",
++        "layering"
++      ]
++    },
++    {
++      "id": "vfx",
++      "editable_domains": [
++        "emitter",
++        "shape",
++        "timing",
++        "direction",
++        "particles",
++        "color",
++        "budget"
++      ]
++    }
+   ],
+   "quality_tiers": [
+     "prototype",
+@@ -32,7 +162,8 @@
+     "editors_are": "bounded derived-state clients",
+     "notes": [
+       "Families share the edit/compile/evidence contract but may use different internal mechanisms.",
+-      "Player-facing creators and AI game-edit engines may expose only a safe subset of each family."
++      "Player-facing creators and AI game-edit engines may expose only a safe subset of each family.",
++      "Source-level character identity, body-family clothing regions and material-response intent are explicit reusable semantics; renderer binding and geometric fit remain separate evidence."
+     ]
+   }
+ }
+diff --git a/docs/ASSET_GENOME_FAMILIES.md b/docs/ASSET_GENOME_FAMILIES.md
+index ee9b76e..176f1af 100644
+--- a/docs/ASSET_GENOME_FAMILIES.md
++++ b/docs/ASSET_GENOME_FAMILIES.md
+@@ -141,7 +141,9 @@ Sentinel-01 is the proving character, not the definition of the capability.
+ 
+ ### Character
+ 
+-Genome domains include body, face, skin, eyes, hair, clothing/armor, rig, morphs, animation, contact state, and LODs.
++Genome domains include race/body-family identity, semantic body parts, equipment sockets, body, face, skin, eyes, hair, clothing/armor regions, material-response intent, rig, morphs, animation, contact state, and LODs.
++
++`native_character_source_profile.py` now holds the source-level race/body-family, socket, clothing-region and material-response semantics. `native_character_state.py` remains the separate runtime/deformation contract for skeleton, skin weights, morphs, animation and contact evidence. A declared clothing region is not geometric fit proof.
+ 
+ ### Weapon
+ 
+@@ -149,7 +151,7 @@ Genome domains include semantic components, frame/receiver, barrel, stock, grip,
+ 
+ ### Armor/clothing
+ 
+-Genome domains include fit, layered soft/rigid regions, materials, damage, cloth constraints, attachment rules, and LODs.
++Genome domains include body-family fit intent, attachment regions, layered soft/rigid regions, materials/material-response intent, damage, cloth constraints, attachment rules, and LODs. Body-family compatibility is source semantics until clearance/deformation evidence proves actual fit.
+ 
+ ### Prop
+ 
+@@ -165,11 +167,11 @@ Genome domains include biome, modules, scatter, transitions, materials, weatheri
+ 
+ ### Vegetation
+ 
+-Genome domains include species, growth/age, trunk/branch state, leaves, season, health, wind, and LOD/impostor state.
++Genome domains include species, growth/age, trunk/branch state, leaves, season, health, material-response intent, wind, and LOD/impostor state. Source-first form recipes can express reusable trunk/branch constructions without turning one finished tree into the only source.
+ 
+ ### Material
+ 
+-Genome domains include base response, roughness, metallic state, microdetail, wear/dirt, physical scale, and runtime packing.
++Genome domains include base response, roughness, metallic state, microdetail, wear/dirt, physical scale, runtime packing, and explicit response families for subsurface, sheen, anisotropy, clear coat, transmission, iridescence and layered wear. These response contracts remain separate from renderer-binding evidence.
+ 
+ ### VFX
+ 
+diff --git a/docs/TODAY_CAPABILITY_CONVERGENCE.md b/docs/TODAY_CAPABILITY_CONVERGENCE.md
+new file mode 100644
+index 0000000..b99534a
+--- /dev/null
++++ b/docs/TODAY_CAPABILITY_CONVERGENCE.md
+@@ -0,0 +1,151 @@
++# 2026-09-20 capability convergence
++
++This pass asks one question: **which useful mechanisms learned today in MorphTile and Universal Creation actually improve Game Asset Forge without weakening its specialist architecture?**
++
++The answer is not "copy UC." Game Asset Forge is already stronger in several asset-specific areas. Its Game Asset Genome / canonical source / compiled-delivery split remains authoritative, and its native skeleton, skin, morph, animation, contact and engine-evidence machinery remains the deeper character path.
++
++## What Game Asset Forge already had stronger
++
++Before this pass the Forge already had:
++
++- Game Asset Genome as semantic/canonical identity rather than a finished-file manifest;
++- canonical source state separate from GLB/FBX/USD deliveries;
++- content hashes, provenance and failed-attempt evidence;
++- real skeleton, skin-weight, morph, animation and contact contracts;
++- skinned character glTF output;
++- native construction primitives and semantic assemblies;
++- deterministic PBR map families, skin/eye/hair/fabric specialization;
++- source-first edit surfaces for player/AI-safe asset changes;
++- proposal-only Universal Creation ingress that refuses inherited acceptance authority.
++
++Those are preserved. A UC `.glb.source.json` sidecar does **not** replace the Genome.
++
++## What was worth absorbing
++
++### 1. Reusable shape grammar instead of only finished builders
++
++MorphTile and today's UC work reinforced that the strongest reusable unit is often a **construction pattern**, not a finished mesh.
++
++`native_form_recipe.py` adds a bounded data-driven recipe language over existing Forge-native geometry:
++
++- profile extrusion;
++- lofted sections;
++- lathes;
++- authored pipe paths;
++- beams;
++- rings;
++- rounded boxes;
++- reusable named definitions;
++- named numeric definition parameters and per-use overrides;
++- bounded repeat loops with loop variables;
++- repeated definitions;
++- nested translation / rotation / scale composition;
++- semantic part ids, material families and roles.
++
++The output remains ordinary Forge `Mesh` / `ConstructionAssembly` state. The recipe is source authority and the mesh is a realization. Parameter use is deliberately bounded to named numeric substitution and loop variables in this version; it does not yet copy UC's full numeric expression algebra.
++
++This does not claim arbitrary sculpting, arbitrary boolean CSG or production retopology.
++
++### 2. Material response above texture values
++
++Forge already had strong deterministic texture/map generation. What it lacked was today's explicit distinction between **channel values** and **surface behaviour**.
++
++`native_material_response.py` absorbs the pinned AXM-owned response contract as standalone local data. It exposes 13 families composed from eight behaviour organs:
++
++- subsurface;
++- sheen;
++- anisotropy;
++- clear coat;
++- micro breakup;
++- transmission;
++- iridescence;
++- wear layering.
++
++The resolver can preserve intent such as `wood-oiled`, `skin-living` or `leaf-thin` without lying that a renderer implements it. Active organs stay `HOLD_RENDERER_BINDING_NOT_TESTED` until a concrete renderer earns evidence.
++
++### 3. Character identity belongs before rig/runtime delivery
++
++Forge already knows how to rig and animate characters. Today's useful addition is the semantic layer around that state.
++
++`native_character_source_profile.py` preserves:
++
++- race id;
++- body family;
++- semantic body parts;
++- equipment / attachment sockets;
++- body-family clothing regions;
++- per-character or per-part material-response intent.
++
++This is deliberately separate from `native_character_state.py`, which still owns skeleton / skin / morph / animation / contact runtime state.
++
++A clothing region says where compatibility is intended. It is **not** geometric fit proof.
++
++### 4. New UC source-first results should arrive with their causes
++
++The existing UC bridge handled the older forge-directory contract with Blender source, LODs and render proofs. Today's UC can also publish source-first:
++
++`asset.glb + asset.glb.source.json`
++
++`universal_creation_asset_bridge.py --source-asset ...` now verifies that pair, checks byte and source-body digests, preserves the recipe/specification/character semantics that exist, and emits a Game Asset Forge **proposal only**.
++
++UC does not receive Genome mutation, selection, visual approval, runtime adoption, release, merge or CANON authority.
++
++### 5. Reusable parts should be pulled explicitly, not auto-promoted
++
++Today's MorphTile work also clarified a useful persistence boundary:
++
++**asset persistence != reusable-library storage != blueprint/composition references.**
++
++Game Asset Forge already preserves source state inside the asset Genome. That means a successful part is not lost merely because it is absent from a global library.
++
++`native_reusable_part_library.py` adds the missing explicit promotion step:
++
++`source assembly -> scan -> select useful parts -> pull -> verify`
++
++Discovery does not mutate the source or library. Pulling is explicit. Geometry atoms are content-addressed independently from material/style labels, so the same mesh painted ten colours is still one geometry atom rather than ten fake-new shapes. Semantic items may refer to that geometry with different roles/material families without duplicating the mesh body.
++
++This is deliberately not automatic self-growth or CANON admission. It creates a clean source of reusable Lego when a human or AI explicitly decides a part is worth keeping outside its original asset.
++
++### 6. Intent should route to the specialist machine, not require callers to memorize modules
++
++`asset_intent_router.py` adds a bounded family-grounded planner.
++
++It can select one asset family when:
++- the caller gives an explicit family; or
++- ordinary language produces one unique bounded family match.
++
++Ambiguous language stays HOLD. A character holding a weapon does not silently decide whether the request is a character asset or a weapon asset.
++
++The plan points at current Forge manufacturing blocks and never equates planning with execution. It is callable through `python forge.py route-intent request.json`, so humans and AI can use the same bounded planning contract without memorizing internal module names.
++
++## What was intentionally not absorbed
++
++- UC creator-source sidecars do not become Forge canonical state.
++- UC's static-character limit does not replace Forge's native rig/skin/animation path.
++- MorphTile Vault semantics do not create automatic asset-library admission.
++- A successful build does not auto-promote reusable parts.
++- Material-response contracts do not imply renderer support.
++- Intent routing does not auto-execute ambiguous or multi-product requests.
++- Visual proof remains separate from structural/runtime evidence.
++
++## Persistence and library rule
++
++A finished Forge asset can be permanent in its own Genome/source state without being promoted into a global reusable library.
++
++Reusable part discovery/pull is now explicit; any future broader Vault/blueprint layer remains a separate admission/composition step. This preserves the distinction learned today:
++
++**asset persistence != reusable-library storage != blueprint/composition references.**
++
++## Current truth boundary
++
++This convergence strengthens construction vocabulary, material intent, source semantics, UC interoperability and routing. It does not claim:
++
++- unrestricted 3D creation;
++- automatic aesthetic judgment;
++- production retopology;
++- universal clothing fit;
++- renderer parity for every material organ;
++- universal engine acceptance;
++- automatic Genome mutation;
++- automatic Vault admission;
++- automatic CANON.
+diff --git a/forge.py b/forge.py
+index 19d3582..df46bb6 100644
+--- a/forge.py
++++ b/forge.py
+@@ -371,6 +371,14 @@ def cmd_plan(args: argparse.Namespace) -> int:
+     return 0
+ 
+ 
++def cmd_route_intent(args: argparse.Namespace) -> int:
++    from asset_intent_router import route_asset_intent
++
++    result = route_asset_intent(load(args.request))
++    print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
++    return 0 if result.get("status") == "PLANNED_NOT_EXECUTED" else 2
++
++
+ def cmd_audit(args: argparse.Namespace) -> int:
+     report = audit(load(args.genome))
+     for gate in report["gates"]:
+@@ -433,6 +441,7 @@ def parser() -> argparse.ArgumentParser:
+     p = sub.add_parser("init"); p.add_argument("request"); p.add_argument("output"); p.set_defaults(fn=cmd_init)
+     p = sub.add_parser("recover-init"); p.add_argument("request"); p.add_argument("output"); p.set_defaults(fn=cmd_recover_init)
+     p = sub.add_parser("plan"); p.add_argument("recipe"); p.set_defaults(fn=cmd_plan)
++    p = sub.add_parser("route-intent"); p.add_argument("request"); p.set_defaults(fn=cmd_route_intent)
+     p = sub.add_parser("audit"); p.add_argument("genome"); p.set_defaults(fn=cmd_audit)
+     p = sub.add_parser("doctor"); p.set_defaults(fn=cmd_doctor)
+     p = sub.add_parser("capability"); p.add_argument("capability"); p.add_argument("--registry", default="capability-registry.json"); p.add_argument("--hardware", required=True); p.add_argument("--jurisdiction"); p.set_defaults(fn=cmd_capability)
+diff --git a/native_character_source_profile.py b/native_character_source_profile.py
+new file mode 100644
+index 0000000..4ab5fd1
+--- /dev/null
++++ b/native_character_source_profile.py
+@@ -0,0 +1,244 @@
++#!/usr/bin/env python3
++"""Semantic source profile for whole characters in AXM Game Asset Forge.
++
++Rig/skin/morph/animation state already has a separate native character-state
++contract. This source profile captures the character identity and reusable
++construction semantics that should survive before and after runtime compilation:
++race/body family, semantic parts, attachment sockets, clothing regions and
++material-response intent.
++"""
++from __future__ import annotations
++
++import copy
++import hashlib
++import json
++from typing import Any
++
++from native_material_response import MaterialResponseError, resolve_material_response
++
++SCHEMA = "axm.game-assets.character-source-profile/v0.1"
++MAX_PARTS = 256
++MAX_SOCKETS = 128
++MAX_CLOTHING_REGIONS = 128
++
++
++class CharacterSourceProfileError(ValueError):
++    pass
++
++
++def _canonical(value: Any) -> bytes:
++    try:
++        return json.dumps(
++            value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
++        ).encode("utf-8")
++    except (TypeError, ValueError) as exc:
++        raise CharacterSourceProfileError("character source profile must be finite JSON") from exc
++
++
++def _text(value: Any, label: str, maximum: int = 160) -> str:
++    if not isinstance(value, str) or not value.strip() or len(value.strip()) > maximum:
++        raise CharacterSourceProfileError(
++            f"{label} must be non-empty text up to {maximum} characters"
++        )
++    return value.strip()
++
++
++def _vec3(value: Any, label: str) -> list[float]:
++    if not isinstance(value, (list, tuple)) or len(value) != 3:
++        raise CharacterSourceProfileError(f"{label} must contain three numbers")
++    result = []
++    for item in value:
++        if isinstance(item, bool) or not isinstance(item, (int, float)):
++            raise CharacterSourceProfileError(f"{label} must contain numbers")
++        result.append(float(item))
++    return result
++
++
++def compile_character_source_profile(raw: Any) -> dict[str, Any]:
++    if not isinstance(raw, dict) or raw.get("schema") != SCHEMA:
++        raise CharacterSourceProfileError(f"profile must use schema {SCHEMA}")
++    allowed = {
++        "schema", "asset_id", "race_id", "body_family", "description",
++        "parts", "sockets", "clothing_regions", "material_responses",
++        "provenance", "metadata",
++    }
++    unexpected = sorted(set(raw) - allowed)
++    if unexpected:
++        raise CharacterSourceProfileError(
++            f"profile contains unsupported fields: {unexpected}"
++        )
++
++    asset_id = _text(raw.get("asset_id"), "asset_id", 120)
++    race_id = _text(raw.get("race_id"), "race_id", 120)
++    body_family = _text(raw.get("body_family"), "body_family", 120)
++
++    parts_raw = raw.get("parts", [])
++    if not isinstance(parts_raw, list) or not 1 <= len(parts_raw) <= MAX_PARTS:
++        raise CharacterSourceProfileError(
++            f"parts must contain 1..{MAX_PARTS} semantic parts"
++        )
++    parts = []
++    part_ids: set[str] = set()
++    for index, row in enumerate(parts_raw):
++        if not isinstance(row, dict) or set(row) - {"id", "role", "source_ref"}:
++            raise CharacterSourceProfileError(f"parts[{index}] fields are invalid")
++        part_id = _text(row.get("id"), f"parts[{index}].id", 80)
++        if part_id in part_ids:
++            raise CharacterSourceProfileError(f"duplicate part id {part_id!r}")
++        part_ids.add(part_id)
++        parts.append({
++            "id": part_id,
++            "role": _text(row.get("role", part_id), f"parts[{index}].role", 160),
++            **({"source_ref": _text(row["source_ref"], f"parts[{index}].source_ref", 240)}
++               if "source_ref" in row else {}),
++        })
++
++    sockets_raw = raw.get("sockets", [])
++    if not isinstance(sockets_raw, list) or len(sockets_raw) > MAX_SOCKETS:
++        raise CharacterSourceProfileError(
++            f"sockets must contain at most {MAX_SOCKETS} entries"
++        )
++    sockets = []
++    socket_ids: set[str] = set()
++    for index, row in enumerate(sockets_raw):
++        if not isinstance(row, dict) or set(row) - {"id", "part", "position", "purpose", "tags"}:
++            raise CharacterSourceProfileError(f"sockets[{index}] fields are invalid")
++        socket_id = _text(row.get("id"), f"sockets[{index}].id", 80)
++        if socket_id in socket_ids:
++            raise CharacterSourceProfileError(f"duplicate socket id {socket_id!r}")
++        socket_ids.add(socket_id)
++        part = _text(row.get("part"), f"sockets[{index}].part", 80)
++        if part not in part_ids:
++            raise CharacterSourceProfileError(
++                f"socket {socket_id!r} references unknown part {part!r}"
++            )
++        tags = row.get("tags", [])
++        if not isinstance(tags, list) or any(
++            not isinstance(tag, str) or not tag.strip() for tag in tags
++        ):
++            raise CharacterSourceProfileError(f"sockets[{index}].tags must be text")
++        sockets.append({
++            "id": socket_id,
++            "part": part,
++            "position": _vec3(row.get("position"), f"sockets[{index}].position"),
++            "purpose": _text(row.get("purpose", socket_id), f"sockets[{index}].purpose", 240),
++            "tags": list(dict.fromkeys(tag.strip() for tag in tags)),
++        })
++
++    clothing_raw = raw.get("clothing_regions", [])
++    if not isinstance(clothing_raw, list) or len(clothing_raw) > MAX_CLOTHING_REGIONS:
++        raise CharacterSourceProfileError(
++            f"clothing_regions must contain at most {MAX_CLOTHING_REGIONS} entries"
++        )
++    clothing_regions = []
++    region_ids: set[str] = set()
++    for index, row in enumerate(clothing_raw):
++        if not isinstance(row, dict) or set(row) - {
++            "id", "parts", "body_family", "attachment_tags", "fit_truth"
++        }:
++            raise CharacterSourceProfileError(
++                f"clothing_regions[{index}] fields are invalid"
++            )
++        region_id = _text(row.get("id"), f"clothing_regions[{index}].id", 80)
++        if region_id in region_ids:
++            raise CharacterSourceProfileError(f"duplicate clothing region id {region_id!r}")
++        region_ids.add(region_id)
++        region_parts = row.get("parts")
++        if (
++            not isinstance(region_parts, list)
++            or not region_parts
++            or any(not isinstance(part, str) or not part.strip() for part in region_parts)
++        ):
++            raise CharacterSourceProfileError(
++                f"clothing_regions[{index}].parts must be a non-empty text list"
++            )
++        region_parts = [part.strip() for part in region_parts]
++        unknown = sorted(set(region_parts) - part_ids)
++        if unknown:
++            raise CharacterSourceProfileError(
++                f"clothing region {region_id!r} references unknown parts {unknown}"
++            )
++        tags = row.get("attachment_tags", [])
++        if not isinstance(tags, list) or any(
++            not isinstance(tag, str) or not tag.strip() for tag in tags
++        ):
++            raise CharacterSourceProfileError(
++                f"clothing_regions[{index}].attachment_tags must be text"
++            )
++        clothing_regions.append({
++            "id": region_id,
++            "parts": region_parts,
++            "body_family": _text(
++                row.get("body_family", body_family),
++                f"clothing_regions[{index}].body_family",
++                120,
++            ),
++            "attachment_tags": list(dict.fromkeys(tag.strip() for tag in tags)),
++            "fit_truth": str(row.get(
++                "fit_truth",
++                "DECLARED_REGION_ONLY_NOT_GEOMETRIC_FIT_PROOF",
++            )),
++        })
++
++    responses_raw = raw.get("material_responses", {})
++    if not isinstance(responses_raw, dict):
++        raise CharacterSourceProfileError("material_responses must be an object")
++    material_responses: dict[str, Any] = {}
++    material_holds: list[str] = []
++    for target, spec in sorted(responses_raw.items()):
++        if target != "default" and target not in part_ids:
++            raise CharacterSourceProfileError(
++                f"material response target {target!r} is not default or a known part"
++            )
++        if not isinstance(spec, dict) or "family" not in spec or set(spec) - {
++            "family", "variant", "overrides", "base_color"
++        }:
++            raise CharacterSourceProfileError(
++                f"material_responses.{target} requires family and optional variant/overrides/base_color"
++            )
++        try:
++            resolved = resolve_material_response(
++                spec["family"],
++                variant=spec.get("variant"),
++                overrides=copy.deepcopy(spec.get("overrides")),
++                base_color=copy.deepcopy(spec.get("base_color")),
++            )
++        except MaterialResponseError as exc:
++            raise CharacterSourceProfileError(
++                f"material_responses.{target}: {exc}"
++            ) from exc
++        material_responses[target] = resolved
++        if resolved["renderer_binding"] == "HOLD_RENDERER_BINDING_NOT_TESTED":
++            material_holds.append(target)
++
++    normalized = {
++        "schema": SCHEMA,
++        "asset_id": asset_id,
++        "race_id": race_id,
++        "body_family": body_family,
++        "description": str(raw.get("description", "")),
++        "parts": parts,
++        "sockets": sockets,
++        "clothing_regions": clothing_regions,
++        "material_responses": material_responses,
++        "material_response_holds": material_holds,
++        "provenance": copy.deepcopy(raw.get("provenance", {})),
++        "metadata": copy.deepcopy(raw.get("metadata", {})),
++        "source_authority": True,
++        "realization_is_secondary": True,
++        "truth_boundary": {
++            "race_and_body_family_are_source_semantics": True,
++            "sockets_are_declared_attachment_semantics": True,
++            "clothing_regions_are_declared_compatibility_regions": True,
++            "clothing_fit_proven": False,
++            "material_response_renderer_binding_proven": not material_holds,
++            "rigging_or_animation_proven_by_this_profile": False,
++            "automatic_genome_mutation": False,
++            "automatic_vault_admission": False,
++            "automatic_canon": False,
++        },
++    }
++    normalized["profile_digest"] = "sha256:" + hashlib.sha256(
++        _canonical(normalized)
++    ).hexdigest()
++    return normalized
+diff --git a/native_form_recipe.py b/native_form_recipe.py
+new file mode 100644
+index 0000000..47e36bc
+--- /dev/null
++++ b/native_form_recipe.py
+@@ -0,0 +1,587 @@
++#!/usr/bin/env python3
++"""Data-driven reusable form recipes for AXM Game Asset Forge.
++
++This is the Game Asset Forge adaptation of two lessons that converged in AXM:
++- MorphTile-style reusable definitions/composition are more powerful than a
++  catalog of finished shapes.
++- Universal Creation's generic form-pattern path showed that profiles, lofts,
++  revolves and authored paths can be retained as source structure instead of
++  baking every result into a one-off mesh builder.
++
++The compiler is stdlib-only and operates on the Forge native Mesh contract.
++It does not depend on MorphTile or Universal Creation at runtime.
++"""
++from __future__ import annotations
++
++import hashlib
++import json
++import math
++import re
++from copy import deepcopy
++from typing import Any, Iterable, Sequence
++
++from native_construction_kit import (
++    ConstructionAssembly,
++    SemanticPart,
++    beam_segment,
++    lathe_profile,
++    pipe_path,
++    rounded_box,
++    torus_ring,
++)
++from native_geometry import Mesh, topology_report
++
++SCHEMA = "axm.game-assets.form-recipe/v0.1"
++MAX_PARTS = 256
++MAX_DEFINITIONS = 64
++MAX_REPEAT = 128
++MAX_POINTS = 128
++MAX_COMPOSITION_DEPTH = 6
++
++DONOR_LINEAGE = [
++    {
++        "repository": "mike-axiom-mir/axm-morphtile",
++        "mechanism": "reusable definitions and composition over retained source structure",
++        "dependency": False,
++    },
++    {
++        "repository": "mike-axiom-mir/axm-universal-creation",
++        "commit": "5a6356270d0c7822576239b99c2b3ca3371cfdd7",
++        "mechanism": "generic profile/loft/revolve/tube source-first form patterns",
++        "dependency": False,
++    },
++]
++
++
++class FormRecipeError(ValueError):
++    pass
++
++
++def _canonical(value: Any) -> bytes:
++    try:
++        return json.dumps(
++            value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
++        ).encode("utf-8")
++    except (TypeError, ValueError) as exc:
++        raise FormRecipeError("recipe must be finite JSON data") from exc
++
++
++def _number(value: Any, label: str, low: float, high: float) -> float:
++    if isinstance(value, bool) or not isinstance(value, (int, float)):
++        raise FormRecipeError(f"{label} must be a finite number")
++    result = float(value)
++    if not math.isfinite(result) or not low <= result <= high:
++        raise FormRecipeError(f"{label} must be from {low} through {high}")
++    return result
++
++
++def _vec(value: Any, label: str, width: int = 3, low: float = -100000.0, high: float = 100000.0) -> tuple[float, ...]:
++    if not isinstance(value, (list, tuple)) or len(value) != width:
++        raise FormRecipeError(f"{label} must contain exactly {width} values")
++    return tuple(_number(item, f"{label}[{index}]", low, high) for index, item in enumerate(value))
++
++
++def _text(value: Any, label: str, maximum: int = 120) -> str:
++    if not isinstance(value, str) or not value.strip() or len(value.strip()) > maximum:
++        raise FormRecipeError(f"{label} must be non-empty text up to {maximum} characters")
++    return value.strip()
++
++
++_PARAM_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
++
++
++def _params(raw: Any, label: str) -> dict[str, float]:
++    if raw is None:
++        return {}
++    if not isinstance(raw, dict):
++        raise FormRecipeError(f"{label} must be an object")
++    out: dict[str, float] = {}
++    for key, value in raw.items():
++        if not isinstance(key, str) or not _PARAM_RE.fullmatch(key):
++            raise FormRecipeError(f"{label} contains invalid parameter name {key!r}")
++        out[key] = _number(value, f"{label}.{key}", -100000.0, 100000.0)
++    return out
++
++
++def _resolve(value: Any, env: dict[str, float], label: str) -> Any:
++    """Resolve bounded named numeric parameters without evaluating arbitrary code."""
++    if isinstance(value, dict) and set(value) == {"$var"}:
++        name = value["$var"]
++        if not isinstance(name, str) or not _PARAM_RE.fullmatch(name):
++            raise FormRecipeError(f"{label} has an invalid $var name")
++        if name not in env:
++            raise FormRecipeError(f"{label} references unknown parameter {name!r}")
++        return env[name]
++    if isinstance(value, list):
++        return [_resolve(item, env, f"{label}[]") for item in value]
++    if isinstance(value, tuple):
++        return tuple(_resolve(item, env, f"{label}[]") for item in value)
++    if isinstance(value, dict):
++        return {key: _resolve(item, env, f"{label}.{key}") for key, item in value.items()}
++    return deepcopy(value)
++
++
++def _scale(value: Any, label: str) -> tuple[float, float, float]:
++    if value is None:
++        return (1.0, 1.0, 1.0)
++    if isinstance(value, (int, float)) and not isinstance(value, bool):
++        amount = _number(value, label, 0.001, 10000.0)
++        return amount, amount, amount
++    return _vec(value, label, 3, 0.001, 10000.0)  # type: ignore[return-value]
++
++
++def _rotate_point(point: tuple[float, float, float], rotation: tuple[float, float, float]) -> tuple[float, float, float]:
++    x, y, z = point
++    rx, ry, rz = rotation
++    cx, sx = math.cos(rx), math.sin(rx)
++    cy, sy = math.cos(ry), math.sin(ry)
++    cz, sz = math.cos(rz), math.sin(rz)
++    y, z = y * cx - z * sx, y * sx + z * cx
++    x, z = x * cy + z * sy, -x * sy + z * cy
++    x, y = x * cz - y * sz, x * sz + y * cz
++    return x, y, z
++
++
++def transform_mesh(
++    mesh: Mesh,
++    *,
++    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
++    rotation: tuple[float, float, float] = (0.0, 0.0, 0.0),
++    translation: tuple[float, float, float] = (0.0, 0.0, 0.0),
++    name: str | None = None,
++) -> Mesh:
++    vertices = []
++    for x, y, z in mesh.vertices:
++        point = (x * scale[0], y * scale[1], z * scale[2])
++        point = _rotate_point(point, rotation)
++        vertices.append(
++            (
++                point[0] + translation[0],
++                point[1] + translation[1],
++                point[2] + translation[2],
++            )
++        )
++    return Mesh(name or mesh.name, vertices, list(mesh.faces))
++
++
++def profile_extrude(
++    outline: Sequence[Sequence[float]],
++    *,
++    depth: float,
++    name: str = "profile-extrude",
++) -> Mesh:
++    if not 3 <= len(outline) <= MAX_POINTS:
++        raise FormRecipeError(f"profile outline requires 3..{MAX_POINTS} points")
++    points = [_vec(row, f"outline[{index}]", 2, -10000.0, 10000.0) for index, row in enumerate(outline)]
++    depth = _number(depth, "depth", 0.001, 10000.0)
++    vertices = [(x, -depth * 0.5, z) for x, z in points] + [
++        (x, depth * 0.5, z) for x, z in points
++    ]
++    count = len(points)
++    faces: list[tuple[int, ...]] = [
++        tuple(reversed(range(count))),
++        tuple(range(count, count * 2)),
++    ]
++    for index in range(count):
++        nxt = (index + 1) % count
++        faces.append((index, nxt, nxt + count, index + count))
++    mesh = Mesh(name, vertices, faces)
++    report = topology_report(mesh)
++    if not report["closed_two_manifold_candidate"]:
++        raise FormRecipeError(f"profile extrusion is not a closed valid shell: {report}")
++    return mesh
++
++
++def loft_sections(
++    sections: Sequence[dict[str, Any]],
++    *,
++    segments: int = 20,
++    name: str = "loft",
++) -> Mesh:
++    if not 2 <= len(sections) <= MAX_POINTS:
++        raise FormRecipeError(f"loft requires 2..{MAX_POINTS} sections")
++    if type(segments) is not int or not 3 <= segments <= 128:
++        raise FormRecipeError("loft segments must be an integer from 3 through 128")
++    vertices: list[tuple[float, float, float]] = []
++    for index, section in enumerate(sections):
++        if not isinstance(section, dict):
++            raise FormRecipeError(f"sections[{index}] must be an object")
++        if set(section) - {"at", "radius", "offset", "twist"} or not {"at", "radius"} <= set(section):
++            raise FormRecipeError(f"sections[{index}] fields are invalid")
++        at = _number(section["at"], f"sections[{index}].at", -10000.0, 10000.0)
++        radius = _vec(section["radius"], f"sections[{index}].radius", 2, 0.001, 10000.0)
++        offset = _vec(section.get("offset", [0.0, 0.0]), f"sections[{index}].offset", 2)
++        twist = _number(section.get("twist", 0.0), f"sections[{index}].twist", -100000.0, 100000.0)
++        for side in range(segments):
++            angle = math.tau * side / segments + twist
++            vertices.append(
++                (
++                    offset[0] + radius[0] * math.cos(angle),
++                    at,
++                    offset[1] + radius[1] * math.sin(angle),
++                )
++            )
++    faces: list[tuple[int, ...]] = []
++    for level in range(len(sections) - 1):
++        a, b = level * segments, (level + 1) * segments
++        for side in range(segments):
++            nxt = (side + 1) % segments
++            faces.append((a + side, a + nxt, b + nxt, b + side))
++    faces.append(tuple(reversed(range(segments))))
++    last = (len(sections) - 1) * segments
++    faces.append(tuple(last + side for side in range(segments)))
++    mesh = Mesh(name, vertices, faces)
++    report = topology_report(mesh)
++    if not report["closed_two_manifold_candidate"]:
++        raise FormRecipeError(f"loft is not a closed valid shell: {report}")
++    return mesh
++
++
++def _primitive_mesh(node: dict[str, Any], part_id: str) -> Mesh:
++    pattern = str(node.get("pattern", "")).strip().casefold()
++    if pattern == "profile-extrude":
++        return profile_extrude(node.get("outline", []), depth=node.get("depth"), name=part_id)
++    if pattern == "loft":
++        return loft_sections(node.get("sections", []), segments=int(node.get("segments", 20)), name=part_id)
++    if pattern == "lathe":
++        return lathe_profile(
++            node.get("profile", []),
++            axis=str(node.get("axis", "y")),
++            segments=int(node.get("segments", 18)),
++            name=part_id,
++        )
++    if pattern == "pipe":
++        return pipe_path(
++            node.get("path", []),
++            radius=_number(node.get("radius"), f"{part_id}.radius", 0.001, 10000.0),
++            sides=int(node.get("segments", 8)),
++            name=part_id,
++        )
++    if pattern == "beam":
++        return beam_segment(
++            node.get("start", [0, 0, 0]),
++            node.get("end", [0, 1, 0]),
++            width=_number(node.get("width"), f"{part_id}.width", 0.001, 10000.0),
++            depth=None if node.get("depth") is None else _number(node.get("depth"), f"{part_id}.depth", 0.001, 10000.0),
++            name=part_id,
++        )
++    if pattern == "ring":
++        return torus_ring(
++            node.get("center", [0, 0, 0]),
++            radius=_number(node.get("radius"), f"{part_id}.radius", 0.001, 10000.0),
++            tube=_number(node.get("tube"), f"{part_id}.tube", 0.001, 10000.0),
++            axis=str(node.get("axis", "y")),
++            ratio=_number(node.get("ratio", 1.0), f"{part_id}.ratio", 0.001, 10000.0),
++            major_segments=int(node.get("major_segments", 20)),
++            minor_segments=int(node.get("minor_segments", 6)),
++            name=part_id,
++        )
++    if pattern == "rounded-box":
++        return rounded_box(
++            node.get("center", [0, 0, 0]),
++            node.get("size", [1, 1, 1]),
++            chamfer=_number(node.get("chamfer", 0.05), f"{part_id}.chamfer", 0.0, 10000.0),
++            name=part_id,
++        )
++    raise FormRecipeError(
++        f"unsupported form pattern {pattern!r}; expected profile-extrude, loft, lathe, pipe, beam, ring, or rounded-box"
++    )
++
++
++def _semantic_part(node: dict[str, Any], part_id: str, inherited: dict[str, Any] | None = None) -> SemanticPart:
++    inherited = inherited or {}
++    mesh = _primitive_mesh(node, part_id)
++    scale = _scale(node.get("scale", inherited.get("scale")), f"{part_id}.scale")
++    rotation = _vec(node.get("rotation", inherited.get("rotation", [0, 0, 0])), f"{part_id}.rotation")  # type: ignore[assignment]
++    translation = _vec(node.get("translation", inherited.get("translation", [0, 0, 0])), f"{part_id}.translation")  # type: ignore[assignment]
++    mesh = transform_mesh(
++        mesh,
++        scale=scale,
++        rotation=rotation,  # type: ignore[arg-type]
++        translation=translation,  # type: ignore[arg-type]
++        name=part_id,
++    )
++    report = topology_report(mesh)
++    if not report["closed_two_manifold_candidate"]:
++        raise FormRecipeError(f"part {part_id!r} is not a closed valid shell: {report}")
++    material = _text(node.get("material_family", inherited.get("material_family", "unassigned")), f"{part_id}.material_family", 120)
++    role = _text(node.get("semantic_role", inherited.get("semantic_role", part_id)), f"{part_id}.semantic_role", 160)
++    return SemanticPart(part_id, mesh, material, role)
++
++
++def _compose_settings(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
++    """Compose nested definition/use transforms instead of silently replacing them."""
++    out = deepcopy(base)
++    if "translation" in overlay:
++        left = _vec(out.get("translation", [0, 0, 0]), "composed.translation.base")
++        right = _vec(overlay["translation"], "composed.translation.overlay")
++        out["translation"] = [left[i] + right[i] for i in range(3)]
++    if "rotation" in overlay:
++        left = _vec(out.get("rotation", [0, 0, 0]), "composed.rotation.base")
++        right = _vec(overlay["rotation"], "composed.rotation.overlay")
++        out["rotation"] = [left[i] + right[i] for i in range(3)]
++    if "scale" in overlay:
++        left = _scale(out.get("scale"), "composed.scale.base")
++        right = _scale(overlay["scale"], "composed.scale.overlay")
++        out["scale"] = [left[i] * right[i] for i in range(3)]
++    for key, value in overlay.items():
++        if key not in {"translation", "rotation", "scale"}:
++            out[key] = deepcopy(value)
++    return out
++
++
++def compile_form_recipe(raw: Any) -> ConstructionAssembly:
++    if not isinstance(raw, dict) or raw.get("schema") != SCHEMA:
++        raise FormRecipeError(f"recipe must use schema {SCHEMA}")
++    if set(raw) - {"schema", "name", "vars", "definitions", "parts", "metadata"}:
++        raise FormRecipeError("recipe contains unsupported top-level fields")
++    name = _text(raw.get("name"), "recipe.name")
++    root_vars = _params(raw.get("vars"), "recipe.vars")
++    definitions = raw.get("definitions", {})
++    if not isinstance(definitions, dict) or len(definitions) > MAX_DEFINITIONS:
++        raise FormRecipeError(f"definitions must be an object with at most {MAX_DEFINITIONS} entries")
++    for definition_name, body in definitions.items():
++        _text(definition_name, "definition name", 80)
++        if not isinstance(body, dict) or set(body) - {"parts", "defaults", "params"} or "parts" not in body:
++            raise FormRecipeError(
++                f"definition {definition_name!r} requires parts and optional defaults/params"
++            )
++        if not isinstance(body["parts"], list) or not body["parts"]:
++            raise FormRecipeError(f"definition {definition_name!r}.parts must be non-empty")
++        if "defaults" in body and not isinstance(body["defaults"], dict):
++            raise FormRecipeError(f"definition {definition_name!r}.defaults must be an object")
++        _params(body.get("params"), f"definition {definition_name}.params")
++
++    root_parts = raw.get("parts")
++    if not isinstance(root_parts, list) or not root_parts:
++        raise FormRecipeError("recipe.parts must be a non-empty list")
++
++    parts: list[SemanticPart] = []
++    source_index: list[dict[str, Any]] = []
++    generated_id = 0
++
++    def emit(
++        nodes: Iterable[Any],
++        *,
++        prefix: str,
++        inherited: dict[str, Any],
++        env: dict[str, float],
++        stack: tuple[str, ...],
++        depth: int,
++    ) -> None:
++        nonlocal generated_id
++        if depth > MAX_COMPOSITION_DEPTH:
++            raise FormRecipeError(f"composition exceeds depth {MAX_COMPOSITION_DEPTH}")
++        for raw_node in nodes:
++            if not isinstance(raw_node, dict):
++                raise FormRecipeError("every recipe node must be an object")
++            if "repeat" in raw_node:
++                if set(raw_node) - {"repeat", "step", "body", "as"} or "body" not in raw_node:
++                    raise FormRecipeError("repeat node accepts repeat, step, body and optional as")
++                raw_count = _resolve(raw_node["repeat"], env, "repeat")
++                if (
++                    isinstance(raw_count, bool)
++                    or not isinstance(raw_count, (int, float))
++                    or not float(raw_count).is_integer()
++                    or not 0 <= int(raw_count) <= MAX_REPEAT
++                ):
++                    raise FormRecipeError(
++                        f"repeat must resolve to an integer from 0 through {MAX_REPEAT}"
++                    )
++                count = int(raw_count)
++                step = _vec(
++                    _resolve(raw_node.get("step", [0, 0, 0]), env, "repeat.step"),
++                    "repeat.step",
++                )
++                body = raw_node["body"]
++                if not isinstance(body, list):
++                    raise FormRecipeError("repeat.body must be a list")
++                loop_name = raw_node.get("as", "i")
++                if not isinstance(loop_name, str) or not _PARAM_RE.fullmatch(loop_name):
++                    raise FormRecipeError("repeat.as must be a portable parameter name")
++                for index in range(count):
++                    shifted = _compose_settings(
++                        inherited,
++                        {"translation": [step[0] * index, step[1] * index, step[2] * index]},
++                    )
++                    inner_env = dict(env)
++                    inner_env[loop_name] = float(index)
++                    inner_env[f"{loop_name}_of"] = float(count)
++                    inner_env[f"{loop_name}_at"] = (
++                        index / (count - 1) if count > 1 else 0.0
++                    )
++                    emit(
++                        body,
++                        prefix=f"{prefix}r{index}-",
++                        inherited=shifted,
++                        env=inner_env,
++                        stack=stack,
++                        depth=depth + 1,
++                    )
++                continue
++            if "use" in raw_node:
++                allowed = {
++                    "use", "id_prefix", "with", "translation", "rotation", "scale",
++                    "material_family", "semantic_role"
++                }
++                if set(raw_node) - allowed:
++                    raise FormRecipeError("use node contains unsupported fields")
++                definition_name = _text(raw_node["use"], "use", 80)
++                if definition_name not in definitions:
++                    raise FormRecipeError(f"unknown definition {definition_name!r}")
++                if definition_name in stack:
++                    raise FormRecipeError(
++                        f"definition cycle: {' -> '.join(stack + (definition_name,))}"
++                    )
++                definition = definitions[definition_name]
++                child_env = _params(
++                    definition.get("params"), f"definition {definition_name}.params"
++                )
++                overrides = raw_node.get("with", {})
++                if not isinstance(overrides, dict):
++                    raise FormRecipeError("use.with must be an object")
++                unknown = sorted(set(overrides) - set(child_env))
++                if unknown:
++                    raise FormRecipeError(
++                        f"use of {definition_name!r} overrides undeclared parameters {unknown}"
++                    )
++                for key, value in overrides.items():
++                    resolved = _resolve(value, env, f"use.with.{key}")
++                    child_env[key] = _number(
++                        resolved, f"use.with.{key}", -100000.0, 100000.0
++                    )
++
++                combined_env = {**env, **child_env}
++                defaults = _resolve(
++                    definition.get("defaults", {}),
++                    combined_env,
++                    f"definition {definition_name}.defaults",
++                )
++                if not isinstance(defaults, dict):
++                    raise FormRecipeError(
++                        f"definition {definition_name!r}.defaults must resolve to an object"
++                    )
++                child = _compose_settings(inherited, defaults)
++                use_settings: dict[str, Any] = {}
++                for key in (
++                    "translation", "rotation", "scale", "material_family", "semantic_role"
++                ):
++                    if key in raw_node:
++                        use_settings[key] = _resolve(
++                            raw_node[key], combined_env, f"use.{key}"
++                        )
++                child = _compose_settings(child, use_settings)
++                id_prefix = str(raw_node.get("id_prefix", definition_name + "-"))
++                emit(
++                    definition["parts"],
++                    prefix=prefix + id_prefix,
++                    inherited=child,
++                    env=combined_env,
++                    stack=stack + (definition_name,),
++                    depth=depth + 1,
++                )
++                continue
++
++            generated_id += 1
++            if generated_id > MAX_PARTS:
++                raise FormRecipeError(f"recipe exceeds {MAX_PARTS} generated parts")
++            resolved_node = _resolve(raw_node, env, "part")
++            if not isinstance(resolved_node, dict):
++                raise FormRecipeError("resolved part must remain an object")
++            requested_id = resolved_node.get("id")
++            part_id = (
++                _text(requested_id, "part.id", 80)
++                if requested_id is not None
++                else f"part-{generated_id:03d}"
++            )
++            part_id = prefix + part_id
++            if any(existing.part_id == part_id for existing in parts):
++                raise FormRecipeError(f"duplicate generated part id {part_id!r}")
++            part = _semantic_part(resolved_node, part_id, inherited)
++            parts.append(part)
++            source_index.append(
++                {
++                    "part_id": part_id,
++                    "pattern": resolved_node.get("pattern"),
++                    "material_family": part.material_family,
++                    "semantic_role": part.semantic_role,
++                    "source_fragment_sha256": "sha256:"
++                    + hashlib.sha256(_canonical(raw_node)).hexdigest(),
++                    "resolved_fragment_sha256": "sha256:"
++                    + hashlib.sha256(_canonical(resolved_node)).hexdigest(),
++                    "topology": topology_report(part.mesh),
++                }
++            )
++
++    emit(
++        root_parts,
++        prefix="",
++        inherited={},
++        env=root_vars,
++        stack=(),
++        depth=0,
++    )
++    if not parts:
++        raise FormRecipeError("recipe generated no parts")
++
++    receipt: dict[str, Any] = {
++        "schema": SCHEMA,
++        "name": name,
++        "recipe_sha256": "sha256:" + hashlib.sha256(_canonical(raw)).hexdigest(),
++        "source_authority": True,
++        "realization_is_secondary": True,
++        "parts": source_index,
++        "part_count": len(parts),
++        "definitions_declared": len(definitions),
++        "parameterized_definitions": sum(bool(body.get("params")) for body in definitions.values()),
++        "root_vars": deepcopy(root_vars),
++        "metadata": deepcopy(raw.get("metadata", {})),
++        "provenance": {
++            "implementation": "AXM Game Asset Forge native form recipe compiler",
++            "donor_lineage": deepcopy(DONOR_LINEAGE),
++        },
++        "truth_boundary": {
++            "source_recipe_retained": True,
++            "closed_mesh_topology_checked": True,
++            "arbitrary_sculpting_proven": False,
++            "arbitrary_boolean_csg_proven": False,
++            "retopology_proven": False,
++            "uv_or_material_binding_proven": False,
++            "rigging_or_animation_proven": False,
++            "aesthetic_quality_proven": False,
++            "automatic_genome_mutation": False,
++            "automatic_vault_admission": False,
++            "automatic_canon": False,
++        },
++    }
++    receipt["receipt_digest"] = "sha256:" + hashlib.sha256(_canonical(receipt)).hexdigest()
++    return ConstructionAssembly(name, tuple(parts), receipt)
++
++
++def form_recipe_summary() -> dict[str, Any]:
++    return {
++        "schema": SCHEMA,
++        "patterns": [
++            "profile-extrude",
++            "loft",
++            "lathe",
++            "pipe",
++            "beam",
++            "ring",
++            "rounded-box",
++        ],
++        "reusable_definitions": True,
++        "named_numeric_parameters": True,
++        "per_use_parameter_overrides": True,
++        "bounded_repeat": True,
++        "loop_variables": True,
++        "per_use_transform": True,
++        "nested_transform_composition": True,
++        "source_authority": True,
++        "runtime_dependencies": [],
++        "truth": (
++            "The recipe can compose new inspectable forms from profiles, paths, "
++            "definitions and repetitions. It is not an unrestricted sculptor, "
++            "retopology system, or aesthetic judge."
++        ),
++    }
+diff --git a/native_material_response.py b/native_material_response.py
+new file mode 100644
+index 0000000..7519e2f
+--- /dev/null
++++ b/native_material_response.py
+@@ -0,0 +1,240 @@
++#!/usr/bin/env python3
++"""Bounded material-response intent for AXM Game Asset Forge.
++
++This is a standalone Forge-native adapter over a pinned AXM-owned donor contract.
++It preserves material behaviour intent such as subsurface, sheen, anisotropy,
++clear-coat, transmission, iridescence and wear layering without claiming that a
++specific renderer has implemented those lobes.
++
++Donor snapshot:
++mike-axiom-mir/axm-universal-creation@
++5a6356270d0c7822576239b99c2b3ca3371cfdd7
++"""
++from __future__ import annotations
++
++import copy
++import hashlib
++import json
++from pathlib import Path
++from typing import Any
++
++PACK_PATH = Path(__file__).with_name("seed_data") / "material_response_v01.json"
++ORGANS_PATH = Path(__file__).with_name("seed_data") / "material_response_organs_v01.json"
++
++SCHEMA = "axm.game-assets.material-response-resolution/v0.1"
++EVIDENCE = "declared_contract_match_not_tested"
++DONOR = {
++    "repository": "mike-axiom-mir/axm-universal-creation",
++    "commit": "5a6356270d0c7822576239b99c2b3ca3371cfdd7",
++    "pack_path": "src/axm_uc/data/material_response/pack.json",
++    "organs_path": "src/axm_uc/data/material_response/organs.json",
++    "integration": (
++        "Pinned AXM-owned donor data copied into Game Asset Forge; no runtime "
++        "dependency on Universal Creation."
++    ),
++}
++
++BASE_KEYS = {"base_color", "roughness", "metallic", "specular", "ior", "note"}
++ORGAN_BY_KEY = {
++    "subsurface": "surface.subsurface",
++    "sheen": "surface.sheen",
++    "anisotropy": "surface.anisotropy",
++    "clearcoat": "surface.coat",
++    "breakup": "surface.breakup",
++    "transmission": "surface.transmission",
++    "transmission_tint": "surface.transmission",
++    "absorption": "surface.transmission",
++    "dispersion": "surface.transmission",
++    "iridescence": "surface.iridescence",
++    "layers": "surface.wear_layer",
++    "flake": "surface.coat",
++}
++
++
++class MaterialResponseError(ValueError):
++    pass
++
++
++def _load(path: Path) -> Any:
++    try:
++        value = json.loads(path.read_text(encoding="utf-8"))
++    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
++        raise MaterialResponseError(f"cannot load material-response data: {path}: {exc}") from exc
++    return value
++
++
++def _sha(path: Path) -> str:
++    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
++
++
++def _organ_records() -> dict[str, dict[str, Any]]:
++    raw = _load(ORGANS_PATH)
++    if not isinstance(raw, list):
++        raise MaterialResponseError("material-response organ source must be a list")
++    out: dict[str, dict[str, Any]] = {}
++    for row in raw:
++        if not isinstance(row, dict) or row.get("format") != "axm-material-response-organ":
++            raise MaterialResponseError("invalid material-response organ record")
++        organ_id = row.get("id")
++        if not isinstance(organ_id, str) or not organ_id or organ_id in out:
++            raise MaterialResponseError("material-response organ ids must be unique non-empty strings")
++        out[organ_id] = row
++    return out
++
++
++def _pack() -> dict[str, Any]:
++    raw = _load(PACK_PATH)
++    if not isinstance(raw, dict) or raw.get("format") != "axm-material-response-pack":
++        raise MaterialResponseError("invalid material-response pack")
++    families = raw.get("families")
++    if not isinstance(families, list) or not families:
++        raise MaterialResponseError("material-response pack has no families")
++    return raw
++
++
++def _active(value: Any, key: str, response: dict[str, Any]) -> bool:
++    if key == "transmission":
++        weight = value.get("weight", 0) if isinstance(value, dict) else value
++        return isinstance(weight, (int, float)) and not isinstance(weight, bool) and abs(float(weight)) > 1e-12
++    if key in {"transmission_tint", "absorption", "dispersion"}:
++        return _active(response.get("transmission", 0), "transmission", response)
++    if key == "layers":
++        return isinstance(value, list) and any(
++            isinstance(layer, dict)
++            and isinstance(layer.get("weight", 1), (int, float))
++            and not isinstance(layer.get("weight", 1), bool)
++            and abs(float(layer.get("weight", 1))) > 1e-12
++            for layer in value
++        )
++    if key == "anisotropy":
++        return isinstance(value, dict) and isinstance(value.get("strength", 0), (int, float)) and abs(float(value.get("strength", 0))) > 1e-12
++    if key == "breakup":
++        if not isinstance(value, dict):
++            return False
++        return any(
++            isinstance(v, (int, float))
++            and not isinstance(v, bool)
++            and abs(float(v)) > 1e-12
++            for k, v in value.items()
++            if k not in {"scale_mm", "octaves"}
++        )
++    if key in {"subsurface", "sheen", "clearcoat", "iridescence", "flake"}:
++        return isinstance(value, dict) and isinstance(value.get("weight", 0), (int, float)) and float(value.get("weight", 0)) > 1e-12
++    return value is not None
++
++
++def active_organs(response: dict[str, Any]) -> list[str]:
++    if not isinstance(response, dict):
++        raise MaterialResponseError("material response must be an object")
++    records = _organ_records()
++    active: set[str] = set()
++    for key, value in response.items():
++        if key in BASE_KEYS:
++            continue
++        organ_id = ORGAN_BY_KEY.get(key)
++        if organ_id is None:
++            raise MaterialResponseError(f"unknown material-response key: {key}")
++        if organ_id not in records:
++            raise MaterialResponseError(f"missing organ contract: {organ_id}")
++        if _active(value, key, response):
++            active.add(organ_id)
++    return sorted(active)
++
++
++def _deep_merge(base: Any, patch: Any) -> Any:
++    if isinstance(base, dict) and isinstance(patch, dict):
++        out = copy.deepcopy(base)
++        for key, value in patch.items():
++            out[key] = _deep_merge(out[key], value) if key in out else copy.deepcopy(value)
++        return out
++    return copy.deepcopy(patch)
++
++
++def resolve_material_response(
++    family: str,
++    *,
++    variant: str | None = None,
++    overrides: dict[str, Any] | None = None,
++    base_color: list[float] | None = None,
++) -> dict[str, Any]:
++    if not isinstance(family, str) or not family.strip():
++        raise MaterialResponseError("family must be non-empty text")
++    family = family.strip()
++    pack = _pack()
++    matches = [row for row in pack["families"] if row.get("id") == family]
++    if len(matches) != 1:
++        raise MaterialResponseError(f"unknown material-response family: {family}")
++    item = matches[0]
++    response = copy.deepcopy(item.get("response"))
++    if not isinstance(response, dict):
++        raise MaterialResponseError(f"family {family} has no response object")
++    if variant is not None:
++        variants = item.get("variants", {})
++        if not isinstance(variant, str) or not isinstance(variants, dict) or variant not in variants:
++            raise MaterialResponseError(f"unknown {family} variant: {variant}")
++        response = _deep_merge(response, variants[variant])
++    if overrides is not None:
++        if not isinstance(overrides, dict):
++            raise MaterialResponseError("overrides must be an object")
++        response = _deep_merge(response, overrides)
++    if base_color is not None:
++        if not isinstance(base_color, list) or len(base_color) != 3:
++            raise MaterialResponseError("base_color must contain RGB values")
++        response["base_color"] = [float(v) for v in base_color]
++
++    organs = active_organs(response)
++    return {
++        "schema": SCHEMA,
++        "family": family,
++        "variant": variant,
++        "purpose": item.get("purpose"),
++        "response": response,
++        "active_organs": organs,
++        "evidence": EVIDENCE,
++        "renderer_binding": (
++            "HOLD_RENDERER_BINDING_NOT_TESTED" if organs else "PASS_NO_ACTIVE_ORGANS"
++        ),
++        "source": {
++            "donor": copy.deepcopy(DONOR),
++            "pack_sha256": _sha(PACK_PATH),
++            "organs_sha256": _sha(ORGANS_PATH),
++        },
++        "truth": (
++            "This resolves detailed material behaviour intent above texture/channel "
++            "values. It does not prove that any Game Asset Forge renderer or target "
++            "engine has bound the active response organs."
++        ),
++    }
++
++
++def material_response_catalog() -> dict[str, Any]:
++    pack = _pack()
++    organs = _organ_records()
++    return {
++        "schema": "axm.game-assets.material-response-catalog/v0.1",
++        "families": [
++            {
++                "id": row["id"],
++                "purpose": row.get("purpose"),
++                "variants": sorted(row.get("variants", {})),
++            }
++            for row in pack["families"]
++        ],
++        "organs": [
++            {
++                "id": row["id"],
++                "name": row.get("name"),
++                "evidence": row.get("evidence"),
++                "verify": copy.deepcopy(row.get("verify", [])),
++            }
++            for row in sorted(organs.values(), key=lambda item: item["id"])
++        ],
++        "counts": {"families": len(pack["families"]), "organs": len(organs)},
++        "renderer_binding": "NOT_CLAIMED",
++        "evidence": EVIDENCE,
++        "source": {
++            "donor": copy.deepcopy(DONOR),
++            "pack_sha256": _sha(PACK_PATH),
++            "organs_sha256": _sha(ORGANS_PATH),
++        },
++    }
+diff --git a/native_reusable_part_library.py b/native_reusable_part_library.py
+new file mode 100644
+index 0000000..e6cccf7
+--- /dev/null
++++ b/native_reusable_part_library.py
+@@ -0,0 +1,282 @@
++#!/usr/bin/env python3
++"""Explicit reusable-part library for AXM Game Asset Forge.
++
++A finished asset is already persistent in its own Game Asset Genome/source state.
++This module does NOT auto-promote every successful part into a global library.
++
++Instead:
++    source assembly -> scan -> user/AI selects useful parts -> pull -> verify
++
++Geometry is content-addressed independently from material/style labels, so the same
++shape painted ten colours remains one geometry atom. Semantic/library items may
++refer to that atom with different roles/material families without duplicating the
++mesh bytes.
++"""
++from __future__ import annotations
++
++import hashlib
++import json
++from pathlib import Path
++from typing import Any, Iterable
++
++from native_construction_kit import ConstructionAssembly, SemanticPart
++from native_geometry import Mesh, topology_report
++
++SCHEMA = "axm.game-assets.reusable-part-library/v0.1"
++OBJECT_SCHEMA = "axm.game-assets.geometry-atom/v0.1"
++INDEX_NAME = "library.json"
++
++
++class ReusablePartLibraryError(ValueError):
++    pass
++
++
++def _canonical(value: Any) -> bytes:
++    try:
++        return json.dumps(
++            value,
++            sort_keys=True,
++            separators=(",", ":"),
++            ensure_ascii=False,
++            allow_nan=False,
++        ).encode("utf-8")
++    except (TypeError, ValueError) as exc:
++        raise ReusablePartLibraryError("part-library values must be finite JSON data") from exc
++
++
++def _digest(value: Any) -> str:
++    return "sha256:" + hashlib.sha256(_canonical(value)).hexdigest()
++
++
++def _geometry_payload(mesh: Mesh) -> dict[str, Any]:
++    report = topology_report(mesh)
++    if report["invalid_indices"] or report["degenerate_faces"]:
++        raise ReusablePartLibraryError(
++            f"cannot library invalid geometry {mesh.name!r}: {report}"
++        )
++    return {
++        "schema": OBJECT_SCHEMA,
++        "vertices": [list(row) for row in mesh.vertices],
++        "faces": [list(face) for face in mesh.faces],
++        "topology": report,
++    }
++
++
++def geometry_digest(mesh: Mesh) -> str:
++    return _digest(_geometry_payload(mesh))
++
++
++def semantic_item_digest(part: SemanticPart) -> str:
++    return _digest({
++        "geometry": geometry_digest(part.mesh),
++        "material_family": part.material_family,
++        "semantic_role": part.semantic_role,
++    })
++
++
++def _read_index(root: Path) -> dict[str, Any]:
++    path = root / INDEX_NAME
++    if not path.exists():
++        return {
++            "schema": SCHEMA,
++            "geometry_objects": {},
++            "items": {},
++            "automatic_admission": False,
++        }
++    try:
++        value = json.loads(path.read_text(encoding="utf-8"))
++    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
++        raise ReusablePartLibraryError(f"cannot read part-library index: {exc}") from exc
++    if not isinstance(value, dict) or value.get("schema") != SCHEMA:
++        raise ReusablePartLibraryError("unsupported part-library index")
++    if not isinstance(value.get("geometry_objects"), dict) or not isinstance(value.get("items"), dict):
++        raise ReusablePartLibraryError("part-library index collections are invalid")
++    if value.get("automatic_admission") is not False:
++        raise ReusablePartLibraryError("part library must remain explicit-admission only")
++    return value
++
++
++def _object_path(root: Path, digest: str) -> Path:
++    if not isinstance(digest, str) or not digest.startswith("sha256:") or len(digest) != 71:
++        raise ReusablePartLibraryError("invalid geometry digest")
++    return root / "objects" / f"{digest[7:]}.json"
++
++
++def discover_assembly_parts(
++    assembly: ConstructionAssembly,
++    *,
++    library_root: str | Path | None = None,
++) -> dict[str, Any]:
++    """Scan without mutating the source assembly or library."""
++    present_geometry: set[str] = set()
++    present_items: set[str] = set()
++    if library_root is not None:
++        root = Path(library_root)
++        if root.exists():
++            index = _read_index(root)
++            present_geometry = set(index["geometry_objects"])
++            present_items = set(index["items"])
++
++    rows = []
++    for part in assembly.parts:
++        geometry = geometry_digest(part.mesh)
++        item = semantic_item_digest(part)
++        rows.append({
++            "part_id": part.part_id,
++            "geometry_sha256": geometry,
++            "semantic_item_sha256": item,
++            "material_family": part.material_family,
++            "semantic_role": part.semantic_role,
++            "already_library_geometry": geometry in present_geometry,
++            "already_library_item": item in present_items,
++            "topology": topology_report(part.mesh),
++        })
++    return {
++        "schema": "axm.game-assets.reusable-part-scan/v0.1",
++        "assembly": assembly.name,
++        "assembly_receipt_digest": assembly.receipt.get("receipt_digest"),
++        "candidate_count": len(rows),
++        "candidates": rows,
++        "library_mutated": False,
++        "truth": (
++            "Discovery only. A part remains permanent in its source asset even when "
++            "it is not in the reusable library."
++        ),
++    }
++
++
++def _write_create_or_verify(path: Path, payload: bytes) -> bool:
++    """Return True when created, False when identical bytes already existed."""
++    path.parent.mkdir(parents=True, exist_ok=True)
++    try:
++        with path.open("xb") as handle:
++            handle.write(payload)
++        return True
++    except FileExistsError:
++        existing = path.read_bytes()
++        if existing != payload:
++            raise ReusablePartLibraryError(
++                f"content-addressed object collision/drift at {path}"
++            )
++        return False
++
++
++def pull_assembly_parts(
++    assembly: ConstructionAssembly,
++    library_root: str | Path,
++    selected_part_ids: Iterable[str],
++) -> dict[str, Any]:
++    """Explicitly admit selected parts; never scans-and-admits implicitly."""
++    selected = list(dict.fromkeys(str(value) for value in selected_part_ids))
++    by_id = {part.part_id: part for part in assembly.parts}
++    missing = sorted(set(selected) - set(by_id))
++    if missing:
++        raise ReusablePartLibraryError(f"unknown selected part ids: {missing}")
++
++    root = Path(library_root)
++    root.mkdir(parents=True, exist_ok=True)
++    index = _read_index(root)
++    created_geometry = 0
++    reused_geometry = 0
++    created_items = 0
++    reused_items = 0
++    admitted = []
++
++    for part_id in selected:
++        part = by_id[part_id]
++        geometry = geometry_digest(part.mesh)
++        payload = {
++            **_geometry_payload(part.mesh),
++            "geometry_sha256": geometry,
++        }
++        object_bytes = json.dumps(
++            payload, indent=2, sort_keys=True, ensure_ascii=False
++        ).encode("utf-8") + b"\n"
++        created = _write_create_or_verify(_object_path(root, geometry), object_bytes)
++        if created:
++            created_geometry += 1
++        else:
++            reused_geometry += 1
++
++        index["geometry_objects"][geometry] = {
++            "object": f"objects/{geometry[7:]}.json",
++            "bytes": len(object_bytes),
++        }
++
++        item_id = semantic_item_digest(part)
++        item_record = {
++            "geometry_sha256": geometry,
++            "material_family": part.material_family,
++            "semantic_role": part.semantic_role,
++        }
++        if item_id in index["items"]:
++            if index["items"][item_id] != item_record:
++                raise ReusablePartLibraryError(
++                    f"semantic item digest collision/drift: {item_id}"
++                )
++            reused_items += 1
++        else:
++            index["items"][item_id] = item_record
++            created_items += 1
++
++        admitted.append({
++            "source_part_id": part_id,
++            "geometry_sha256": geometry,
++            "semantic_item_sha256": item_id,
++            "geometry_created": created,
++        })
++
++    index["automatic_admission"] = False
++    index["counts"] = {
++        "geometry_objects": len(index["geometry_objects"]),
++        "semantic_items": len(index["items"]),
++    }
++    index["index_digest"] = _digest({
++        key: value for key, value in index.items() if key != "index_digest"
++    })
++    index_bytes = json.dumps(
++        index, indent=2, sort_keys=True, ensure_ascii=False
++    ).encode("utf-8") + b"\n"
++    (root / INDEX_NAME).write_bytes(index_bytes)
++
++    return {
++        "schema": "axm.game-assets.reusable-part-pull/v0.1",
++        "assembly": assembly.name,
++        "selected_part_ids": selected,
++        "admitted": admitted,
++        "created_geometry_atoms": created_geometry,
++        "reused_geometry_atoms": reused_geometry,
++        "created_semantic_items": created_items,
++        "reused_semantic_items": reused_items,
++        "library_index_digest": index["index_digest"],
++        "automatic_admission": False,
++        "source_asset_mutated": False,
++    }
++
++
++def load_geometry_atom(library_root: str | Path, digest: str, *, name: str = "library-part") -> Mesh:
++    root = Path(library_root)
++    path = _object_path(root, digest)
++    try:
++        value = json.loads(path.read_text(encoding="utf-8"))
++    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
++        raise ReusablePartLibraryError(f"cannot load geometry atom {digest}: {exc}") from exc
++    if not isinstance(value, dict) or value.get("schema") != OBJECT_SCHEMA:
++        raise ReusablePartLibraryError("unsupported geometry atom")
++    actual = _digest({
++        "schema": OBJECT_SCHEMA,
++        "vertices": value.get("vertices"),
++        "faces": value.get("faces"),
++        "topology": value.get("topology"),
++    })
++    if actual != digest or value.get("geometry_sha256") != digest:
++        raise ReusablePartLibraryError("geometry atom digest mismatch")
++    mesh = Mesh(
++        name,
++        [tuple(float(v) for v in row) for row in value["vertices"]],
++        [tuple(int(v) for v in face) for face in value["faces"]],
++    )
++    report = topology_report(mesh)
++    if report != value.get("topology"):
++        raise ReusablePartLibraryError("geometry atom topology receipt drift")
++    return mesh
+diff --git a/schemas/asset-intent.schema.json b/schemas/asset-intent.schema.json
+new file mode 100644
+index 0000000..b0fe255
+--- /dev/null
++++ b/schemas/asset-intent.schema.json
+@@ -0,0 +1,47 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "https://axm.local/schemas/asset-intent-v0.1.schema.json",
++  "title": "AXM Game Asset Forge Asset Intent",
++  "type": "object",
++  "additionalProperties": false,
++  "properties": {
++    "schema": {"const": "axm.game-assets.asset-intent/v0.1"},
++    "prompt": {"type": "string"},
++    "asset_id": {"type": "string"},
++    "family": {
++      "enum": [
++        "character", "weapon", "armor_clothing", "prop", "building",
++        "environment_kit", "vegetation", "material", "vfx"
++      ]
++    },
++    "quality_tier": {
++      "enum": [
++        "prototype", "gameplay", "hero", "hero_closeup",
++        "cinematic", "mass_rts", "mobile"
++      ]
++    },
++    "deliverables": {
++      "oneOf": [
++        {"type": "string", "minLength": 1},
++        {"type": "array", "items": {"type": "string", "minLength": 1}}
++      ]
++    },
++    "requirements": {
++      "oneOf": [
++        {"type": "string", "minLength": 1},
++        {"type": "array", "items": {"type": "string", "minLength": 1}}
++      ]
++    },
++    "constraints": {
++      "oneOf": [
++        {"type": "string", "minLength": 1},
++        {"type": "array", "items": {"type": "string", "minLength": 1}}
++      ]
++    },
++    "source": {"type": "object"}
++  },
++  "anyOf": [
++    {"required": ["family"]},
++    {"required": ["prompt"]}
++  ]
++}
+diff --git a/schemas/character-source-profile.schema.json b/schemas/character-source-profile.schema.json
+new file mode 100644
+index 0000000..8a56db7
+--- /dev/null
++++ b/schemas/character-source-profile.schema.json
+@@ -0,0 +1,35 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "https://axm.local/schemas/character-source-profile-v0.1.schema.json",
++  "title": "AXM Game Asset Forge Character Source Profile",
++  "type": "object",
++  "additionalProperties": false,
++  "required": ["schema", "asset_id", "race_id", "body_family", "parts"],
++  "properties": {
++    "schema": {"const": "axm.game-assets.character-source-profile/v0.1"},
++    "asset_id": {"type": "string", "minLength": 1},
++    "race_id": {"type": "string", "minLength": 1},
++    "body_family": {"type": "string", "minLength": 1},
++    "description": {"type": "string"},
++    "parts": {
++      "type": "array",
++      "minItems": 1,
++      "maxItems": 256,
++      "items": {
++        "type": "object",
++        "additionalProperties": false,
++        "required": ["id", "role"],
++        "properties": {
++          "id": {"type": "string", "minLength": 1},
++          "role": {"type": "string", "minLength": 1},
++          "source_ref": {"type": "string"}
++        }
++      }
++    },
++    "sockets": {"type": "array", "maxItems": 128},
++    "clothing_regions": {"type": "array", "maxItems": 128},
++    "material_responses": {"type": "object"},
++    "provenance": {"type": "object"},
++    "metadata": {"type": "object"}
++  }
++}
+diff --git a/tests/test_today_capability_convergence.py b/tests/test_today_capability_convergence.py
+new file mode 100644
+index 0000000..afb3123
+--- /dev/null
++++ b/tests/test_today_capability_convergence.py
+@@ -0,0 +1,443 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import hashlib
++import json
++from pathlib import Path
++import struct
++import subprocess
++import sys
++import tempfile
++import unittest
++
++ROOT = Path(__file__).resolve().parents[1]
++
++from asset_intent_router import route_asset_intent
++from native_character_source_profile import (
++    CharacterSourceProfileError,
++    compile_character_source_profile,
++)
++from native_form_recipe import FormRecipeError, compile_form_recipe
++from native_geometry import bounds, topology_report
++from native_construction_kit import ConstructionAssembly, SemanticPart
++from native_reusable_part_library import (
++    discover_assembly_parts,
++    geometry_digest,
++    load_geometry_atom,
++    pull_assembly_parts,
++)
++from native_material_response import (
++    MaterialResponseError,
++    material_response_catalog,
++    resolve_material_response,
++)
++from universal_creation_asset_bridge import (
++    SOURCE_PROPOSAL_SCHEMA,
++    UniversalCreationIngressError,
++    build_universal_creation_source_proposal,
++)
++
++
++def _glb() -> bytes:
++    document = {
++        "asset": {"version": "2.0"},
++        "scenes": [{"nodes": [0]}],
++        "scene": 0,
++        "nodes": [{"mesh": 0}],
++        "meshes": [{"primitives": []}],
++        "materials": [{"name": "wood"}],
++    }
++    payload = json.dumps(document, sort_keys=True, separators=(",", ":")).encode("utf-8")
++    while len(payload) % 4:
++        payload += b" "
++    total = 12 + 8 + len(payload)
++    return (
++        struct.pack("<4sII", b"glTF", 2, total)
++        + struct.pack("<II", len(payload), 0x4E4F534A)
++        + payload
++    )
++
++
++def _canonical(value) -> bytes:
++    return json.dumps(
++        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
++    ).encode("utf-8")
++
++
++def _form_recipe() -> dict:
++    return {
++        "schema": "axm.game-assets.form-recipe/v0.1",
++        "name": "bonsai-form-proof",
++        "definitions": {
++            "branch": {
++                "params": {"rise": 0.62, "radius": 0.035},
++                "defaults": {
++                    "material_family": "wood",
++                    "semantic_role": "branch",
++                },
++                "parts": [
++                    {
++                        "id": "stem",
++                        "pattern": "pipe",
++                        "path": [
++                            [0, 0, 0],
++                            [0.08, 0.35, 0],
++                            [0.16, {"$var": "rise"}, 0.05]
++                        ],
++                        "radius": {"$var": "radius"},
++                        "segments": 8,
++                    }
++                ],
++            }
++        },
++        "parts": [
++            {
++                "id": "trunk",
++                "pattern": "loft",
++                "sections": [
++                    {"at": 0.0, "radius": [0.22, 0.18]},
++                    {"at": 0.55, "radius": [0.30, 0.22], "offset": [0.02, 0.0]},
++                    {"at": 1.0, "radius": [0.20, 0.15], "offset": [-0.02, 0.01]},
++                ],
++                "segments": 16,
++                "material_family": "wood",
++                "semantic_role": "trunk",
++            },
++            {
++                "repeat": 2,
++                "step": [0.18, 0.12, 0.0],
++                "body": [
++                    {
++                        "use": "branch",
++                        "id_prefix": "branch-",
++                        "rotation": [0.0, 0.0, 0.25],
++                    }
++                ],
++            },
++            {
++                "use": "branch",
++                "id_prefix": "special-",
++                "with": {"rise": 0.92, "radius": 0.05},
++                "translation": [-0.22, 0.18, 0.0],
++                "rotation": [0.0, 0.0, -0.35]
++            },
++            {
++                "id": "brooch",
++                "pattern": "profile-extrude",
++                "outline": [[-0.05, -0.06], [0.06, -0.02], [0.04, 0.07], [-0.04, 0.06]],
++                "depth": 0.02,
++                "translation": [0.0, -0.20, 0.70],
++                "material_family": "bronze",
++                "semantic_role": "clothing-fastener",
++            },
++        ],
++    }
++
++
++class TodayConvergenceTests(unittest.TestCase):
++    def test_intent_router_selects_one_family_without_executing_or_mutating(self) -> None:
++        plan = route_asset_intent({
++            "schema": "axm.game-assets.asset-intent/v0.1",
++            "prompt": "Create a playable character asset with rigged motion and detailed materials",
++            "asset_id": "tree-person",
++            "deliverables": ["GLB", "source state"],
++            "requirements": ["rigged", "Godot runtime"],
++        })
++        self.assertEqual(plan["status"], "PLANNED_NOT_EXECUTED")
++        self.assertEqual(plan["selected_family"], "character")
++        ids = [row["id"] for row in plan["production_blocks"]]
++        self.assertIn("character-source-profile", ids)
++        self.assertIn("rig-skin-motion", ids)
++        self.assertIn("material-response", ids)
++        self.assertIn("runtime-validation", ids)
++        self.assertFalse(plan["automatic_execution"])
++        self.assertFalse(plan["automatic_genome_mutation"])
++        self.assertFalse(plan["automatic_vault_admission"])
++        self.assertFalse(plan["automatic_canon"])
++
++    def test_forge_cli_exposes_intent_route_without_executing_asset_build(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            request = Path(td) / "intent.json"
++            request.write_text(json.dumps({
++                "schema": "axm.game-assets.asset-intent/v0.1",
++                "prompt": "Create a vegetation tree asset with detailed leaves",
++                "asset_id": "tree-proof",
++            }), encoding="utf-8")
++            completed = subprocess.run(
++                [sys.executable, str(ROOT / "forge.py"), "route-intent", str(request)],
++                cwd=ROOT,
++                text=True,
++                capture_output=True,
++                check=False,
++            )
++            self.assertEqual(completed.returncode, 0, completed.stderr)
++            result = json.loads(completed.stdout)
++            self.assertEqual(result["status"], "PLANNED_NOT_EXECUTED")
++            self.assertEqual(result["selected_family"], "vegetation")
++            self.assertFalse(result["automatic_execution"])
++
++    def test_intent_router_holds_ambiguous_multi_family_language(self) -> None:
++        result = route_asset_intent({
++            "prompt": "Create a character holding a rifle weapon",
++        })
++        self.assertEqual(result["status"], "HOLD_AMBIGUOUS_FAMILY")
++        self.assertEqual(
++            {row["family"] for row in result["candidates"]},
++            {"character", "weapon"},
++        )
++        self.assertFalse(result["automatic_execution"])
++
++    def test_intent_router_explicit_family_wins_without_fuzzy_guess(self) -> None:
++        result = route_asset_intent({
++            "prompt": "A strange living tower creature",
++            "family": "building",
++        })
++        self.assertEqual(result["selected_family"], "building")
++        self.assertEqual(result["selection_basis"], "caller-explicit-family")
++
++    def test_material_response_catalog_and_hold_boundary(self) -> None:
++        catalog = material_response_catalog()
++        self.assertEqual(catalog["counts"], {"families": 13, "organs": 8})
++        value = resolve_material_response("wood-oiled")
++        self.assertIn("surface.anisotropy", value["active_organs"])
++        self.assertIn("surface.subsurface", value["active_organs"])
++        self.assertEqual(value["renderer_binding"], "HOLD_RENDERER_BINDING_NOT_TESTED")
++        with self.assertRaises(MaterialResponseError):
++            resolve_material_response("invented-family")
++
++    def test_form_recipe_composes_reusable_new_forms_and_retains_source_receipt(self) -> None:
++        recipe = _form_recipe()
++        before = json.loads(json.dumps(recipe))
++        assembly = compile_form_recipe(recipe)
++        self.assertEqual(recipe, before)
++        self.assertEqual(assembly.receipt["schema"], "axm.game-assets.form-recipe/v0.1")
++        self.assertTrue(assembly.receipt["source_authority"])
++        self.assertFalse(assembly.receipt["truth_boundary"]["automatic_genome_mutation"])
++        self.assertFalse(assembly.receipt["truth_boundary"]["automatic_vault_admission"])
++        self.assertEqual(assembly.receipt["definitions_declared"], 1)
++        self.assertEqual(assembly.receipt["parameterized_definitions"], 1)
++        self.assertEqual(assembly.receipt["part_count"], 5)
++        self.assertEqual(len({part.part_id for part in assembly.parts}), 5)
++        by_id = {part.part_id: part for part in assembly.parts}
++        default_bounds = bounds(by_id["r0-branch-stem"].mesh)
++        special_bounds = bounds(by_id["special-stem"].mesh)
++        self.assertGreater(
++            special_bounds[1][1] - special_bounds[0][1],
++            default_bounds[1][1] - default_bounds[0][1],
++        )
++        report = topology_report(assembly.combined_mesh())
++        self.assertEqual(report["invalid_indices"], 0)
++        self.assertEqual(report["degenerate_faces"], 0)
++        self.assertGreater(report["triangles"], 100)
++
++    def test_form_recipe_rejects_undeclared_parameter_override(self) -> None:
++        recipe = _form_recipe()
++        recipe["parts"] = [
++            {"use": "branch", "with": {"not_declared": 1.0}}
++        ]
++        with self.assertRaises(FormRecipeError):
++            compile_form_recipe(recipe)
++
++    def test_form_recipe_rejects_missing_definition(self) -> None:
++        recipe = _form_recipe()
++        recipe["parts"] = [{"use": "missing"}]
++        with self.assertRaises(FormRecipeError):
++            compile_form_recipe(recipe)
++
++    def test_reusable_part_scan_does_not_auto_admit_and_selected_pull_survives_source(self) -> None:
++        assembly = compile_form_recipe(_form_recipe())
++        with tempfile.TemporaryDirectory() as td:
++            library = Path(td) / "library"
++            scan = discover_assembly_parts(assembly, library_root=library)
++            self.assertFalse(scan["library_mutated"])
++            self.assertFalse(library.exists())
++            self.assertEqual(scan["candidate_count"], len(assembly.parts))
++
++            selected = assembly.parts[0]
++            pull = pull_assembly_parts(assembly, library, [selected.part_id])
++            self.assertEqual(pull["selected_part_ids"], [selected.part_id])
++            self.assertFalse(pull["automatic_admission"])
++            self.assertFalse(pull["source_asset_mutated"])
++            self.assertEqual(pull["created_geometry_atoms"], 1)
++            self.assertEqual(pull["created_semantic_items"], 1)
++
++            digest = geometry_digest(selected.mesh)
++            del assembly
++            restored = load_geometry_atom(library, digest, name="restored")
++            report = topology_report(restored)
++            self.assertEqual(report["invalid_indices"], 0)
++            self.assertEqual(report["degenerate_faces"], 0)
++            self.assertGreater(report["triangles"], 0)
++
++    def test_reusable_part_library_dedups_geometry_separately_from_material_labels(self) -> None:
++        base = compile_form_recipe(_form_recipe()).parts[0].mesh
++        assembly = ConstructionAssembly(
++            "same-shape-different-style",
++            (
++                SemanticPart("red", base, "paint-red", "panel"),
++                SemanticPart("blue", base, "paint-blue", "panel"),
++            ),
++            {"receipt_digest": "sha256:" + "0" * 64},
++        )
++        with tempfile.TemporaryDirectory() as td:
++            result = pull_assembly_parts(assembly, Path(td) / "library", ["red", "blue"])
++            self.assertEqual(result["created_geometry_atoms"], 1)
++            self.assertEqual(result["reused_geometry_atoms"], 1)
++            self.assertEqual(result["created_semantic_items"], 2)
++            index = json.loads((Path(td) / "library" / "library.json").read_text(encoding="utf-8"))
++            self.assertEqual(index["counts"]["geometry_objects"], 1)
++            self.assertEqual(index["counts"]["semantic_items"], 2)
++            self.assertFalse(index["automatic_admission"])
++
++    def test_character_source_profile_carries_race_clothing_sockets_and_material_intent(self) -> None:
++        profile = compile_character_source_profile({
++            "schema": "axm.game-assets.character-source-profile/v0.1",
++            "asset_id": "bonsai-race-proof",
++            "race_id": "bonsai-nature-race",
++            "body_family": "rooted-small-tree",
++            "parts": [
++                {"id": "trunk", "role": "trunk"},
++                {"id": "hand-r", "role": "hand"},
++                {"id": "canopy", "role": "canopy"},
++            ],
++            "sockets": [
++                {
++                    "id": "tool-r",
++                    "part": "hand-r",
++                    "position": [0.0, 0.0, 0.0],
++                    "purpose": "right-hand tool",
++                    "tags": ["tool", "weapon"],
++                }
++            ],
++            "clothing_regions": [
++                {
++                    "id": "torso-wrap",
++                    "parts": ["trunk"],
++                    "body_family": "rooted-small-tree",
++                    "attachment_tags": ["wrap", "belt"],
++                }
++            ],
++            "material_responses": {
++                "default": {"family": "wood-oiled"},
++                "canopy": {"family": "leaf-thin"},
++            },
++        })
++        self.assertEqual(profile["race_id"], "bonsai-nature-race")
++        self.assertEqual(profile["body_family"], "rooted-small-tree")
++        self.assertEqual(profile["sockets"][0]["id"], "tool-r")
++        self.assertEqual(profile["clothing_regions"][0]["fit_truth"], "DECLARED_REGION_ONLY_NOT_GEOMETRIC_FIT_PROOF")
++        self.assertEqual(
++            profile["material_response_holds"], ["canopy", "default"]
++        )
++        self.assertFalse(profile["truth_boundary"]["clothing_fit_proven"])
++        self.assertFalse(profile["truth_boundary"]["automatic_vault_admission"])
++
++    def test_character_source_profile_rejects_unknown_socket_part(self) -> None:
++        with self.assertRaises(CharacterSourceProfileError):
++            compile_character_source_profile({
++                "schema": "axm.game-assets.character-source-profile/v0.1",
++                "asset_id": "bad",
++                "race_id": "tree",
++                "body_family": "tree",
++                "parts": [{"id": "trunk", "role": "body"}],
++                "sockets": [{"id": "bad", "part": "ghost", "position": [0, 0, 0]}],
++            })
++
++    def test_source_first_uc_ingress_preserves_structure_without_authority(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            asset = root / "bonsai.glb"
++            body = _glb()
++            asset.write_bytes(body)
++            source = {
++                "schema": "axm.creator-source/v1",
++                "kind": "whole-character-recipe",
++                "source_authority": True,
++                "realization_is_secondary": True,
++                "automatic_canon_admission": False,
++                "recipe": {
++                    "schema": "axm.character-recipe/v0.1",
++                    "name": "display-name-not-an-asset-id",
++                },
++                "recipe_sha256": "0" * 64,
++                "character": {
++                    "race_id": "bonsai-nature-race",
++                    "body_family": "rooted-small-tree",
++                },
++                "parts_index": [
++                    {"id": "trunk", "role": "trunk", "pattern": "loft"}
++                ],
++                "sockets": [
++                    {"id": "tool-r", "part": "trunk", "position": [0, 0, 0]}
++                ],
++                "clothing_regions": [
++                    {"id": "wrap", "parts": ["trunk"], "body_family": "rooted-small-tree"}
++                ],
++                "material_intent": {"response": {"family": "wood-oiled"}},
++                "material_response_status": "HOLD_RENDERER_BINDING_NOT_TESTED",
++                "rig_status": "NOT_PRESENT",
++                "animation_status": "NOT_PRESENT",
++                "compiled_specification": {"schema": "axm.surface-3d/v0.1"},
++                "artifact": {
++                    "path": "/provider/local/bonsai.glb",
++                    "sha256": hashlib.sha256(body).hexdigest(),
++                    "specification_sha256": "1" * 64,
++                },
++                "truth_boundary": "test fixture",
++            }
++            source["source_sha256"] = hashlib.sha256(_canonical(source)).hexdigest()
++            sidecar = asset.with_suffix(".glb.source.json")
++            sidecar.write_text(
++                json.dumps(source, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
++                encoding="utf-8",
++            )
++            proposal = build_universal_creation_source_proposal(
++                asset, expected_asset_id="bonsai-race-proof"
++            )
++            self.assertEqual(proposal["schema"], SOURCE_PROPOSAL_SCHEMA)
++            self.assertEqual(proposal["status"], "PROPOSAL_ONLY")
++            self.assertEqual(proposal["asset"]["id"], "bonsai-race-proof")
++            retained = proposal["verified_source"]["retained"]
++            self.assertEqual(retained["character"]["body_family"], "rooted-small-tree")
++            self.assertEqual(retained["sockets"][0]["id"], "tool-r")
++            self.assertEqual(
++                retained["material_response_status"],
++                "HOLD_RENDERER_BINDING_NOT_TESTED",
++            )
++            self.assertFalse(proposal["authority"]["genome_mutation"])
++            self.assertFalse(proposal["authority"]["canon"])
++            self.assertEqual(
++                proposal["review_readiness"]["visual_acceptance"], "NOT_GRANTED"
++            )
++
++    def test_source_first_uc_ingress_rejects_tampered_glb(self) -> None:
++        with tempfile.TemporaryDirectory() as td:
++            root = Path(td)
++            asset = root / "asset.glb"
++            body = _glb()
++            asset.write_bytes(body)
++            source = {
++                "schema": "axm.creator-source/v1",
++                "kind": "form-pattern",
++                "source_authority": True,
++                "realization_is_secondary": True,
++                "automatic_canon_admission": False,
++                "artifact": {
++                    "path": "/provider/asset.glb",
++                    "sha256": hashlib.sha256(body).hexdigest(),
++                    "specification_sha256": "2" * 64,
++                },
++            }
++            source["source_sha256"] = hashlib.sha256(_canonical(source)).hexdigest()
++            asset.with_suffix(".glb.source.json").write_text(
++                json.dumps(source, sort_keys=True), encoding="utf-8"
++            )
++            asset.write_bytes(body + b"tamper")
++            with self.assertRaisesRegex(
++                UniversalCreationIngressError, "INVALID_GLB|SOURCE_ARTIFACT_DIGEST_DRIFT"
++            ):
++                build_universal_creation_source_proposal(asset)
++
++
++if __name__ == "__main__":
++    unittest.main()

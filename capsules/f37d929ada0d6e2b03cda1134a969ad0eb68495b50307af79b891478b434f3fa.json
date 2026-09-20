@@ -1,0 +1,141 @@
+{
+  "capsule_id": "f37d929ada0d6e2b03cda1134a969ad0eb68495b50307af79b891478b434f3fa",
+  "evidence": {
+    "files": [
+      {
+        "additions": 573,
+        "binary": false,
+        "content_sha256": "cdd0f8daebb05ed392249cd851b6fc4e1b8f743c3441b6bc6ba280c2ab9eef88",
+        "deletions": 0,
+        "path": "native_kettlejack_character.py",
+        "status": "A",
+        "symbols": [
+          "_sha",
+          "_sha_file",
+          "_smooth",
+          "stylize_body",
+          "_scale_skeleton",
+          "_scaled_point",
+          "_qmul",
+          "_pose_quat",
+          "_rot_track",
+          "build_kettlejack_clips",
+          "_write_materials",
+          "_accessory_meshes",
+          "_group_accessories",
+          "write_kettlejack_package"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 55,
+        "binary": false,
+        "content_sha256": "ca2e09780aa8f5e410e3706f49ea41a35ec8e758a62ca4e9ae1d3b71109ec090",
+        "deletions": 0,
+        "path": "native_kettlejack_character_test.py",
+        "status": "A",
+        "symbols": [
+          "KettlejackCharacterTests"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 407,
+        "binary": false,
+        "content_sha256": "760e9c71d496af1f6f233153f1a1a1c5f20f363744cfaa8d8f84c53f8056b496",
+        "deletions": 0,
+        "path": "native_skinned_multi_gltf.py",
+        "status": "A",
+        "symbols": [
+          "SkinnedMaterialPrimitive",
+          "rigid_skin_weights",
+          "_expanded",
+          "_pack_u16_vec4",
+          "compile_skinned_multi_gltf",
+          "write_skinned_multi_gltf"
+        ],
+        "topics": []
+      },
+      {
+        "additions": 74,
+        "binary": false,
+        "content_sha256": "1dc3fc2b84a8651214ae86b771d76fc6f77167b4288ed3c3825684d96aff0a36",
+        "deletions": 0,
+        "path": "native_skinned_multi_gltf_test.py",
+        "status": "A",
+        "symbols": [
+          "SkinnedMultiGltfTests"
+        ],
+        "topics": []
+      }
+    ],
+    "patch_sha256": "78ec321eba4fcb6f187a72e7e2706ff862b2a8f12d501be520b523202c0d711e"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 5,
+    "kinds": [
+      "code",
+      "test-change"
+    ],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "accessories",
+      "accessory",
+      "animated",
+      "asset-forge",
+      "axm",
+      "body",
+      "build",
+      "character",
+      "clips",
+      "compile",
+      "expanded",
+      "game",
+      "game-assets",
+      "gltf",
+      "group",
+      "kettlejack",
+      "material",
+      "materials",
+      "meshes",
+      "multi",
+      "native",
+      "pack",
+      "package",
+      "point",
+      "pose",
+      "primitive",
+      "qmul",
+      "quat",
+      "real",
+      "rigid",
+      "rot",
+      "scale",
+      "scaled",
+      "sha",
+      "skeleton",
+      "skin",
+      "skinned",
+      "smooth",
+      "standalone",
+      "stylize",
+      "track",
+      "u16",
+      "vec4",
+      "weights",
+      "write"
+    ]
+  },
+  "source": {
+    "base": "65d482b6331f287ba2d1fa8b27cce48a2ffc7c29",
+    "commit_subject": "Build Kettlejack as a real animated game character (#32)",
+    "head": "aaae29c81422366610e6c0ed75e2af6794b100f6",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "capsule_id": "11c98f044b658adaa73db13f89e62cedeab920332e037cdfc02a75d389c21187",
+  "evidence": {
+    "files": [],
+    "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 0,
+    "kinds": [],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "asset",
+      "asset-forge",
+      "axm",
+      "form",
+      "game-assets",
+      "license",
+      "noncommercial",
+      "poly",
+      "protect",
+      "source",
+      "standalone",
+      "under"
+    ]
+  },
+  "source": {
+    "base": "660dd9c3a4ca24023f6b0fa942bfc04677256c89",
+    "commit_subject": "license: protect AXM asset source under PolyForm Noncommercial",
+    "head": "773ed35bf85d651975a191799429df39f941db28",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

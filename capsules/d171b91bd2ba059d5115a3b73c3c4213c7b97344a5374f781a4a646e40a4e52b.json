@@ -1,0 +1,34 @@
+{
+  "capsule_id": "d171b91bd2ba059d5115a3b73c3c4213c7b97344a5374f781a4a646e40a4e52b",
+  "evidence": {
+    "files": [],
+    "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 0,
+    "kinds": [],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "asset",
+      "asset-forge",
+      "axm",
+      "boundary",
+      "define",
+      "extraction",
+      "game-assets",
+      "standalone"
+    ]
+  },
+  "source": {
+    "base": "3a16e647caaa9c04dcdc036ece6f393d84ef40bc",
+    "commit_subject": "docs: define AXM asset extraction boundary",
+    "head": "4751eb501835a54e7b281cc0d621347bdc30ec0c",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

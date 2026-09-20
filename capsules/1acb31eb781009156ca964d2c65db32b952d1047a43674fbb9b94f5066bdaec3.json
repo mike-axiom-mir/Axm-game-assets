@@ -1,0 +1,40 @@
+{
+  "capsule_id": "1acb31eb781009156ca964d2c65db32b952d1047a43674fbb9b94f5066bdaec3",
+  "evidence": {
+    "files": [],
+    "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 0,
+    "kinds": [],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "allow",
+      "asset",
+      "asset-forge",
+      "axm",
+      "commercial",
+      "end",
+      "extraction",
+      "game-assets",
+      "library",
+      "license",
+      "product",
+      "standalone",
+      "use",
+      "without"
+    ]
+  },
+  "source": {
+    "base": "773ed35bf85d651975a191799429df39f941db28",
+    "commit_subject": "license: allow commercial end-product use without asset-library extraction",
+    "head": "3a16e647caaa9c04dcdc036ece6f393d84ef40bc",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}

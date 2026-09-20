@@ -1,0 +1,33 @@
+{
+  "capsule_id": "a2f20d9d77257ed4fb2793dc69dddf8bd5ec131deba068dfc249c5a2329defb2",
+  "evidence": {
+    "files": [],
+    "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "protocol": "axm-beacon/0.1",
+  "signals": {
+    "attention_score": 0,
+    "kinds": [],
+    "meaning": "candidate-for-inspection-not-truth",
+    "tags": [
+      "asset-forge",
+      "axm",
+      "checkpoint",
+      "game-assets",
+      "publish",
+      "release",
+      "standalone"
+    ]
+  },
+  "source": {
+    "base": "6276837c2f923f182d81606729f80d5d50453d24",
+    "commit_subject": "Release: publish 2026-09-13 public checkpoint",
+    "head": "660dd9c3a4ca24023f6b0fa942bfc04677256c89",
+    "repo": "mike-axiom-mir/Axm-game-assets"
+  },
+  "transfer": {
+    "auto_apply": false,
+    "mode": "proposal-only",
+    "standalone_receiver": true
+  }
+}
