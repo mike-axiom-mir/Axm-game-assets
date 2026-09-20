@@ -90,7 +90,23 @@ The existing UC bridge handled the older forge-directory contract with Blender s
 
 UC does not receive Genome mutation, selection, visual approval, runtime adoption, release, merge or CANON authority.
 
-### 5. Intent should route to the specialist machine, not require callers to memorize modules
+### 5. Reusable parts should be pulled explicitly, not auto-promoted
+
+Today's MorphTile work also clarified a useful persistence boundary:
+
+**asset persistence != reusable-library storage != blueprint/composition references.**
+
+Game Asset Forge already preserves source state inside the asset Genome. That means a successful part is not lost merely because it is absent from a global library.
+
+`native_reusable_part_library.py` adds the missing explicit promotion step:
+
+`source assembly -> scan -> select useful parts -> pull -> verify`
+
+Discovery does not mutate the source or library. Pulling is explicit. Geometry atoms are content-addressed independently from material/style labels, so the same mesh painted ten colours is still one geometry atom rather than ten fake-new shapes. Semantic items may refer to that geometry with different roles/material families without duplicating the mesh body.
+
+This is deliberately not automatic self-growth or CANON admission. It creates a clean source of reusable Lego when a human or AI explicitly decides a part is worth keeping outside its original asset.
+
+### 6. Intent should route to the specialist machine, not require callers to memorize modules
 
 `asset_intent_router.py` adds a bounded family-grounded planner.
 
