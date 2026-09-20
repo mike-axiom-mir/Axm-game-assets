@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from copy import deepcopy
 from typing import Any, Iterable, Sequence
 
@@ -84,6 +85,40 @@ def _text(value: Any, label: str, maximum: int = 120) -> str:
     if not isinstance(value, str) or not value.strip() or len(value.strip()) > maximum:
         raise FormRecipeError(f"{label} must be non-empty text up to {maximum} characters")
     return value.strip()
+
+
+_PARAM_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+
+
+def _params(raw: Any, label: str) -> dict[str, float]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise FormRecipeError(f"{label} must be an object")
+    out: dict[str, float] = {}
+    for key, value in raw.items():
+        if not isinstance(key, str) or not _PARAM_RE.fullmatch(key):
+            raise FormRecipeError(f"{label} contains invalid parameter name {key!r}")
+        out[key] = _number(value, f"{label}.{key}", -100000.0, 100000.0)
+    return out
+
+
+def _resolve(value: Any, env: dict[str, float], label: str) -> Any:
+    """Resolve bounded named numeric parameters without evaluating arbitrary code."""
+    if isinstance(value, dict) and set(value) == {"$var"}:
+        name = value["$var"]
+        if not isinstance(name, str) or not _PARAM_RE.fullmatch(name):
+            raise FormRecipeError(f"{label} has an invalid $var name")
+        if name not in env:
+            raise FormRecipeError(f"{label} references unknown parameter {name!r}")
+        return env[name]
+    if isinstance(value, list):
+        return [_resolve(item, env, f"{label}[]") for item in value]
+    if isinstance(value, tuple):
+        return tuple(_resolve(item, env, f"{label}[]") for item in value)
+    if isinstance(value, dict):
+        return {key: _resolve(item, env, f"{label}.{key}") for key, item in value.items()}
+    return copy.deepcopy(value)
 
 
 def _scale(value: Any, label: str) -> tuple[float, float, float]:
