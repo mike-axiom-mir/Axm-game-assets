@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axm.local/schemas/character-source-profile-v0.1.schema.json",
+  "title": "AXM Game Asset Forge Character Source Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "asset_id", "race_id", "body_family", "parts"],
+  "properties": {
+    "schema": {"const": "axm.game-assets.character-source-profile/v0.1"},
+    "asset_id": {"type": "string", "minLength": 1},
+    "race_id": {"type": "string", "minLength": 1},
+    "body_family": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "parts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "role"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "role": {"type": "string", "minLength": 1},
+          "source_ref": {"type": "string"}
+        }
+      }
+    },
+    "sockets": {"type": "array", "maxItems": 128},
+    "clothing_regions": {"type": "array", "maxItems": 128},
+    "material_responses": {"type": "object"},
+    "provenance": {"type": "object"},
+    "metadata": {"type": "object"}
+  }
+}
