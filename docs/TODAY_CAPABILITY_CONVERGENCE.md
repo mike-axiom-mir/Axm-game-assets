@@ -42,7 +42,7 @@ MorphTile and today's UC work reinforced that the strongest reusable unit is oft
 - nested translation / rotation / scale composition;
 - semantic part ids, material families and roles.
 
-The output remains ordinary Forge `Mesh` / `ConstructionAssembly` state. The recipe is source authority and the mesh is a realization.
+The output remains ordinary Forge `Mesh` / `ConstructionAssembly` state. The recipe is source authority and the mesh is a realization. Parameter use is deliberately bounded to named numeric substitution and loop variables in this version; it does not yet copy UC's full numeric expression algebra.
 
 This does not claim arbitrary sculpting, arbitrary boolean CSG or production retopology.
 
