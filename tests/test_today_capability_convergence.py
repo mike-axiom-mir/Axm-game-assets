@@ -14,7 +14,7 @@ from native_character_source_profile import (
     compile_character_source_profile,
 )
 from native_form_recipe import FormRecipeError, compile_form_recipe
-from native_geometry import topology_report
+from native_geometry import bounds, topology_report
 from native_material_response import (
     MaterialResponseError,
     material_response_catalog,
@@ -59,6 +59,7 @@ def _form_recipe() -> dict:
         "name": "bonsai-form-proof",
         "definitions": {
             "branch": {
+                "params": {"rise": 0.62, "radius": 0.035},
                 "defaults": {
                     "material_family": "wood",
                     "semantic_role": "branch",
@@ -67,8 +68,12 @@ def _form_recipe() -> dict:
                     {
                         "id": "stem",
                         "pattern": "pipe",
-                        "path": [[0, 0, 0], [0.08, 0.35, 0], [0.16, 0.62, 0.05]],
-                        "radius": 0.035,
+                        "path": [
+                            [0, 0, 0],
+                            [0.08, 0.35, 0],
+                            [0.16, {"$var": "rise"}, 0.05]
+                        ],
+                        "radius": {"$var": "radius"},
                         "segments": 8,
                     }
                 ],
@@ -88,7 +93,7 @@ def _form_recipe() -> dict:
                 "semantic_role": "trunk",
             },
             {
-                "repeat": 3,
+                "repeat": 2,
                 "step": [0.18, 0.12, 0.0],
                 "body": [
                     {
@@ -97,6 +102,13 @@ def _form_recipe() -> dict:
                         "rotation": [0.0, 0.0, 0.25],
                     }
                 ],
+            },
+            {
+                "use": "branch",
+                "id_prefix": "special-",
+                "with": {"rise": 0.92, "radius": 0.05},
+                "translation": [-0.22, 0.18, 0.0],
+                "rotation": [0.0, 0.0, -0.35]
             },
             {
                 "id": "brooch",
@@ -171,12 +183,28 @@ class TodayConvergenceTests(unittest.TestCase):
         self.assertFalse(assembly.receipt["truth_boundary"]["automatic_genome_mutation"])
         self.assertFalse(assembly.receipt["truth_boundary"]["automatic_vault_admission"])
         self.assertEqual(assembly.receipt["definitions_declared"], 1)
+        self.assertEqual(assembly.receipt["parameterized_definitions"], 1)
         self.assertEqual(assembly.receipt["part_count"], 5)
         self.assertEqual(len({part.part_id for part in assembly.parts}), 5)
+        by_id = {part.part_id: part for part in assembly.parts}
+        default_bounds = bounds(by_id["r0-branch-stem"].mesh)
+        special_bounds = bounds(by_id["special-stem"].mesh)
+        self.assertGreater(
+            special_bounds[1][1] - special_bounds[0][1],
+            default_bounds[1][1] - default_bounds[0][1],
+        )
         report = topology_report(assembly.combined_mesh())
         self.assertEqual(report["invalid_indices"], 0)
         self.assertEqual(report["degenerate_faces"], 0)
         self.assertGreater(report["triangles"], 100)
+
+    def test_form_recipe_rejects_undeclared_parameter_override(self) -> None:
+        recipe = _form_recipe()
+        recipe["parts"] = [
+            {"use": "branch", "with": {"not_declared": 1.0}}
+        ]
+        with self.assertRaises(FormRecipeError):
+            compile_form_recipe(recipe)
 
     def test_form_recipe_rejects_missing_definition(self) -> None:
         recipe = _form_recipe()
