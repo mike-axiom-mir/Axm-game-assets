@@ -141,7 +141,9 @@ Sentinel-01 is the proving character, not the definition of the capability.
 
 ### Character
 
-Genome domains include body, face, skin, eyes, hair, clothing/armor, rig, morphs, animation, contact state, and LODs.
+Genome domains include race/body-family identity, semantic body parts, equipment sockets, body, face, skin, eyes, hair, clothing/armor regions, material-response intent, rig, morphs, animation, contact state, and LODs.
+
+`native_character_source_profile.py` now holds the source-level race/body-family, socket, clothing-region and material-response semantics. `native_character_state.py` remains the separate runtime/deformation contract for skeleton, skin weights, morphs, animation and contact evidence. A declared clothing region is not geometric fit proof.
 
 ### Weapon
 
@@ -149,7 +151,7 @@ Genome domains include semantic components, frame/receiver, barrel, stock, grip,
 
 ### Armor/clothing
 
-Genome domains include fit, layered soft/rigid regions, materials, damage, cloth constraints, attachment rules, and LODs.
+Genome domains include body-family fit intent, attachment regions, layered soft/rigid regions, materials/material-response intent, damage, cloth constraints, attachment rules, and LODs. Body-family compatibility is source semantics until clearance/deformation evidence proves actual fit.
 
 ### Prop
 
@@ -165,11 +167,11 @@ Genome domains include biome, modules, scatter, transitions, materials, weatheri
 
 ### Vegetation
 
-Genome domains include species, growth/age, trunk/branch state, leaves, season, health, wind, and LOD/impostor state.
+Genome domains include species, growth/age, trunk/branch state, leaves, season, health, material-response intent, wind, and LOD/impostor state. Source-first form recipes can express reusable trunk/branch constructions without turning one finished tree into the only source.
 
 ### Material
 
-Genome domains include base response, roughness, metallic state, microdetail, wear/dirt, physical scale, and runtime packing.
+Genome domains include base response, roughness, metallic state, microdetail, wear/dirt, physical scale, runtime packing, and explicit response families for subsurface, sheen, anisotropy, clear coat, transmission, iridescence and layered wear. These response contracts remain separate from renderer-binding evidence.
 
 ### VFX
 
