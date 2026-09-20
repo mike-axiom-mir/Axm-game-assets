@@ -8,6 +8,7 @@ import struct
 import tempfile
 import unittest
 
+from asset_intent_router import route_asset_intent
 from native_character_source_profile import (
     CharacterSourceProfileError,
     compile_character_source_profile,
@@ -111,6 +112,45 @@ def _form_recipe() -> dict:
 
 
 class TodayConvergenceTests(unittest.TestCase):
+    def test_intent_router_selects_one_family_without_executing_or_mutating(self) -> None:
+        plan = route_asset_intent({
+            "schema": "axm.game-assets.asset-intent/v0.1",
+            "prompt": "Create a playable character asset with rigged motion and detailed materials",
+            "asset_id": "tree-person",
+            "deliverables": ["GLB", "source state"],
+            "requirements": ["rigged", "Godot runtime"],
+        })
+        self.assertEqual(plan["status"], "PLANNED_NOT_EXECUTED")
+        self.assertEqual(plan["selected_family"], "character")
+        ids = [row["id"] for row in plan["production_blocks"]]
+        self.assertIn("character-source-profile", ids)
+        self.assertIn("rig-skin-motion", ids)
+        self.assertIn("material-response", ids)
+        self.assertIn("runtime-validation", ids)
+        self.assertFalse(plan["automatic_execution"])
+        self.assertFalse(plan["automatic_genome_mutation"])
+        self.assertFalse(plan["automatic_vault_admission"])
+        self.assertFalse(plan["automatic_canon"])
+
+    def test_intent_router_holds_ambiguous_multi_family_language(self) -> None:
+        result = route_asset_intent({
+            "prompt": "Create a character holding a rifle weapon",
+        })
+        self.assertEqual(result["status"], "HOLD_AMBIGUOUS_FAMILY")
+        self.assertEqual(
+            {row["family"] for row in result["candidates"]},
+            {"character", "weapon"},
+        )
+        self.assertFalse(result["automatic_execution"])
+
+    def test_intent_router_explicit_family_wins_without_fuzzy_guess(self) -> None:
+        result = route_asset_intent({
+            "prompt": "A strange living tower creature",
+            "family": "building",
+        })
+        self.assertEqual(result["selected_family"], "building")
+        self.assertEqual(result["selection_basis"], "caller-explicit-family")
+
     def test_material_response_catalog_and_hold_boundary(self) -> None:
         catalog = material_response_catalog()
         self.assertEqual(catalog["counts"], {"families": 13, "organs": 8})
