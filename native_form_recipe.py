@@ -309,6 +309,27 @@ def _semantic_part(node: dict[str, Any], part_id: str, inherited: dict[str, Any]
     return SemanticPart(part_id, mesh, material, role)
 
 
+def _compose_settings(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+    """Compose nested definition/use transforms instead of silently replacing them."""
+    out = deepcopy(base)
+    if "translation" in overlay:
+        left = _vec(out.get("translation", [0, 0, 0]), "composed.translation.base")
+        right = _vec(overlay["translation"], "composed.translation.overlay")
+        out["translation"] = [left[i] + right[i] for i in range(3)]
+    if "rotation" in overlay:
+        left = _vec(out.get("rotation", [0, 0, 0]), "composed.rotation.base")
+        right = _vec(overlay["rotation"], "composed.rotation.overlay")
+        out["rotation"] = [left[i] + right[i] for i in range(3)]
+    if "scale" in overlay:
+        left = _scale(out.get("scale"), "composed.scale.base")
+        right = _scale(overlay["scale"], "composed.scale.overlay")
+        out["scale"] = [left[i] * right[i] for i in range(3)]
+    for key, value in overlay.items():
+        if key not in {"translation", "rotation", "scale"}:
+            out[key] = deepcopy(value)
+    return out
+
+
 def compile_form_recipe(raw: Any) -> ConstructionAssembly:
     if not isinstance(raw, dict) or raw.get("schema") != SCHEMA:
         raise FormRecipeError(f"recipe must use schema {SCHEMA}")
@@ -339,7 +360,15 @@ def compile_form_recipe(raw: Any) -> ConstructionAssembly:
     source_index: list[dict[str, Any]] = []
     generated_id = 0
 
-    def emit(nodes: Iterable[Any], *, prefix: str, inherited: dict[str, Any], stack: tuple[str, ...], depth: int) -> None:
+    def emit(
+        nodes: Iterable[Any],
+        *,
+        prefix: str,
+        inherited: dict[str, Any],
+        env: dict[str, float],
+        stack: tuple[str, ...],
+        depth: int,
+    ) -> None:
         nonlocal generated_id
         if depth > MAX_COMPOSITION_DEPTH:
             raise FormRecipeError(f"composition exceeds depth {MAX_COMPOSITION_DEPTH}")
@@ -347,45 +376,107 @@ def compile_form_recipe(raw: Any) -> ConstructionAssembly:
             if not isinstance(raw_node, dict):
                 raise FormRecipeError("every recipe node must be an object")
             if "repeat" in raw_node:
-                if set(raw_node) - {"repeat", "step", "body"} or "body" not in raw_node:
-                    raise FormRecipeError("repeat node accepts repeat, step and body")
-                count = raw_node["repeat"]
-                if isinstance(count, bool) or not isinstance(count, int) or not 0 <= count <= MAX_REPEAT:
-                    raise FormRecipeError(f"repeat must be an integer from 0 through {MAX_REPEAT}")
-                step = _vec(raw_node.get("step", [0, 0, 0]), "repeat.step")  # type: ignore[assignment]
+                if set(raw_node) - {"repeat", "step", "body", "as"} or "body" not in raw_node:
+                    raise FormRecipeError("repeat node accepts repeat, step, body and optional as")
+                raw_count = _resolve(raw_node["repeat"], env, "repeat")
+                if (
+                    isinstance(raw_count, bool)
+                    or not isinstance(raw_count, (int, float))
+                    or not float(raw_count).is_integer()
+                    or not 0 <= int(raw_count) <= MAX_REPEAT
+                ):
+                    raise FormRecipeError(
+                        f"repeat must resolve to an integer from 0 through {MAX_REPEAT}"
+                    )
+                count = int(raw_count)
+                step = _vec(
+                    _resolve(raw_node.get("step", [0, 0, 0]), env, "repeat.step"),
+                    "repeat.step",
+                )
                 body = raw_node["body"]
                 if not isinstance(body, list):
                     raise FormRecipeError("repeat.body must be a list")
+                loop_name = raw_node.get("as", "i")
+                if not isinstance(loop_name, str) or not _PARAM_RE.fullmatch(loop_name):
+                    raise FormRecipeError("repeat.as must be a portable parameter name")
                 for index in range(count):
-                    shifted = dict(inherited)
-                    base = _vec(shifted.get("translation", [0, 0, 0]), "repeat inherited translation")
-                    shifted["translation"] = [
-                        base[0] + step[0] * index,
-                        base[1] + step[1] * index,
-                        base[2] + step[2] * index,
-                    ]
-                    emit(body, prefix=f"{prefix}r{index}-", inherited=shifted, stack=stack, depth=depth + 1)
+                    shifted = _compose_settings(
+                        inherited,
+                        {"translation": [step[0] * index, step[1] * index, step[2] * index]},
+                    )
+                    inner_env = dict(env)
+                    inner_env[loop_name] = float(index)
+                    inner_env[f"{loop_name}_of"] = float(count)
+                    inner_env[f"{loop_name}_at"] = (
+                        index / (count - 1) if count > 1 else 0.0
+                    )
+                    emit(
+                        body,
+                        prefix=f"{prefix}r{index}-",
+                        inherited=shifted,
+                        env=inner_env,
+                        stack=stack,
+                        depth=depth + 1,
+                    )
                 continue
             if "use" in raw_node:
-                allowed = {"use", "id_prefix", "translation", "rotation", "scale", "material_family", "semantic_role"}
+                allowed = {
+                    "use", "id_prefix", "with", "translation", "rotation", "scale",
+                    "material_family", "semantic_role"
+                }
                 if set(raw_node) - allowed:
                     raise FormRecipeError("use node contains unsupported fields")
                 definition_name = _text(raw_node["use"], "use", 80)
                 if definition_name not in definitions:
                     raise FormRecipeError(f"unknown definition {definition_name!r}")
                 if definition_name in stack:
-                    raise FormRecipeError(f"definition cycle: {' -> '.join(stack + (definition_name,))}")
+                    raise FormRecipeError(
+                        f"definition cycle: {' -> '.join(stack + (definition_name,))}"
+                    )
                 definition = definitions[definition_name]
-                child = dict(inherited)
-                child.update(deepcopy(definition.get("defaults", {})))
-                for key in ("translation", "rotation", "scale", "material_family", "semantic_role"):
+                child_env = _params(
+                    definition.get("params"), f"definition {definition_name}.params"
+                )
+                overrides = raw_node.get("with", {})
+                if not isinstance(overrides, dict):
+                    raise FormRecipeError("use.with must be an object")
+                unknown = sorted(set(overrides) - set(child_env))
+                if unknown:
+                    raise FormRecipeError(
+                        f"use of {definition_name!r} overrides undeclared parameters {unknown}"
+                    )
+                for key, value in overrides.items():
+                    resolved = _resolve(value, env, f"use.with.{key}")
+                    child_env[key] = _number(
+                        resolved, f"use.with.{key}", -100000.0, 100000.0
+                    )
+
+                combined_env = {**env, **child_env}
+                defaults = _resolve(
+                    definition.get("defaults", {}),
+                    combined_env,
+                    f"definition {definition_name}.defaults",
+                )
+                if not isinstance(defaults, dict):
+                    raise FormRecipeError(
+                        f"definition {definition_name!r}.defaults must resolve to an object"
+                    )
+                child = _compose_settings(inherited, defaults)
+                use_settings: dict[str, Any] = {}
+                for key in (
+                    "translation", "rotation", "scale", "material_family", "semantic_role"
+                ):
                     if key in raw_node:
-                        child[key] = deepcopy(raw_node[key])
+                        use_settings[key] = _resolve(
+                            raw_node[key], combined_env, f"use.{key}"
+                        )
+                child = _compose_settings(child, use_settings)
                 id_prefix = str(raw_node.get("id_prefix", definition_name + "-"))
                 emit(
                     definition["parts"],
                     prefix=prefix + id_prefix,
                     inherited=child,
+                    env=combined_env,
                     stack=stack + (definition_name,),
                     depth=depth + 1,
                 )
@@ -394,7 +485,10 @@ def compile_form_recipe(raw: Any) -> ConstructionAssembly:
             generated_id += 1
             if generated_id > MAX_PARTS:
                 raise FormRecipeError(f"recipe exceeds {MAX_PARTS} generated parts")
-            requested_id = raw_node.get("id")
+            resolved_node = _resolve(raw_node, env, "part")
+            if not isinstance(resolved_node, dict):
+                raise FormRecipeError("resolved part must remain an object")
+            requested_id = resolved_node.get("id")
             part_id = (
                 _text(requested_id, "part.id", 80)
                 if requested_id is not None
@@ -403,20 +497,30 @@ def compile_form_recipe(raw: Any) -> ConstructionAssembly:
             part_id = prefix + part_id
             if any(existing.part_id == part_id for existing in parts):
                 raise FormRecipeError(f"duplicate generated part id {part_id!r}")
-            part = _semantic_part(raw_node, part_id, inherited)
+            part = _semantic_part(resolved_node, part_id, inherited)
             parts.append(part)
             source_index.append(
                 {
                     "part_id": part_id,
-                    "pattern": raw_node.get("pattern"),
+                    "pattern": resolved_node.get("pattern"),
                     "material_family": part.material_family,
                     "semantic_role": part.semantic_role,
-                    "source_fragment_sha256": "sha256:" + hashlib.sha256(_canonical(raw_node)).hexdigest(),
+                    "source_fragment_sha256": "sha256:"
+                    + hashlib.sha256(_canonical(raw_node)).hexdigest(),
+                    "resolved_fragment_sha256": "sha256:"
+                    + hashlib.sha256(_canonical(resolved_node)).hexdigest(),
                     "topology": topology_report(part.mesh),
                 }
             )
 
-    emit(root_parts, prefix="", inherited={}, stack=(), depth=0)
+    emit(
+        root_parts,
+        prefix="",
+        inherited={},
+        env=root_vars,
+        stack=(),
+        depth=0,
+    )
     if not parts:
         raise FormRecipeError("recipe generated no parts")
 
