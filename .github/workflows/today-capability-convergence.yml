@@ -1,0 +1,35 @@
+name: Today capability convergence
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'native_form_recipe.py'
+      - 'native_material_response.py'
+      - 'native_character_source_profile.py'
+      - 'seed_data/material_response_v01.json'
+      - 'seed_data/material_response_organs_v01.json'
+      - 'universal_creation_asset_bridge.py'
+      - 'asset_genomes/families.json'
+      - 'schemas/character-source-profile.schema.json'
+      - 'tests/test_today_capability_convergence.py'
+      - '.github/workflows/today-capability-convergence.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile changed Python
+        run: |
+          python -m py_compile native_form_recipe.py native_material_response.py native_character_source_profile.py universal_creation_asset_bridge.py tests/test_today_capability_convergence.py
+      - name: Run convergence tests
+        run: python -m unittest -v tests.test_today_capability_convergence
+      - name: Preserve legacy UC ingress behavior
+        run: python -m unittest -v universal_creation_asset_bridge_test
+      - name: Recheck native construction kit
+        run: python -m unittest -v native_construction_kit_test
