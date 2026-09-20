@@ -19,6 +19,13 @@ from native_character_source_profile import (
 )
 from native_form_recipe import FormRecipeError, compile_form_recipe
 from native_geometry import bounds, topology_report
+from native_construction_kit import ConstructionAssembly, SemanticPart
+from native_reusable_part_library import (
+    discover_assembly_parts,
+    geometry_digest,
+    load_geometry_atom,
+    pull_assembly_parts,
+)
 from native_material_response import (
     MaterialResponseError,
     material_response_catalog,
@@ -236,6 +243,51 @@ class TodayConvergenceTests(unittest.TestCase):
         recipe["parts"] = [{"use": "missing"}]
         with self.assertRaises(FormRecipeError):
             compile_form_recipe(recipe)
+
+    def test_reusable_part_scan_does_not_auto_admit_and_selected_pull_survives_source(self) -> None:
+        assembly = compile_form_recipe(_form_recipe())
+        with tempfile.TemporaryDirectory() as td:
+            library = Path(td) / "library"
+            scan = discover_assembly_parts(assembly, library_root=library)
+            self.assertFalse(scan["library_mutated"])
+            self.assertFalse(library.exists())
+            self.assertEqual(scan["candidate_count"], len(assembly.parts))
+
+            selected = assembly.parts[0]
+            pull = pull_assembly_parts(assembly, library, [selected.part_id])
+            self.assertEqual(pull["selected_part_ids"], [selected.part_id])
+            self.assertFalse(pull["automatic_admission"])
+            self.assertFalse(pull["source_asset_mutated"])
+            self.assertEqual(pull["created_geometry_atoms"], 1)
+            self.assertEqual(pull["created_semantic_items"], 1)
+
+            digest = geometry_digest(selected.mesh)
+            del assembly
+            restored = load_geometry_atom(library, digest, name="restored")
+            report = topology_report(restored)
+            self.assertEqual(report["invalid_indices"], 0)
+            self.assertEqual(report["degenerate_faces"], 0)
+            self.assertGreater(report["triangles"], 0)
+
+    def test_reusable_part_library_dedups_geometry_separately_from_material_labels(self) -> None:
+        base = compile_form_recipe(_form_recipe()).parts[0].mesh
+        assembly = ConstructionAssembly(
+            "same-shape-different-style",
+            (
+                SemanticPart("red", base, "paint-red", "panel"),
+                SemanticPart("blue", base, "paint-blue", "panel"),
+            ),
+            {"receipt_digest": "sha256:" + "0" * 64},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            result = pull_assembly_parts(assembly, Path(td) / "library", ["red", "blue"])
+            self.assertEqual(result["created_geometry_atoms"], 1)
+            self.assertEqual(result["reused_geometry_atoms"], 1)
+            self.assertEqual(result["created_semantic_items"], 2)
+            index = json.loads((Path(td) / "library" / "library.json").read_text(encoding="utf-8"))
+            self.assertEqual(index["counts"]["geometry_objects"], 1)
+            self.assertEqual(index["counts"]["semantic_items"], 2)
+            self.assertFalse(index["automatic_admission"])
 
     def test_character_source_profile_carries_race_clothing_sockets_and_material_intent(self) -> None:
         profile = compile_character_source_profile({
