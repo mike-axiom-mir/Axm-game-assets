@@ -312,20 +312,24 @@ def _semantic_part(node: dict[str, Any], part_id: str, inherited: dict[str, Any]
 def compile_form_recipe(raw: Any) -> ConstructionAssembly:
     if not isinstance(raw, dict) or raw.get("schema") != SCHEMA:
         raise FormRecipeError(f"recipe must use schema {SCHEMA}")
-    if set(raw) - {"schema", "name", "definitions", "parts", "metadata"}:
+    if set(raw) - {"schema", "name", "vars", "definitions", "parts", "metadata"}:
         raise FormRecipeError("recipe contains unsupported top-level fields")
     name = _text(raw.get("name"), "recipe.name")
+    root_vars = _params(raw.get("vars"), "recipe.vars")
     definitions = raw.get("definitions", {})
     if not isinstance(definitions, dict) or len(definitions) > MAX_DEFINITIONS:
         raise FormRecipeError(f"definitions must be an object with at most {MAX_DEFINITIONS} entries")
     for definition_name, body in definitions.items():
         _text(definition_name, "definition name", 80)
-        if not isinstance(body, dict) or set(body) - {"parts", "defaults"} or "parts" not in body:
-            raise FormRecipeError(f"definition {definition_name!r} requires parts and optional defaults")
+        if not isinstance(body, dict) or set(body) - {"parts", "defaults", "params"} or "parts" not in body:
+            raise FormRecipeError(
+                f"definition {definition_name!r} requires parts and optional defaults/params"
+            )
         if not isinstance(body["parts"], list) or not body["parts"]:
             raise FormRecipeError(f"definition {definition_name!r}.parts must be non-empty")
         if "defaults" in body and not isinstance(body["defaults"], dict):
             raise FormRecipeError(f"definition {definition_name!r}.defaults must be an object")
+        _params(body.get("params"), f"definition {definition_name}.params")
 
     root_parts = raw.get("parts")
     if not isinstance(root_parts, list) or not root_parts:
