@@ -20,6 +20,7 @@ request/manifest/receipt, and emits a portable proposal receipt.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
@@ -29,8 +30,16 @@ import sys
 from typing import Any, Iterable
 
 PROPOSAL_SCHEMA = "axm.game-assets.universal-creation-3d-proposal/v0.1"
+SOURCE_PROPOSAL_SCHEMA = "axm.game-assets.universal-creation-source-proposal/v0.1"
 REQUEST_SCHEMA = "axm.3d-forge-request/v0.1"
 RECEIPT_SCHEMA = "axm.3d-forge-receipt/v0.1"
+CREATOR_SOURCE_SCHEMA = "axm.creator-source/v1"
+SUPPORTED_CREATOR_SOURCE_KINDS = {
+    "procedural-3d-specification",
+    "shape-recipe",
+    "form-pattern",
+    "whole-character-recipe",
+}
 PROVIDER_REPOSITORY = "mike-axiom-mir/axm-universal-creation"
 CONSUMER_REPOSITORY = "mike-axiom-mir/Axm-game-assets"
 
@@ -580,6 +589,211 @@ def build_universal_creation_proposal(
     return proposal
 
 
+def build_universal_creation_source_proposal(
+    asset: str | Path,
+    *,
+    expected_asset_id: str | None = None,
+) -> dict[str, Any]:
+    """Verify one UC source-first GLB + sibling creator-source sidecar.
+
+    This route exists for newer Universal Creation outputs where the editable
+    construction recipe/specification is retained beside the realization instead
+    of being wrapped in the older forge-request/manifest/receipt directory.
+    Game Asset Forge verifies byte identity and preserves the source structure,
+    but grants no Genome, visual, runtime, release, merge, or CANON authority.
+    """
+    asset_path = Path(asset)
+    asset_bytes = _read_regular_file(
+        asset_path, label="source-first asset", max_bytes=MAX_ARTIFACT_BYTES
+    )
+    if asset_path.suffix.casefold() != ".glb":
+        raise UniversalCreationIngressError(
+            "SOURCE_ASSET_NOT_GLB", f"expected .glb source-first asset: {asset_path}"
+        )
+    glb = _glb_identity(asset_bytes, label="source-first asset")
+
+    sidecar_path = asset_path.with_suffix(asset_path.suffix + ".source.json")
+    source, source_bytes = _read_json_object(
+        sidecar_path, label="creator-source sidecar"
+    )
+    if source.get("schema") != CREATOR_SOURCE_SCHEMA:
+        raise UniversalCreationIngressError(
+            "UNSUPPORTED_CREATOR_SOURCE_SCHEMA", repr(source.get("schema"))
+        )
+    kind = source.get("kind")
+    if kind not in SUPPORTED_CREATOR_SOURCE_KINDS:
+        raise UniversalCreationIngressError(
+            "UNSUPPORTED_CREATOR_SOURCE_KIND", repr(kind)
+        )
+    if source.get("source_authority") is not True:
+        raise UniversalCreationIngressError(
+            "SOURCE_AUTHORITY_MISSING", "creator-source sidecar must explicitly retain source authority"
+        )
+    if source.get("realization_is_secondary") is not True:
+        raise UniversalCreationIngressError(
+            "REALIZATION_BOUNDARY_MISSING",
+            "creator-source sidecar must mark the GLB realization as secondary",
+        )
+    if source.get("automatic_canon_admission") is not False:
+        raise UniversalCreationIngressError(
+            "AUTOMATIC_CANON_NOT_ALLOWED",
+            "creator-source sidecar must explicitly keep automatic canon admission false",
+        )
+
+    artifact = source.get("artifact")
+    if not isinstance(artifact, dict):
+        raise UniversalCreationIngressError(
+            "SOURCE_ARTIFACT_BINDING_MISSING", "creator-source sidecar has no artifact object"
+        )
+    expected_digest = _normalize_digest(
+        artifact.get("sha256"), label="creator-source artifact.sha256"
+    )
+    actual_digest = _sha256_bytes(asset_bytes)
+    if expected_digest != actual_digest:
+        raise UniversalCreationIngressError(
+            "SOURCE_ARTIFACT_DIGEST_DRIFT",
+            "creator-source sidecar does not bind the supplied GLB bytes",
+        )
+    specification_digest = artifact.get("specification_sha256")
+    if specification_digest is not None:
+        specification_digest = _normalize_digest(
+            specification_digest, label="creator-source artifact.specification_sha256"
+        )
+
+    recorded_source_sha = source.get("source_sha256")
+    if not isinstance(recorded_source_sha, str):
+        raise UniversalCreationIngressError(
+            "SOURCE_DIGEST_MISSING", "creator-source sidecar has no source_sha256"
+        )
+    source_without_digest = {key: value for key, value in source.items() if key != "source_sha256"}
+    recomputed_source_sha = hashlib.sha256(
+        _canonical_json(source_without_digest)
+    ).hexdigest()
+    normalized_recorded = recorded_source_sha.casefold()
+    if normalized_recorded.startswith("sha256:"):
+        normalized_recorded = normalized_recorded[7:]
+    if normalized_recorded != recomputed_source_sha:
+        raise UniversalCreationIngressError(
+            "SOURCE_DIGEST_DRIFT", "creator-source body does not match source_sha256"
+        )
+
+    character = source.get("character") if isinstance(source.get("character"), dict) else {}
+    recipe = source.get("recipe") if isinstance(source.get("recipe"), dict) else None
+    provider_asset_id = None
+    if isinstance(source.get("asset_id"), str) and source.get("asset_id").strip():
+        provider_asset_id = source.get("asset_id").strip()
+    elif isinstance(character.get("asset_id"), str) and character.get("asset_id").strip():
+        provider_asset_id = character.get("asset_id").strip()
+    elif isinstance(recipe, dict):
+        for key in ("asset_id", "id", "name"):
+            if isinstance(recipe.get(key), str) and recipe.get(key).strip():
+                provider_asset_id = recipe.get(key).strip()
+                break
+    if expected_asset_id is not None and provider_asset_id is not None and provider_asset_id != expected_asset_id:
+        raise UniversalCreationIngressError(
+            "CONSUMER_ASSET_ID_MISMATCH",
+            f"expected {expected_asset_id!r}, received {provider_asset_id!r}",
+        )
+
+    retained = {
+        "kind": kind,
+        "recipe": copy.deepcopy(recipe) if recipe is not None else None,
+        "recipe_sha256": source.get("recipe_sha256"),
+        "compiled_specification": copy.deepcopy(source.get("compiled_specification")),
+        "parts_index": copy.deepcopy(source.get("parts_index", [])),
+        "character": copy.deepcopy(character),
+        "sockets": copy.deepcopy(source.get("sockets", [])),
+        "clothing_regions": copy.deepcopy(source.get("clothing_regions", [])),
+        "material_intent": copy.deepcopy(source.get("material_intent", {})),
+        "material_response_resolutions": copy.deepcopy(
+            source.get("material_response_resolutions", {})
+        ),
+        "material_response_status": source.get("material_response_status"),
+        "rig_status": source.get("rig_status"),
+        "animation_status": source.get("animation_status"),
+        "source_provenance": copy.deepcopy(source.get("source_provenance")),
+    }
+    retained = {key: value for key, value in retained.items() if value not in (None, [], {})}
+
+    candidate_binding = {
+        "asset_sha256": actual_digest,
+        "sidecar_sha256": _sha256_bytes(source_bytes),
+        "source_sha256": "sha256:" + recomputed_source_sha,
+        "kind": kind,
+        "retained": retained,
+    }
+    candidate_digest = _sha256_bytes(_canonical_json(candidate_binding))
+
+    proposal: dict[str, Any] = {
+        "schema": SOURCE_PROPOSAL_SCHEMA,
+        "status": "PROPOSAL_ONLY",
+        "asset": {
+            "id": expected_asset_id or provider_asset_id,
+            "provider_candidate_sha256": candidate_digest,
+            "glb": {
+                "path": asset_path.name,
+                "sha256": actual_digest,
+                "bytes": len(asset_bytes),
+                "inspection": glb,
+                "specification_sha256": specification_digest,
+            },
+        },
+        "provider": {
+            "repository": PROVIDER_REPOSITORY,
+            "creator_source_schema": CREATOR_SOURCE_SCHEMA,
+            "creator_source_kind": kind,
+        },
+        "consumer": {
+            "repository": CONSUMER_REPOSITORY,
+            "role": "external_source_first_3d_candidate",
+        },
+        "verified_source": {
+            "path": sidecar_path.name,
+            "sha256": _sha256_bytes(source_bytes),
+            "source_sha256": "sha256:" + recomputed_source_sha,
+            "source_authority": True,
+            "realization_is_secondary": True,
+            "retained": retained,
+        },
+        "review_readiness": {
+            "visual_acceptance": "NOT_GRANTED",
+            "game_asset_acceptance": "NOT_GRANTED",
+            "source_structure_available_for_mapping": True,
+        },
+        "authority": {
+            "automatic_install": False,
+            "automatic_selection": False,
+            "genome_mutation": False,
+            "source_state_mutation": False,
+            "visual_approval": False,
+            "runtime_adoption": False,
+            "release": False,
+            "merge": False,
+            "canon": False,
+        },
+        "truth_boundary": {
+            "proven_here": [
+                "exact GLB byte identity against the UC creator-source sidecar",
+                "creator-source body digest integrity",
+                "GLB v2 container structure",
+                "explicit source-authority / realization-secondary boundary",
+                "preservation of source recipe/specification/character semantics present in the provider record",
+            ],
+            "not_proven": [
+                "visual quality or AAA quality",
+                "Game Asset Genome compatibility",
+                "topology, UV, collision, deformation, clothing-fit, rigging, animation, or contact quality",
+                "material-response renderer binding",
+                "engine import, gameplay behavior, or performance",
+                "authorship/provenance/license fitness beyond retained provider data",
+                "release, merge, Genome mutation, Vault admission, or CANON",
+            ],
+        },
+    }
+    proposal["proposal_digest"] = _sha256_bytes(_canonical_json(proposal))
+    return proposal
+
+
 def write_proposal(path: str | Path, proposal: dict[str, Any]) -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -600,18 +814,26 @@ def write_proposal(path: str | Path, proposal: dict[str, Any]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Verify one AXM Universal Creation 3D forge directory and emit a "
+            "Verify either a legacy AXM Universal Creation forge directory or a "
+            "newer source-first GLB + creator-source sidecar, then emit a "
             "proposal-only Game Asset Forge ingress receipt."
         )
     )
-    parser.add_argument("--candidate", required=True, type=Path)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--candidate", type=Path, help="legacy forge candidate directory")
+    source.add_argument("--source-asset", type=Path, help="source-first UC GLB with sibling .source.json")
     parser.add_argument("--proposal", required=True, type=Path)
     parser.add_argument("--expected-asset-id")
     args = parser.parse_args(argv)
     try:
-        proposal = build_universal_creation_proposal(
-            args.candidate, expected_asset_id=args.expected_asset_id
-        )
+        if args.source_asset is not None:
+            proposal = build_universal_creation_source_proposal(
+                args.source_asset, expected_asset_id=args.expected_asset_id
+            )
+        else:
+            proposal = build_universal_creation_proposal(
+                args.candidate, expected_asset_id=args.expected_asset_id
+            )
         write_proposal(args.proposal, proposal)
     except UniversalCreationIngressError as exc:
         print(str(exc), file=sys.stderr)
